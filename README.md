@@ -1,4 +1,4 @@
-# 🎓 PeerPulse
+# 🎓 Quizly
 
 > **Autonomous Peer-Instruction Quiz Host** — An AI quizmaster that brings Mazur/MIT-style active learning to any classroom.
 
@@ -8,9 +8,9 @@
 
 ---
 
-## 🚀 What is PeerPulse?
+## 🚀 What is Quizly?
 
-PeerPulse transforms traditional lectures into dynamic, discussion-driven learning experiences. Given a topic and syllabus, it autonomously:
+Quizly transforms traditional lectures into dynamic, discussion-driven learning experiences. Given a topic and syllabus, it autonomously:
 
 - **Generates** conceptual questions targeting common misconceptions
 - **Orchestrates** live polling with peer discussion triggers (30-70% threshold)
@@ -21,7 +21,7 @@ PeerPulse transforms traditional lectures into dynamic, discussion-driven learni
 ## 📦 Project Structure
 
 ```
-peerpulse/
+quizly/
 ├── docs/                    # Full specifications
 │   ├── SPECS.md             # Product & pedagogy specs
 │   ├── TECHNICAL.md         # Architecture & API design

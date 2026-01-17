@@ -14,7 +14,7 @@ export default function Home() {
                     {/* Title */}
                     <h1 className="mb-4 text-5xl font-bold">
                         <span className="bg-gradient-to-r from-sky-600 to-purple-600 bg-clip-text text-transparent">
-                            PeerPulse
+                            Quizly
                         </span>
                     </h1>
 

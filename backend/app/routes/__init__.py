@@ -1,1 +1,1 @@
-"""Routes package for PeerPulse API."""
+"""Routes package for Quizly API."""

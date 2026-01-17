@@ -1,7 +1,7 @@
 # 📋 Product Specifications
 
 ## Project Name
-**PeerPulse** — Autonomous Peer-Instruction Quiz Host
+**Quizly** — Autonomous Peer-Instruction Quiz Host
 
 ---
 
@@ -18,7 +18,7 @@ This makes it hard to adapt instruction on the fly or ensure each student leaves
 
 ## Solution Overview
 
-PeerPulse is an AI quizmaster that, given a structured description of a topic and syllabus, autonomously:
+Quizly is an AI quizmaster that, given a structured description of a topic and syllabus, autonomously:
 
 1. **Generates** Mazur/MIT-style conceptual questions targeting common misconceptions
 2. **Runs live polling** (first vote → discussion → revote) with research-based thresholds (30-70% correct)
@@ -68,7 +68,7 @@ flowchart TD
 
 **For each question:**
 - Round 1: Individual vote + optional confidence + one-line rationale
-- PeerPulse computes correctness %, entropy, and misconception patterns
+- Quizly computes correctness %, entropy, and misconception patterns
 - Adaptive response based on class performance
 
 ### 3. Follow-Up (End / After Class)

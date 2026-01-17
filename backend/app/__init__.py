@@ -1,1 +1,1 @@
-"""PeerPulse Backend Application Package."""
+"""Quizly Backend Application Package."""

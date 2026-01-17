@@ -1,4 +1,4 @@
-"""AI Agents module for PeerPulse experimentation."""
+"""AI Agents module for Quizly experimentation."""
 
 from .session_planner import SessionPlanner
 from .question_designer import QuestionDesigner

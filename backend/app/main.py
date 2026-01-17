@@ -1,5 +1,5 @@
 """
-PeerPulse Backend Application
+Quizly Backend Application
 FastAPI server for classroom session management.
 """
 
@@ -11,7 +11,7 @@ from .routes import session_routes, response_routes, analytics_routes
 
 # Create FastAPI app
 app = FastAPI(
-    title="PeerPulse API",
+    title="Quizly API",
     description="AI-powered peer instruction platform API",
     version="0.1.0"
 )
@@ -35,7 +35,7 @@ app.include_router(analytics_routes.router, prefix="/analytics", tags=["analytic
 @app.get("/")
 async def root():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "PeerPulse API", "version": "0.1.0"}
+    return {"status": "healthy", "service": "Quizly API", "version": "0.1.0"}
 
 
 @app.get("/health")

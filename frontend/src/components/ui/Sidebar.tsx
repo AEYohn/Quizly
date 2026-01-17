@@ -28,7 +28,7 @@ export function Sidebar() {
             {/* Logo */}
             <div className="flex items-center gap-3 border-b border-gray-700 px-6 py-5">
                 <span className="text-2xl">🎓</span>
-                <span className="text-lg font-bold">PeerPulse</span>
+                <span className="text-lg font-bold">Quizly</span>
             </div>
 
             {/* Navigation */}

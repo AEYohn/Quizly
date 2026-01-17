@@ -116,8 +116,8 @@ def format_action_log(results):
 
 
 # Gradio Interface
-with gr.Blocks(title="PeerPulse Instructor Sandbox") as demo:
-    gr.Markdown("# 🎓 PeerPulse Instructor Sandbox")
+with gr.Blocks(title="Quizly Instructor Sandbox") as demo:
+    gr.Markdown("# 🎓 Quizly Instructor Sandbox")
     gr.Markdown("Simulate classroom scenarios to test AI behavior and adaptive policies.")
     
     with gr.Row():

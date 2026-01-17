@@ -1,6 +1,6 @@
-# PeerPulse Backend
+# Quizly Backend
 
-FastAPI server for the PeerPulse peer-instruction platform.
+FastAPI server for the Quizly peer-instruction platform.
 
 ## Quick Start
 
@@ -24,7 +24,7 @@ Create a `.env` file:
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key
-DATABASE_URL=postgresql://user:pass@localhost:5432/peerpulse
+DATABASE_URL=postgresql://user:pass@localhost:5432/quizly
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your_jwt_secret
 CORS_ORIGINS=http://localhost:3000

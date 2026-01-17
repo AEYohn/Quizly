@@ -1,6 +1,6 @@
 """
 Data Models
-SQLAlchemy models for PeerPulse database.
+SQLAlchemy models for Quizly database.
 """
 
 from datetime import datetime
