@@ -1,161 +1,359 @@
 """
-Instructor-View Sandbox
-Interactive simulation of classroom scenarios with configurable parameters.
+Instructor Sandbox - Gradio Interface
+Full simulation of a classroom session from the instructor's perspective.
 """
 
-import gradio as gr
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-from dotenv import load_dotenv
 import os
 import sys
+import json
+import numpy as np
+import gradio as gr
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+from collections import defaultdict
+from datetime import datetime
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from simulation.student_model import SimulatedStudent, generate_students
-from simulation.session_simulator import SessionSimulator
+from dotenv import load_dotenv
+load_dotenv()
+
+from simulation.llm_student import LLMStudent, generate_llm_students
+from ai_agents.teaching_policy import TeachingPolicy, StaticPolicy, TeachingAction
 from ai_agents.session_planner import SessionPlanner
 from ai_agents.question_designer import QuestionDesigner
 
-load_dotenv()
+# Global state
+class SessionState:
+    def __init__(self):
+        self.reset()
+    
+    def reset(self):
+        self.students = []
+        self.questions = []
+        self.results = []
+        self.policy = None
+        self.current_q = 0
+        self.pre_mastery = {}
+        self.use_llm = True
+
+state = SessionState()
 
 
-def run_simulation(
-    topic: str,
-    concepts: str,
-    num_students: int,
-    mastery_distribution: str,
-    session_minutes: int
-):
-    """Run a simulated classroom session."""
+def generate_session(topic, concepts_text, num_students, distribution, duration, difficulty_curve, use_llm):
+    """Generate a new session plan and student cohort."""
+    state.reset()
+    state.use_llm = use_llm
     
     # Parse concepts
-    concept_list = [c.strip() for c in concepts.split(",")]
+    concepts = [c.strip() for c in concepts_text.split(",") if c.strip()]
+    if not concepts:
+        concepts = ["concept_1", "concept_2", "concept_3"]
     
     # Generate students
-    students = generate_students(
-        n=num_students,
-        concepts=concept_list,
-        distribution=mastery_distribution
-    )
+    state.students = generate_llm_students(int(num_students), concepts, distribution)
     
-    # Generate session plan
+    # Record pre-mastery
+    state.pre_mastery = {c: np.mean([s.mastery.get(c, 0.5) for s in state.students]) for c in concepts}
+    
+    # Generate questions using AI
     planner = SessionPlanner()
-    session_plan = planner.generate_plan(
-        topic=topic,
-        concepts=concept_list,
-        time_budget_minutes=session_minutes
-    )
+    plan = planner.generate_plan(topic, concepts, int(duration), difficulty_curve)
+    state.questions = plan.get("questions", [])
     
-    # Run simulation
-    simulator = SessionSimulator(students=students)
-    results = simulator.run_session(session_plan)
+    # Initialize policy
+    state.policy = TeachingPolicy(name="adaptive")
+    
+    # Create distribution heatmap
+    heatmap = create_mastery_heatmap(concepts)
+    
+    # Create question preview
+    q_preview = "### Generated Questions\n\n"
+    for i, q in enumerate(state.questions):
+        q_preview += f"**Q{i+1}** ({q['concept']}, diff={q['difficulty']:.2f}): {q.get('question_prompt', '')[:80]}...\n\n"
+    
+    return (
+        f"✅ Generated {len(state.questions)} questions for {len(state.students)} students",
+        heatmap,
+        q_preview,
+        create_empty_plot("Response Distribution"),
+        create_empty_plot("Session Progress"),
+        ""
+    )
+
+
+def run_next_question():
+    """Run the next question in the session."""
+    if state.current_q >= len(state.questions):
+        return get_session_summary()
+    
+    q = state.questions[state.current_q]
+    
+    # Collect responses
+    responses = []
+    for student in state.students:
+        # Adapt question format for student model
+        q_adapted = {
+            "concept": q.get("concept", "unknown"),
+            "difficulty": q.get("difficulty", 0.5),
+            "prompt": q.get("question_prompt", ""),
+            "options": q.get("options", ["A", "B", "C", "D"]),
+            "correct_answer": q.get("correct_answer", "A")
+        }
+        resp = student.answer_question(q_adapted, use_llm=state.use_llm)
+        responses.append(resp)
+    
+    # Calculate metrics
+    correct = sum(1 for r in responses if r["is_correct"])
+    correctness = correct / len(responses)
+    avg_conf = np.mean([r["confidence"] for r in responses])
+    
+    # Entropy
+    counts = defaultdict(int)
+    for r in responses:
+        counts[r["answer"]] += 1
+    entropy = 0
+    for c in counts.values():
+        if c > 0:
+            p = c / len(responses)
+            entropy -= p * np.log2(p)
+    entropy = entropy / np.log2(4) if entropy > 0 else 0
+    
+    result = {
+        "question_idx": state.current_q,
+        "concept": q.get("concept"),
+        "correctness_rate": correctness,
+        "avg_confidence": avg_conf,
+        "entropy": entropy,
+        "responses": responses,
+        "answer_counts": dict(counts)
+    }
+    
+    # Get policy decision
+    action = state.policy.decide_action(result, use_llm=state.use_llm)
+    result["action"] = action["action"].value
+    result["reason"] = action.get("reason", "")
+    
+    # Apply learning
+    if action["action"] == TeachingAction.PEER_DISCUSSION:
+        for s in state.students:
+            if any(r["student_id"] == s.id and not r["is_correct"] for r in responses):
+                s.learn_from_discussion(q["concept"], "", [])
+    elif action["action"] == TeachingAction.REMEDIATE:
+        for s in state.students:
+            s.update_mastery(q["concept"], 0.08)
+    
+    state.results.append(result)
+    state.current_q += 1
     
     # Create visualizations
-    response_fig = create_response_distribution_plot(results)
-    entropy_fig = create_entropy_timeline_plot(results)
-    action_log = format_action_log(results)
+    response_dist = create_response_distribution(result)
+    progress = create_progress_chart()
     
-    return response_fig, entropy_fig, action_log
+    # Log entry
+    log = f"""
+### Q{state.current_q}: {q['concept'].replace('_', ' ').title()}
+
+{q.get('question_prompt', '')[:150]}...
+
+| Metric | Value |
+|--------|-------|
+| Correctness | {correctness:.1%} |
+| Confidence | {avg_conf:.1%} |
+| Entropy | {entropy:.2f} |
+
+**Action:** {action['action'].value} — {action.get('reason', '')}
+
+---
+"""
+    
+    return (
+        f"✅ Completed Q{state.current_q}/{len(state.questions)}",
+        create_mastery_heatmap([q["concept"] for q in state.questions]),
+        log,
+        response_dist,
+        progress,
+        log
+    )
 
 
-def create_response_distribution_plot(results):
-    """Create per-question response distribution bar chart."""
+def run_full_session():
+    """Run all remaining questions."""
+    logs = []
+    while state.current_q < len(state.questions):
+        run_next_question()
+        logs.append(state.results[-1])
+    
+    return get_session_summary()
+
+
+def get_session_summary():
+    """Generate final session summary."""
+    if not state.results:
+        return ("No results yet",) + (None,) * 5
+    
+    avg_correct = np.mean([r["correctness_rate"] for r in state.results])
+    avg_conf = np.mean([r["avg_confidence"] for r in state.results])
+    disc_rate = sum(1 for r in state.results if r["action"] == "peer_discussion") / len(state.results)
+    
+    # Learning gain
+    concepts = list(state.pre_mastery.keys())
+    post_mastery = {c: np.mean([s.mastery.get(c, 0.5) for s in state.students]) for c in concepts}
+    gains = {c: post_mastery[c] - state.pre_mastery[c] for c in concepts}
+    avg_gain = np.mean(list(gains.values()))
+    
+    summary = f"""
+## 📊 Session Complete!
+
+| Metric | Value |
+|--------|-------|
+| Questions | {len(state.results)} |
+| Avg Correctness | {avg_correct:.1%} |
+| Avg Confidence | {avg_conf:.1%} |
+| Discussion Rate | {disc_rate:.1%} |
+| **Learning Gain** | **{avg_gain:+.3f}** |
+
+### Per-Concept Gains
+"""
+    for c, g in gains.items():
+        summary += f"- {c.replace('_', ' ').title()}: {g:+.3f}\n"
+    
+    return (
+        "🏁 Session complete!",
+        create_final_mastery_comparison(),
+        summary,
+        create_response_distribution(state.results[-1]) if state.results else None,
+        create_progress_chart(),
+        summary
+    )
+
+
+def create_mastery_heatmap(concepts):
+    """Create student mastery heatmap."""
+    if not state.students:
+        return create_empty_plot("Student Mastery")
+    
+    z = [[s.mastery.get(c, 0.5) for c in concepts] for s in state.students]
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=z,
+        x=[c.replace("_", " ").title()[:12] for c in concepts],
+        y=[f"S{s.id}" for s in state.students],
+        colorscale='RdYlGn',
+        zmin=0, zmax=1
+    ))
+    fig.update_layout(title="Student Mastery", height=350)
+    return fig
+
+
+def create_response_distribution(result):
+    """Create response distribution bar chart."""
+    counts = result.get("answer_counts", {})
+    options = ["A", "B", "C", "D"]
+    values = [counts.get(o, 0) for o in options]
+    
+    fig = go.Figure(data=[go.Bar(x=options, y=values, marker_color=['#22c55e', '#94a3b8', '#94a3b8', '#94a3b8'])])
+    fig.update_layout(title=f"Q{result['question_idx']+1} Responses", height=250)
+    return fig
+
+
+def create_progress_chart():
+    """Create session progress line chart."""
+    if not state.results:
+        return create_empty_plot("Progress")
+    
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True)
+    
+    x = list(range(1, len(state.results) + 1))
+    correctness = [r["correctness_rate"] for r in state.results]
+    entropy = [r["entropy"] for r in state.results]
+    
+    fig.add_trace(go.Scatter(x=x, y=correctness, mode='lines+markers', name='Correctness',
+                            line=dict(color='#0ea5e9')), row=1, col=1)
+    fig.add_hrect(y0=0.3, y1=0.7, fillcolor="green", opacity=0.1, row=1, col=1)
+    
+    fig.add_trace(go.Scatter(x=x, y=entropy, mode='lines+markers', name='Entropy',
+                            line=dict(color='#f59e0b')), row=2, col=1)
+    
+    fig.update_layout(height=300, showlegend=True)
+    return fig
+
+
+def create_final_mastery_comparison():
+    """Compare pre vs post mastery."""
+    if not state.pre_mastery:
+        return create_empty_plot("Mastery Comparison")
+    
+    concepts = list(state.pre_mastery.keys())
+    pre = [state.pre_mastery[c] for c in concepts]
+    post = [np.mean([s.mastery.get(c, 0.5) for s in state.students]) for c in concepts]
+    
+    fig = go.Figure(data=[
+        go.Bar(name='Pre', x=concepts, y=pre, marker_color='#94a3b8'),
+        go.Bar(name='Post', x=concepts, y=post, marker_color='#0ea5e9')
+    ])
+    fig.update_layout(barmode='group', title="Mastery: Pre vs Post", height=300)
+    return fig
+
+
+def create_empty_plot(title):
     fig = go.Figure()
-    
-    for i, q_result in enumerate(results.get("questions", [])):
-        correctness = q_result.get("correctness_rate", 0.5)
-        fig.add_trace(go.Bar(
-            name=f"Q{i+1}",
-            x=[f"Question {i+1}"],
-            y=[correctness * 100],
-            marker_color='green' if correctness > 0.7 else 'orange' if correctness > 0.3 else 'red'
-        ))
-    
-    fig.update_layout(
-        title="Response Correctness by Question",
-        yaxis_title="% Correct",
-        showlegend=False
-    )
+    fig.update_layout(title=title, height=250)
     return fig
 
 
-def create_entropy_timeline_plot(results):
-    """Create entropy time series plot."""
-    questions = results.get("questions", [])
-    entropies = [q.get("entropy", 0) for q in questions]
+# Build Gradio Interface
+with gr.Blocks(title="Quizly Instructor Sandbox", theme=gr.themes.Soft()) as demo:
+    gr.Markdown("""
+    # 🎓 Quizly — Instructor Sandbox
     
-    fig = px.line(
-        x=list(range(1, len(entropies) + 1)),
-        y=entropies,
-        markers=True,
-        title="Class 'Pulse' (Entropy) Over Time"
-    )
-    fig.update_layout(xaxis_title="Question", yaxis_title="Response Entropy")
-    return fig
-
-
-def format_action_log(results):
-    """Format action log as markdown."""
-    log_lines = ["| Question | Correctness | Action Taken | Recommended |",
-                 "|----------|-------------|--------------|-------------|"]
-    
-    for i, q_result in enumerate(results.get("questions", [])):
-        correctness = q_result.get("correctness_rate", 0.5)
-        action = q_result.get("action_taken", "move_on")
-        recommended = q_result.get("recommended_action", "move_on")
-        match = "✅" if action == recommended else "⚠️"
-        
-        log_lines.append(
-            f"| Q{i+1} | {correctness:.0%} | {action} | {recommended} {match} |"
-        )
-    
-    return "\n".join(log_lines)
-
-
-# Gradio Interface
-with gr.Blocks(title="Quizly Instructor Sandbox") as demo:
-    gr.Markdown("# 🎓 Quizly Instructor Sandbox")
-    gr.Markdown("Simulate classroom scenarios to test AI behavior and adaptive policies.")
+    Simulate complete classroom sessions with AI-generated questions and adaptive teaching policies.
+    """)
     
     with gr.Row():
         with gr.Column(scale=1):
-            topic_input = gr.Textbox(
-                label="Topic",
-                placeholder="e.g., Newton's Laws of Motion"
-            )
-            concepts_input = gr.Textbox(
-                label="Concepts (comma-separated)",
-                placeholder="e.g., Inertia, F=ma, Action-Reaction"
-            )
-            num_students = gr.Slider(
-                minimum=10, maximum=100, value=30, step=5,
-                label="Number of Students"
-            )
-            distribution = gr.Dropdown(
-                choices=["normal", "bimodal", "uniform"],
-                value="normal",
-                label="Mastery Distribution"
-            )
-            session_time = gr.Slider(
-                minimum=15, maximum=60, value=30, step=5,
-                label="Session Length (minutes)"
-            )
-            run_btn = gr.Button("🚀 Run Simulation", variant="primary")
+            gr.Markdown("### 📝 Session Setup")
+            topic = gr.Textbox(value="Graph Theory", label="Topic")
+            concepts = gr.Textbox(value="bfs_traversal, dfs_traversal, graph_connectivity, cycle_detection", 
+                                 label="Concepts (comma-separated)")
+            num_students = gr.Slider(10, 100, value=30, step=5, label="Students")
+            distribution = gr.Dropdown(["realistic", "bimodal", "struggling", "uniform"], 
+                                       value="realistic", label="Distribution")
+            duration = gr.Slider(15, 60, value=30, step=5, label="Duration (min)")
+            difficulty = gr.Dropdown(["gradual", "flat", "challenging"], value="gradual", label="Difficulty Curve")
+            use_llm = gr.Checkbox(value=True, label="Use LLM (Gemini)")
+            
+            gen_btn = gr.Button("🚀 Generate Session", variant="primary")
+            status = gr.Textbox(label="Status", interactive=False)
+            
+            gr.Markdown("### 🎮 Controls")
+            step_btn = gr.Button("▶️ Next Question")
+            run_btn = gr.Button("⏩ Run All")
         
         with gr.Column(scale=2):
-            response_plot = gr.Plot(label="Response Distributions")
-            entropy_plot = gr.Plot(label="Entropy Timeline")
-            action_log = gr.Markdown(label="Action Log")
+            mastery_plot = gr.Plot(label="Student Mastery")
+            questions_md = gr.Markdown("### Questions will appear here...")
     
-    run_btn.click(
-        fn=run_simulation,
-        inputs=[topic_input, concepts_input, num_students, distribution, session_time],
-        outputs=[response_plot, entropy_plot, action_log]
-    )
+    with gr.Row():
+        response_plot = gr.Plot(label="Response Distribution")
+        progress_plot = gr.Plot(label="Session Progress")
+    
+    with gr.Row():
+        session_log = gr.Markdown("### Session log will appear here...")
+    
+    # Events
+    gen_btn.click(generate_session, 
+                 inputs=[topic, concepts, num_students, distribution, duration, difficulty, use_llm],
+                 outputs=[status, mastery_plot, questions_md, response_plot, progress_plot, session_log])
+    
+    step_btn.click(run_next_question,
+                  outputs=[status, mastery_plot, questions_md, response_plot, progress_plot, session_log])
+    
+    run_btn.click(run_full_session,
+                 outputs=[status, mastery_plot, questions_md, response_plot, progress_plot, session_log])
 
 
 if __name__ == "__main__":
-    demo.launch(server_port=7860)
+    print("🚀 Starting Instructor Sandbox on http://localhost:7860")
+    demo.launch(server_port=7860, share=False)

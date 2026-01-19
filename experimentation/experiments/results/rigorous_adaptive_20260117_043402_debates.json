@@ -1,0 +1,125 @@
+[
+  {
+    "debate_id": "debate_20260117_043417_1v7",
+    "question_id": "q_bfs_data_structure",
+    "student_a_id": 1,
+    "student_b_id": 7,
+    "initial_positions": {
+      "1": "B",
+      "7": "A"
+    },
+    "final_positions": {
+      "1": "A",
+      "7": "A"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_1",
+        "position": "A",
+        "argument": "Okay, you're right. I mixed up BFS and DFS; the FIFO property of a queue makes much more sense for the layer-by-layer traversal of BFS.",
+        "changed_mind": true
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_7",
+        "position": "A",
+        "argument": "I agree with your reasoning. The FIFO property of the queue is indeed essential for the breadth-first traversal.",
+        "changed_mind": false
+      }
+    ],
+    "winner_answer": "A",
+    "belief_changes": [
+      {
+        "turn": 0,
+        "student_id": 1,
+        "from_answer": "B",
+        "to_answer": "A",
+        "reason": "Okay, you're right. I mixed up BFS and DFS; the FIFO property of a queue makes much more sense for the layer-by-layer traversal of BFS."
+      }
+    ],
+    "outcome": "correct_convinced_wrong"
+  },
+  {
+    "debate_id": "debate_20260117_043419_2v8",
+    "question_id": "q_bfs_data_structure",
+    "student_a_id": 2,
+    "student_b_id": 8,
+    "initial_positions": {
+      "2": "B",
+      "8": "A"
+    },
+    "final_positions": {
+      "2": "A",
+      "8": "A"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_2",
+        "position": "A",
+        "argument": "Okay, you've convinced me. I was definitely mixed up about which search used which data structure.",
+        "changed_mind": true
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_8",
+        "position": "A",
+        "argument": "Okay, I think we're both on the same page here. It's good that we clarified that BFS uses a queue because of its level-by-level exploration.",
+        "changed_mind": false
+      }
+    ],
+    "winner_answer": "A",
+    "belief_changes": [
+      {
+        "turn": 0,
+        "student_id": 2,
+        "from_answer": "B",
+        "to_answer": "A",
+        "reason": "Okay, you've convinced me. I was definitely mixed up about which search used which data structure."
+      }
+    ],
+    "outcome": "correct_convinced_wrong"
+  },
+  {
+    "debate_id": "debate_20260117_043422_6v3",
+    "question_id": "q_bfs_data_structure",
+    "student_a_id": 6,
+    "student_b_id": 3,
+    "initial_positions": {
+      "6": "B",
+      "3": "A"
+    },
+    "final_positions": {
+      "6": "A",
+      "3": "A"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_6",
+        "position": "A",
+        "argument": "Okay, that makes sense. The level-by-level exploration really does point to a queue being the right data structure for BFS, since it maintains order.",
+        "changed_mind": true
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_3",
+        "position": "A",
+        "argument": "I agree with your points. The FIFO nature of a queue perfectly complements the level-by-level exploration in BFS.",
+        "changed_mind": false
+      }
+    ],
+    "winner_answer": "A",
+    "belief_changes": [
+      {
+        "turn": 0,
+        "student_id": 6,
+        "from_answer": "B",
+        "to_answer": "A",
+        "reason": "Okay, that makes sense. The level-by-level exploration really does point to a queue being the right data structure for BFS, since it maintains order."
+      }
+    ],
+    "outcome": "correct_convinced_wrong"
+  }
+]

@@ -1,0 +1,290 @@
+[
+  {
+    "debate_id": "debate_20260117_045202_1v5",
+    "question_id": "q_bfs_data_structure",
+    "student_a_id": 1,
+    "student_b_id": 5,
+    "initial_positions": {
+      "1": "A",
+      "5": "B"
+    },
+    "final_positions": {
+      "1": "A",
+      "5": "A"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_1",
+        "position": "A",
+        "argument": "No way, BFS absolutely uses a queue! Stacks are for DFS, everyone knows that. Your whole understanding of how BFS works is just wrong.",
+        "changed_mind": false
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_5",
+        "position": "A",
+        "argument": "Okay, you're right. Thinking about it again, the level-by-level exploration makes much more sense with a queue.",
+        "changed_mind": true
+      }
+    ],
+    "winner_answer": "A",
+    "belief_changes": [
+      {
+        "turn": 1,
+        "student_id": 5,
+        "from_answer": "B",
+        "to_answer": "A",
+        "reason": "Okay, you're right. Thinking about it again, the level-by-level exploration makes much more sense with a queue."
+      }
+    ],
+    "outcome": "correct_convinced_wrong"
+  },
+  {
+    "debate_id": "debate_20260117_045205_4v6",
+    "question_id": "q_bfs_data_structure",
+    "student_a_id": 4,
+    "student_b_id": 6,
+    "initial_positions": {
+      "4": "A",
+      "6": "B"
+    },
+    "final_positions": {
+      "4": "A",
+      "6": "A"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_4",
+        "position": "A",
+        "argument": "Absolutely not. BFS uses a queue to maintain the order of node visits and DFS uses a stack. You've got it completely backwards.",
+        "changed_mind": false
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_6",
+        "position": "A",
+        "argument": "Okay, you're right. I always mix up stacks and queues. Thanks for pointing out my mistake!",
+        "changed_mind": true
+      }
+    ],
+    "winner_answer": "A",
+    "belief_changes": [
+      {
+        "turn": 1,
+        "student_id": 6,
+        "from_answer": "B",
+        "to_answer": "A",
+        "reason": "Okay, you're right. I always mix up stacks and queues. Thanks for pointing out my mistake!"
+      }
+    ],
+    "outcome": "correct_convinced_wrong"
+  },
+  {
+    "debate_id": "debate_20260117_045208_2v7",
+    "question_id": "q_bfs_data_structure",
+    "student_a_id": 2,
+    "student_b_id": 7,
+    "initial_positions": {
+      "2": "A",
+      "7": "B"
+    },
+    "final_positions": {
+      "2": "A",
+      "7": "A"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_2",
+        "position": "A",
+        "argument": "Hmm, you're very confident, but I'm pretty sure BFS uses a queue, not a stack. A stack would be DFS. I'll stick with my answer.",
+        "changed_mind": false
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_7",
+        "position": "A",
+        "argument": "Oh, you're right! Level by level... FIFO makes much more sense for that. I always mix up stacks and queues.",
+        "changed_mind": true
+      }
+    ],
+    "winner_answer": "A",
+    "belief_changes": [
+      {
+        "turn": 1,
+        "student_id": 7,
+        "from_answer": "B",
+        "to_answer": "A",
+        "reason": "Oh, you're right! Level by level... FIFO makes much more sense for that. I always mix up stacks and queues."
+      }
+    ],
+    "outcome": "correct_convinced_wrong"
+  },
+  {
+    "debate_id": "debate_20260117_045211_3v8",
+    "question_id": "q_bfs_data_structure",
+    "student_a_id": 3,
+    "student_b_id": 8,
+    "initial_positions": {
+      "3": "A",
+      "8": "B"
+    },
+    "final_positions": {
+      "3": "A",
+      "8": "A"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_3",
+        "position": "A",
+        "argument": "Okay, I see what you're saying, but I'm still pretty sure BFS uses a queue. A stack would make it more like DFS, right?",
+        "changed_mind": false
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_8",
+        "position": "A",
+        "argument": "You're right. I was confusing BFS and DFS in my head. The FIFO property of a queue makes way more sense for level-by-level traversal.",
+        "changed_mind": true
+      }
+    ],
+    "winner_answer": "A",
+    "belief_changes": [
+      {
+        "turn": 1,
+        "student_id": 8,
+        "from_answer": "B",
+        "to_answer": "A",
+        "reason": "You're right. I was confusing BFS and DFS in my head. The FIFO property of a queue makes way more sense for level-by-level traversal."
+      }
+    ],
+    "outcome": "correct_convinced_wrong"
+  },
+  {
+    "debate_id": "debate_20260117_045733_1v3",
+    "question_id": "q_cut_vertex",
+    "student_a_id": 1,
+    "student_b_id": 3,
+    "initial_positions": {
+      "1": "D",
+      "3": "A"
+    },
+    "final_positions": {
+      "1": "C",
+      "3": "C"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_1",
+        "position": "A",
+        "argument": "Okay, I see the flaw in my reasoning. The endpoints of a simple path are not cut vertices because removing them doesn't disconnect the graph, it just isolates a single node. Therefore, not every vertex in a simple path is a cut vertex.",
+        "changed_mind": true
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_3",
+        "position": "C",
+        "argument": "I see your point about the endpoints not being cut vertices. That's a valid observation that I overlooked, and it makes my initial reasoning flawed.",
+        "changed_mind": true
+      },
+      {
+        "turn": 2,
+        "speaker": "Student_1",
+        "position": "C",
+        "argument": "Okay, I see the flaw in my reasoning. The endpoints of a simple path are not cut vertices because removing them doesn't disconnect the graph, it just isolates a single node.",
+        "changed_mind": true
+      },
+      {
+        "turn": 3,
+        "speaker": "Student_3",
+        "position": "C",
+        "argument": "I agree with your reasoning. The endpoints of a path graph are not cut vertices.",
+        "changed_mind": true
+      }
+    ],
+    "winner_answer": "C",
+    "belief_changes": [
+      {
+        "turn": 0,
+        "student_id": 1,
+        "from_answer": "D",
+        "to_answer": "A",
+        "reason": "Okay, I see the flaw in my reasoning. The endpoints of a simple path are not cut vertices because removing them doesn't disconnect the graph, it just isolates a single node. Therefore, not every vertex in a simple path is a cut vertex."
+      },
+      {
+        "turn": 1,
+        "student_id": 3,
+        "from_answer": "A",
+        "to_answer": "C",
+        "reason": "I see your point about the endpoints not being cut vertices. That's a valid observation that I overlooked, and it makes my initial reasoning flawed."
+      },
+      {
+        "turn": 2,
+        "student_id": 1,
+        "from_answer": "A",
+        "to_answer": "C",
+        "reason": "Okay, I see the flaw in my reasoning. The endpoints of a simple path are not cut vertices because removing them doesn't disconnect the graph, it just isolates a single node."
+      },
+      {
+        "turn": 3,
+        "student_id": 3,
+        "from_answer": "C",
+        "to_answer": "C",
+        "reason": "I agree with your reasoning. The endpoints of a path graph are not cut vertices."
+      }
+    ],
+    "outcome": "wrong_convinced_correct"
+  },
+  {
+    "debate_id": "debate_20260117_045737_2v6",
+    "question_id": "q_cut_vertex",
+    "student_a_id": 2,
+    "student_b_id": 6,
+    "initial_positions": {
+      "2": "D",
+      "6": "C"
+    },
+    "final_positions": {
+      "2": "C",
+      "6": "C"
+    },
+    "turns": [
+      {
+        "turn": 0,
+        "speaker": "Student_2",
+        "position": "C",
+        "argument": "You are right. I initially thought a simple path satisfied the condition, but I missed that the endpoints are not cut vertices when n >= 3. Therefore, the graph cannot be a simple path.",
+        "changed_mind": true
+      },
+      {
+        "turn": 1,
+        "speaker": "Student_6",
+        "position": "C",
+        "argument": "Okay, you've convinced me. I initially didn't fully grasp the implications of *every* vertex needing to be a cut vertex, especially regarding endpoints in paths.",
+        "changed_mind": true
+      }
+    ],
+    "winner_answer": "C",
+    "belief_changes": [
+      {
+        "turn": 0,
+        "student_id": 2,
+        "from_answer": "D",
+        "to_answer": "C",
+        "reason": "You are right. I initially thought a simple path satisfied the condition, but I missed that the endpoints are not cut vertices when n >= 3. Therefore, the graph cannot be a simple path."
+      },
+      {
+        "turn": 1,
+        "student_id": 6,
+        "from_answer": "C",
+        "to_answer": "C",
+        "reason": "Okay, you've convinced me. I initially didn't fully grasp the implications of *every* vertex needing to be a cut vertex, especially regarding endpoints in paths."
+      }
+    ],
+    "outcome": "wrong_convinced_correct"
+  }
+]

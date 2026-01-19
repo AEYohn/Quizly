@@ -1,0 +1,2278 @@
+{
+  "experiment_id": "static_20260117_020327",
+  "policy_name": "static",
+  "num_students": 30,
+  "num_questions": 8,
+  "avg_correctness": 0.479,
+  "avg_confidence": 0.534,
+  "discussion_rate": 0.0,
+  "learning_gain": 0.0,
+  "duration_seconds": 0.0,
+  "timestamp": "2026-01-17T02:03:27.259267",
+  "question_results": [
+    {
+      "question_idx": 0,
+      "concept": "bfs_traversal",
+      "difficulty": 0.4,
+      "correctness_rate": 0.533,
+      "avg_confidence": 0.515,
+      "entropy": 0.947,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "A. Queue (FIFO)",
+          "confidence": 0.12,
+          "is_correct": false,
+          "rationale": "I think it's A. Queue (FIFO) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.19
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "C. Priority Queue",
+          "confidence": 0.43,
+          "is_correct": false,
+          "rationale": "I think it's C. Priority Queue based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.37
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "A",
+          "confidence": 0.62,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.65
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "A",
+          "confidence": 0.56,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "A",
+          "confidence": 0.25,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.32
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "A",
+          "confidence": 0.89,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.75
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "D. Hash Set",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's D. Hash Set based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.38
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "D. Hash Set",
+          "confidence": 0.56,
+          "is_correct": false,
+          "rationale": "I think it's D. Hash Set based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "A",
+          "confidence": 0.55,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "B. Stack (LIFO)",
+          "confidence": 0.14,
+          "is_correct": false,
+          "rationale": "I think it's B. Stack (LIFO) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.22
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "A",
+          "confidence": 0.85,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.58
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "B. Stack (LIFO)",
+          "confidence": 0.23,
+          "is_correct": false,
+          "rationale": "I think it's B. Stack (LIFO) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.26
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "A",
+          "confidence": 0.58,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "D. Hash Set",
+          "confidence": 0.15,
+          "is_correct": false,
+          "rationale": "I think it's D. Hash Set based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.19
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "A",
+          "confidence": 0.56,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.59
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "A",
+          "confidence": 0.22,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.13
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "A. Queue (FIFO)",
+          "confidence": 0.74,
+          "is_correct": false,
+          "rationale": "I think it's A. Queue (FIFO) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "A",
+          "confidence": 0.68,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.8
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "B. Stack (LIFO)",
+          "confidence": 0.36,
+          "is_correct": false,
+          "rationale": "I think it's B. Stack (LIFO) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.32
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "A",
+          "confidence": 1.0,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.9
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "D. Hash Set",
+          "confidence": 0.48,
+          "is_correct": false,
+          "rationale": "I think it's D. Hash Set based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.52
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "C. Priority Queue",
+          "confidence": 0.62,
+          "is_correct": false,
+          "rationale": "I think it's C. Priority Queue based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.6
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "A",
+          "confidence": 0.65,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.62
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "A",
+          "confidence": 0.9,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.68
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A. Queue (FIFO)",
+          "confidence": 0.63,
+          "is_correct": false,
+          "rationale": "I think it's A. Queue (FIFO) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "A",
+          "confidence": 0.66,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.67
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "D. Hash Set",
+          "confidence": 0.34,
+          "is_correct": false,
+          "rationale": "I think it's D. Hash Set based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.44
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "A",
+          "confidence": 0.48,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.47
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "B. Stack (LIFO)",
+          "confidence": 0.47,
+          "is_correct": false,
+          "rationale": "I think it's B. Stack (LIFO) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "A",
+          "confidence": 0.64,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.62
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    },
+    {
+      "question_idx": 1,
+      "concept": "dfs_traversal",
+      "difficulty": 0.45,
+      "correctness_rate": 0.367,
+      "avg_confidence": 0.468,
+      "entropy": 1.101,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "A. When it is first discovered and pushed to stack",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's A. When it is first discovered and pushed to stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.14
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "D. Only if it has no outgoing edges",
+          "confidence": 0.4,
+          "is_correct": false,
+          "rationale": "I think it's D. Only if it has no outgoing edges based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.42
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "A. When it is first discovered and pushed to stack",
+          "confidence": 0.47,
+          "is_correct": false,
+          "rationale": "I think it's A. When it is first discovered and pushed to stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "C. When it is popped from the stack",
+          "confidence": 0.31,
+          "is_correct": false,
+          "rationale": "I think it's C. When it is popped from the stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.49
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "D. Only if it has no outgoing edges",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's D. Only if it has no outgoing edges based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.31
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "A",
+          "confidence": 0.76,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.63
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "A",
+          "confidence": 0.24,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.43
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "D. Only if it has no outgoing edges",
+          "confidence": 0.53,
+          "is_correct": false,
+          "rationale": "I think it's D. Only if it has no outgoing edges based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "B. When all its neighbors have been explored",
+          "confidence": 0.4,
+          "is_correct": false,
+          "rationale": "I think it's B. When all its neighbors have been explored based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.64
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "C. When it is popped from the stack",
+          "confidence": 0.3,
+          "is_correct": false,
+          "rationale": "I think it's C. When it is popped from the stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.49
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "C. When it is popped from the stack",
+          "confidence": 0.88,
+          "is_correct": false,
+          "rationale": "I think it's C. When it is popped from the stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.44
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "A",
+          "confidence": 0.55,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "A",
+          "confidence": 0.74,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.75
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "A",
+          "confidence": 0.27,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "C. When it is popped from the stack",
+          "confidence": 0.56,
+          "is_correct": false,
+          "rationale": "I think it's C. When it is popped from the stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.69
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "A. When it is first discovered and pushed to stack",
+          "confidence": 0.23,
+          "is_correct": false,
+          "rationale": "I think it's A. When it is first discovered and pushed to stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.1
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "C. When it is popped from the stack",
+          "confidence": 0.38,
+          "is_correct": false,
+          "rationale": "I think it's C. When it is popped from the stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.51
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "A",
+          "confidence": 0.48,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.77
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "D. Only if it has no outgoing edges",
+          "confidence": 0.62,
+          "is_correct": false,
+          "rationale": "I think it's D. Only if it has no outgoing edges based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.45
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "A",
+          "confidence": 0.71,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.67
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "C. When it is popped from the stack",
+          "confidence": 0.37,
+          "is_correct": false,
+          "rationale": "I think it's C. When it is popped from the stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.52
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "B. When all its neighbors have been explored",
+          "confidence": 0.67,
+          "is_correct": false,
+          "rationale": "I think it's B. When all its neighbors have been explored based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "B. When all its neighbors have been explored",
+          "confidence": 0.35,
+          "is_correct": false,
+          "rationale": "I think it's B. When all its neighbors have been explored based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "A. When it is first discovered and pushed to stack",
+          "confidence": 0.68,
+          "is_correct": false,
+          "rationale": "I think it's A. When it is first discovered and pushed to stack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A",
+          "confidence": 0.62,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.84
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "A",
+          "confidence": 0.6,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "A",
+          "confidence": 0.22,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.25
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "A",
+          "confidence": 0.6,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "B. When all its neighbors have been explored",
+          "confidence": 0.25,
+          "is_correct": false,
+          "rationale": "I think it's B. When all its neighbors have been explored based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.38
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "D. Only if it has no outgoing edges",
+          "confidence": 0.66,
+          "is_correct": false,
+          "rationale": "I think it's D. Only if it has no outgoing edges based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.62
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    },
+    {
+      "question_idx": 2,
+      "concept": "graph_connectivity",
+      "difficulty": 0.5,
+      "correctness_rate": 0.633,
+      "avg_confidence": 0.571,
+      "entropy": 0.802,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "A",
+          "confidence": 0.23,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.34
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "A. There is a path from every vertex to every other vertex",
+          "confidence": 0.35,
+          "is_correct": false,
+          "rationale": "I think it's A. There is a path from every vertex to every other vertex based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.4
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "A",
+          "confidence": 0.58,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.67
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "A",
+          "confidence": 0.52,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.54
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "A. There is a path from every vertex to every other vertex",
+          "confidence": 0.25,
+          "is_correct": false,
+          "rationale": "I think it's A. There is a path from every vertex to every other vertex based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.35
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "A. There is a path from every vertex to every other vertex",
+          "confidence": 0.68,
+          "is_correct": false,
+          "rationale": "I think it's A. There is a path from every vertex to every other vertex based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "C. It contains at least n-1 edges",
+          "confidence": 0.67,
+          "is_correct": false,
+          "rationale": "I think it's C. It contains at least n-1 edges based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.63
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "A",
+          "confidence": 0.43,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "A",
+          "confidence": 0.69,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "D. It has no cycles",
+          "confidence": 0.25,
+          "is_correct": false,
+          "rationale": "I think it's D. It has no cycles based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.35
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "A",
+          "confidence": 0.77,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.65
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "A",
+          "confidence": 0.52,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.41
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "D. It has no cycles",
+          "confidence": 0.64,
+          "is_correct": false,
+          "rationale": "I think it's D. It has no cycles based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.47
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "A",
+          "confidence": 0.42,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.47
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "A",
+          "confidence": 0.68,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.67
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "B. The underlying undirected graph is connected",
+          "confidence": 0.55,
+          "is_correct": false,
+          "rationale": "I think it's B. The underlying undirected graph is connected based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.44
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "D. It has no cycles",
+          "confidence": 0.51,
+          "is_correct": false,
+          "rationale": "I think it's D. It has no cycles based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.35
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "A",
+          "confidence": 1.0,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.9
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "A",
+          "confidence": 0.93,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.46
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "A",
+          "confidence": 0.84,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.85
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "A",
+          "confidence": 0.44,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.34
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "A. There is a path from every vertex to every other vertex",
+          "confidence": 0.59,
+          "is_correct": false,
+          "rationale": "I think it's A. There is a path from every vertex to every other vertex based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "A",
+          "confidence": 0.51,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.44
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "A",
+          "confidence": 0.53,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.34
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A",
+          "confidence": 0.97,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.72
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "A",
+          "confidence": 0.61,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "A",
+          "confidence": 0.34,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.4
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "A",
+          "confidence": 0.92,
+          "is_correct": true,
+          "rationale": "I applied my understanding of graph_connectivity to arrive at A.",
+          "concept_mastery": 0.72
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "A. There is a path from every vertex to every other vertex",
+          "confidence": 0.28,
+          "is_correct": false,
+          "rationale": "I think it's A. There is a path from every vertex to every other vertex based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.47
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "B. The underlying undirected graph is connected",
+          "confidence": 0.42,
+          "is_correct": false,
+          "rationale": "I think it's B. The underlying undirected graph is connected based on what I remember about graph_connectivity.",
+          "concept_mastery": 0.52
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    },
+    {
+      "question_idx": 3,
+      "concept": "cycle_detection",
+      "difficulty": 0.55,
+      "correctness_rate": 0.433,
+      "avg_confidence": 0.546,
+      "entropy": 1.032,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "C. The number of edges equals the number of vertices",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's C. The number of edges equals the number of vertices based on what I remember about cycle_detection.",
+          "concept_mastery": 0.16
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "A",
+          "confidence": 0.5,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.39
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "C. The number of edges equals the number of vertices",
+          "confidence": 0.58,
+          "is_correct": false,
+          "rationale": "I think it's C. The number of edges equals the number of vertices based on what I remember about cycle_detection.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "A. We visit a vertex already in the current DFS path (excluding parent)",
+          "confidence": 0.44,
+          "is_correct": false,
+          "rationale": "I think it's A. We visit a vertex already in the current DFS path (excluding parent) based on what I remember about cycle_detection.",
+          "concept_mastery": 0.52
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "A",
+          "confidence": 0.4,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "A",
+          "confidence": 0.72,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.62
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "D. We can return to the starting vertex",
+          "confidence": 0.35,
+          "is_correct": false,
+          "rationale": "I think it's D. We can return to the starting vertex based on what I remember about cycle_detection.",
+          "concept_mastery": 0.44
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "A. We visit a vertex already in the current DFS path (excluding parent)",
+          "confidence": 0.29,
+          "is_correct": false,
+          "rationale": "I think it's A. We visit a vertex already in the current DFS path (excluding parent) based on what I remember about cycle_detection.",
+          "concept_mastery": 0.39
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "A",
+          "confidence": 0.82,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.76
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "D. We can return to the starting vertex",
+          "confidence": 0.42,
+          "is_correct": false,
+          "rationale": "I think it's D. We can return to the starting vertex based on what I remember about cycle_detection.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "A",
+          "confidence": 0.93,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.58
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "A",
+          "confidence": 0.59,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.47
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "D. We can return to the starting vertex",
+          "confidence": 0.57,
+          "is_correct": false,
+          "rationale": "I think it's D. We can return to the starting vertex based on what I remember about cycle_detection.",
+          "concept_mastery": 0.59
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "A",
+          "confidence": 0.68,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.51
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "A",
+          "confidence": 0.5,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.42
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "C. The number of edges equals the number of vertices",
+          "confidence": 0.41,
+          "is_correct": false,
+          "rationale": "I think it's C. The number of edges equals the number of vertices based on what I remember about cycle_detection.",
+          "concept_mastery": 0.26
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "C. The number of edges equals the number of vertices",
+          "confidence": 0.53,
+          "is_correct": false,
+          "rationale": "I think it's C. The number of edges equals the number of vertices based on what I remember about cycle_detection.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "A",
+          "confidence": 0.8,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.9
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "C. The number of edges equals the number of vertices",
+          "confidence": 0.62,
+          "is_correct": false,
+          "rationale": "I think it's C. The number of edges equals the number of vertices based on what I remember about cycle_detection.",
+          "concept_mastery": 0.42
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "A",
+          "confidence": 0.87,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.8
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "D. We can return to the starting vertex",
+          "confidence": 0.25,
+          "is_correct": false,
+          "rationale": "I think it's D. We can return to the starting vertex based on what I remember about cycle_detection.",
+          "concept_mastery": 0.25
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "A",
+          "confidence": 1.0,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.79
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "A",
+          "confidence": 0.41,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.49
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "B. Any vertex has more than one neighbor",
+          "confidence": 0.74,
+          "is_correct": false,
+          "rationale": "I think it's B. Any vertex has more than one neighbor based on what I remember about cycle_detection.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A. We visit a vertex already in the current DFS path (excluding parent)",
+          "confidence": 0.39,
+          "is_correct": false,
+          "rationale": "I think it's A. We visit a vertex already in the current DFS path (excluding parent) based on what I remember about cycle_detection.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "A",
+          "confidence": 0.63,
+          "is_correct": true,
+          "rationale": "I applied my understanding of cycle_detection to arrive at A.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "B. Any vertex has more than one neighbor",
+          "confidence": 0.59,
+          "is_correct": false,
+          "rationale": "I think it's B. Any vertex has more than one neighbor based on what I remember about cycle_detection.",
+          "concept_mastery": 0.58
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "C. The number of edges equals the number of vertices",
+          "confidence": 0.6,
+          "is_correct": false,
+          "rationale": "I think it's C. The number of edges equals the number of vertices based on what I remember about cycle_detection.",
+          "concept_mastery": 0.59
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "B. Any vertex has more than one neighbor",
+          "confidence": 0.35,
+          "is_correct": false,
+          "rationale": "I think it's B. Any vertex has more than one neighbor based on what I remember about cycle_detection.",
+          "concept_mastery": 0.48
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "C. The number of edges equals the number of vertices",
+          "confidence": 0.29,
+          "is_correct": false,
+          "rationale": "I think it's C. The number of edges equals the number of vertices based on what I remember about cycle_detection.",
+          "concept_mastery": 0.44
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    },
+    {
+      "question_idx": 4,
+      "concept": "tree_properties",
+      "difficulty": 0.5,
+      "correctness_rate": 0.533,
+      "avg_confidence": 0.56,
+      "entropy": 0.956,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "A. It has exactly n-1 edges and is connected",
+          "confidence": 0.13,
+          "is_correct": false,
+          "rationale": "I think it's A. It has exactly n-1 edges and is connected based on what I remember about tree_properties.",
+          "concept_mastery": 0.18
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "D. Every vertex must have degree at least 2",
+          "confidence": 0.45,
+          "is_correct": false,
+          "rationale": "I think it's D. Every vertex must have degree at least 2 based on what I remember about tree_properties.",
+          "concept_mastery": 0.38
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "A",
+          "confidence": 0.64,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "A",
+          "confidence": 0.89,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.78
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "B. It has exactly n edges and no cycles",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's B. It has exactly n edges and no cycles based on what I remember about tree_properties.",
+          "concept_mastery": 0.16
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "A",
+          "confidence": 0.89,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.85
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "A",
+          "confidence": 0.36,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "A",
+          "confidence": 0.77,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.77
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "B. It has exactly n edges and no cycles",
+          "confidence": 0.67,
+          "is_correct": false,
+          "rationale": "I think it's B. It has exactly n edges and no cycles based on what I remember about tree_properties.",
+          "concept_mastery": 0.69
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "C. It must have a root vertex",
+          "confidence": 0.38,
+          "is_correct": false,
+          "rationale": "I think it's C. It must have a root vertex based on what I remember about tree_properties.",
+          "concept_mastery": 0.3
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "A",
+          "confidence": 0.67,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.52
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "C. It must have a root vertex",
+          "confidence": 0.4,
+          "is_correct": false,
+          "rationale": "I think it's C. It must have a root vertex based on what I remember about tree_properties.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "D. Every vertex must have degree at least 2",
+          "confidence": 0.49,
+          "is_correct": false,
+          "rationale": "I think it's D. Every vertex must have degree at least 2 based on what I remember about tree_properties.",
+          "concept_mastery": 0.45
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "A",
+          "confidence": 0.24,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.3
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "A",
+          "confidence": 0.48,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.54
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "A",
+          "confidence": 0.38,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.29
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "C. It must have a root vertex",
+          "confidence": 0.54,
+          "is_correct": false,
+          "rationale": "I think it's C. It must have a root vertex based on what I remember about tree_properties.",
+          "concept_mastery": 0.39
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "A",
+          "confidence": 0.87,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.9
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "A. It has exactly n-1 edges and is connected",
+          "confidence": 0.5,
+          "is_correct": false,
+          "rationale": "I think it's A. It has exactly n-1 edges and is connected based on what I remember about tree_properties.",
+          "concept_mastery": 0.43
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "A",
+          "confidence": 0.83,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.71
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "A",
+          "confidence": 0.31,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.37
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "D. Every vertex must have degree at least 2",
+          "confidence": 0.39,
+          "is_correct": false,
+          "rationale": "I think it's D. Every vertex must have degree at least 2 based on what I remember about tree_properties.",
+          "concept_mastery": 0.51
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "A",
+          "confidence": 0.53,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.35
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "B. It has exactly n edges and no cycles",
+          "confidence": 1.0,
+          "is_correct": false,
+          "rationale": "I think it's B. It has exactly n edges and no cycles based on what I remember about tree_properties.",
+          "concept_mastery": 0.77
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A",
+          "confidence": 0.69,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.67
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "A",
+          "confidence": 0.93,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.72
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "A. It has exactly n-1 edges and is connected",
+          "confidence": 0.43,
+          "is_correct": false,
+          "rationale": "I think it's A. It has exactly n-1 edges and is connected based on what I remember about tree_properties.",
+          "concept_mastery": 0.46
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "A",
+          "confidence": 0.71,
+          "is_correct": true,
+          "rationale": "I applied my understanding of tree_properties to arrive at A.",
+          "concept_mastery": 0.58
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "C. It must have a root vertex",
+          "confidence": 0.41,
+          "is_correct": false,
+          "rationale": "I think it's C. It must have a root vertex based on what I remember about tree_properties.",
+          "concept_mastery": 0.45
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "C. It must have a root vertex",
+          "confidence": 0.72,
+          "is_correct": false,
+          "rationale": "I think it's C. It must have a root vertex based on what I remember about tree_properties.",
+          "concept_mastery": 0.74
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    },
+    {
+      "question_idx": 5,
+      "concept": "bipartite_graphs",
+      "difficulty": 0.6,
+      "correctness_rate": 0.333,
+      "avg_confidence": 0.524,
+      "entropy": 1.101,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "B. It can be colored with exactly 2 colors",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's B. It can be colored with exactly 2 colors based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.24
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "A. It contains no odd-length cycles",
+          "confidence": 0.25,
+          "is_correct": false,
+          "rationale": "I think it's A. It contains no odd-length cycles based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.4
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "C",
+          "confidence": 0.66,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.63
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "C",
+          "confidence": 0.57,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "C. Both A and B are correct",
+          "confidence": 0.32,
+          "is_correct": false,
+          "rationale": "I think it's C. Both A and B are correct based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.47
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "C. Both A and B are correct",
+          "confidence": 0.48,
+          "is_correct": false,
+          "rationale": "I think it's C. Both A and B are correct based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.58
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "A. It contains no odd-length cycles",
+          "confidence": 0.22,
+          "is_correct": false,
+          "rationale": "I think it's A. It contains no odd-length cycles based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.43
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "C",
+          "confidence": 0.63,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.49
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "A. It contains no odd-length cycles",
+          "confidence": 0.2,
+          "is_correct": false,
+          "rationale": "I think it's A. It contains no odd-length cycles based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.3
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "C. Both A and B are correct",
+          "confidence": 0.2,
+          "is_correct": false,
+          "rationale": "I think it's C. Both A and B are correct based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.26
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "D. It has an even number of vertices",
+          "confidence": 0.6,
+          "is_correct": false,
+          "rationale": "I think it's D. It has an even number of vertices based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.49
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "C",
+          "confidence": 0.69,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.6
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "A. It contains no odd-length cycles",
+          "confidence": 0.71,
+          "is_correct": false,
+          "rationale": "I think it's A. It contains no odd-length cycles based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.54
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "C. Both A and B are correct",
+          "confidence": 0.48,
+          "is_correct": false,
+          "rationale": "I think it's C. Both A and B are correct based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.42
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "C",
+          "confidence": 0.54,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "A. It contains no odd-length cycles",
+          "confidence": 0.32,
+          "is_correct": false,
+          "rationale": "I think it's A. It contains no odd-length cycles based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.34
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "C. Both A and B are correct",
+          "confidence": 0.66,
+          "is_correct": false,
+          "rationale": "I think it's C. Both A and B are correct based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.62
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "C",
+          "confidence": 0.91,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.81
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "D. It has an even number of vertices",
+          "confidence": 0.58,
+          "is_correct": false,
+          "rationale": "I think it's D. It has an even number of vertices based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.33
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "D. It has an even number of vertices",
+          "confidence": 0.61,
+          "is_correct": false,
+          "rationale": "I think it's D. It has an even number of vertices based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.82
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "A. It contains no odd-length cycles",
+          "confidence": 0.44,
+          "is_correct": false,
+          "rationale": "I think it's A. It contains no odd-length cycles based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.36
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "C",
+          "confidence": 0.75,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.76
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "B. It can be colored with exactly 2 colors",
+          "confidence": 0.64,
+          "is_correct": false,
+          "rationale": "I think it's B. It can be colored with exactly 2 colors based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "B. It can be colored with exactly 2 colors",
+          "confidence": 0.76,
+          "is_correct": false,
+          "rationale": "I think it's B. It can be colored with exactly 2 colors based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.46
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A. It contains no odd-length cycles",
+          "confidence": 0.61,
+          "is_correct": false,
+          "rationale": "I think it's A. It contains no odd-length cycles based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.58
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "C",
+          "confidence": 0.85,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.68
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "C",
+          "confidence": 0.47,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "C",
+          "confidence": 0.64,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bipartite_graphs to arrive at C.",
+          "concept_mastery": 0.74
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "C. Both A and B are correct",
+          "confidence": 0.23,
+          "is_correct": false,
+          "rationale": "I think it's C. Both A and B are correct based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.36
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "D. It has an even number of vertices",
+          "confidence": 0.59,
+          "is_correct": false,
+          "rationale": "I think it's D. It has an even number of vertices based on what I remember about bipartite_graphs.",
+          "concept_mastery": 0.56
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    },
+    {
+      "question_idx": 6,
+      "concept": "bfs_traversal",
+      "difficulty": 0.6,
+      "correctness_rate": 0.433,
+      "avg_confidence": 0.51,
+      "entropy": 1.038,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "D. Always, regardless of edge weights",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's D. Always, regardless of edge weights based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.19
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "C. The graph is directed",
+          "confidence": 0.5,
+          "is_correct": false,
+          "rationale": "I think it's C. The graph is directed based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.37
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "A",
+          "confidence": 0.61,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.65
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "B. The graph is a tree",
+          "confidence": 0.44,
+          "is_correct": false,
+          "rationale": "I think it's B. The graph is a tree based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "A",
+          "confidence": 0.14,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.32
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "A",
+          "confidence": 0.92,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.75
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "B. The graph is a tree",
+          "confidence": 0.29,
+          "is_correct": false,
+          "rationale": "I think it's B. The graph is a tree based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.38
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "C. The graph is directed",
+          "confidence": 0.45,
+          "is_correct": false,
+          "rationale": "I think it's C. The graph is directed based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "B. The graph is a tree",
+          "confidence": 0.48,
+          "is_correct": false,
+          "rationale": "I think it's B. The graph is a tree based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "A. All edges have equal weight (unweighted graph)",
+          "confidence": 0.15,
+          "is_correct": false,
+          "rationale": "I think it's A. All edges have equal weight (unweighted graph) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.22
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "C. The graph is directed",
+          "confidence": 0.88,
+          "is_correct": false,
+          "rationale": "I think it's C. The graph is directed based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.58
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "C. The graph is directed",
+          "confidence": 0.38,
+          "is_correct": false,
+          "rationale": "I think it's C. The graph is directed based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.26
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "A",
+          "confidence": 0.41,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "A",
+          "confidence": 0.1,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.19
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "C. The graph is directed",
+          "confidence": 0.46,
+          "is_correct": false,
+          "rationale": "I think it's C. The graph is directed based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.59
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "A. All edges have equal weight (unweighted graph)",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's A. All edges have equal weight (unweighted graph) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.13
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "A",
+          "confidence": 0.5,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.56
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "A",
+          "confidence": 1.0,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.8
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "A. All edges have equal weight (unweighted graph)",
+          "confidence": 0.43,
+          "is_correct": false,
+          "rationale": "I think it's A. All edges have equal weight (unweighted graph) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.32
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "A",
+          "confidence": 0.95,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.9
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "B. The graph is a tree",
+          "confidence": 0.53,
+          "is_correct": false,
+          "rationale": "I think it's B. The graph is a tree based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.52
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "A",
+          "confidence": 0.63,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.6
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "A",
+          "confidence": 0.86,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.62
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "A",
+          "confidence": 0.78,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.68
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A. All edges have equal weight (unweighted graph)",
+          "confidence": 0.53,
+          "is_correct": false,
+          "rationale": "I think it's A. All edges have equal weight (unweighted graph) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "B. The graph is a tree",
+          "confidence": 0.88,
+          "is_correct": false,
+          "rationale": "I think it's B. The graph is a tree based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.67
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "A. All edges have equal weight (unweighted graph)",
+          "confidence": 0.27,
+          "is_correct": false,
+          "rationale": "I think it's A. All edges have equal weight (unweighted graph) based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.44
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "D. Always, regardless of edge weights",
+          "confidence": 0.34,
+          "is_correct": false,
+          "rationale": "I think it's D. Always, regardless of edge weights based on what I remember about bfs_traversal.",
+          "concept_mastery": 0.47
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "A",
+          "confidence": 0.54,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "A",
+          "confidence": 0.64,
+          "is_correct": true,
+          "rationale": "I applied my understanding of bfs_traversal to arrive at A.",
+          "concept_mastery": 0.62
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    },
+    {
+      "question_idx": 7,
+      "concept": "dfs_traversal",
+      "difficulty": 0.65,
+      "correctness_rate": 0.567,
+      "avg_confidence": 0.578,
+      "entropy": 0.855,
+      "responses": [
+        {
+          "student_id": 1,
+          "student_name": "Student_1",
+          "answer": "A. The graph contains a cycle",
+          "confidence": 0.27,
+          "is_correct": false,
+          "rationale": "I think it's A. The graph contains a cycle based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.14
+        },
+        {
+          "student_id": 2,
+          "student_name": "Student_2",
+          "answer": "C. A vertex was visited twice",
+          "confidence": 0.41,
+          "is_correct": false,
+          "rationale": "I think it's C. A vertex was visited twice based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.42
+        },
+        {
+          "student_id": 3,
+          "student_name": "Student_3",
+          "answer": "D. The algorithm needs to backtrack",
+          "confidence": 0.54,
+          "is_correct": false,
+          "rationale": "I think it's D. The algorithm needs to backtrack based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 4,
+          "student_name": "Student_4",
+          "answer": "A",
+          "confidence": 0.58,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.49
+        },
+        {
+          "student_id": 5,
+          "student_name": "Student_5",
+          "answer": "C. A vertex was visited twice",
+          "confidence": 0.33,
+          "is_correct": false,
+          "rationale": "I think it's C. A vertex was visited twice based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.31
+        },
+        {
+          "student_id": 6,
+          "student_name": "Student_6",
+          "answer": "A. The graph contains a cycle",
+          "confidence": 0.57,
+          "is_correct": false,
+          "rationale": "I think it's A. The graph contains a cycle based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.63
+        },
+        {
+          "student_id": 7,
+          "student_name": "Student_7",
+          "answer": "B. The graph is not connected",
+          "confidence": 0.36,
+          "is_correct": false,
+          "rationale": "I think it's B. The graph is not connected based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.43
+        },
+        {
+          "student_id": 8,
+          "student_name": "Student_8",
+          "answer": "B. The graph is not connected",
+          "confidence": 0.58,
+          "is_correct": false,
+          "rationale": "I think it's B. The graph is not connected based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.61
+        },
+        {
+          "student_id": 9,
+          "student_name": "Student_9",
+          "answer": "A",
+          "confidence": 0.82,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.64
+        },
+        {
+          "student_id": 10,
+          "student_name": "Student_10",
+          "answer": "A",
+          "confidence": 0.47,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.49
+        },
+        {
+          "student_id": 11,
+          "student_name": "Student_11",
+          "answer": "A",
+          "confidence": 0.9,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.44
+        },
+        {
+          "student_id": 12,
+          "student_name": "Student_12",
+          "answer": "A",
+          "confidence": 0.7,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 13,
+          "student_name": "Student_13",
+          "answer": "A. The graph contains a cycle",
+          "confidence": 0.67,
+          "is_correct": false,
+          "rationale": "I think it's A. The graph contains a cycle based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.75
+        },
+        {
+          "student_id": 14,
+          "student_name": "Student_14",
+          "answer": "A. The graph contains a cycle",
+          "confidence": 0.59,
+          "is_correct": false,
+          "rationale": "I think it's A. The graph contains a cycle based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 15,
+          "student_name": "Student_15",
+          "answer": "A",
+          "confidence": 0.72,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.69
+        },
+        {
+          "student_id": 16,
+          "student_name": "Student_16",
+          "answer": "A. The graph contains a cycle",
+          "confidence": 0.1,
+          "is_correct": false,
+          "rationale": "I think it's A. The graph contains a cycle based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.1
+        },
+        {
+          "student_id": 17,
+          "student_name": "Student_17",
+          "answer": "A",
+          "confidence": 0.68,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.51
+        },
+        {
+          "student_id": 18,
+          "student_name": "Student_18",
+          "answer": "A",
+          "confidence": 0.93,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.77
+        },
+        {
+          "student_id": 19,
+          "student_name": "Student_19",
+          "answer": "A",
+          "confidence": 0.88,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.45
+        },
+        {
+          "student_id": 20,
+          "student_name": "Student_20",
+          "answer": "A",
+          "confidence": 0.65,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.67
+        },
+        {
+          "student_id": 21,
+          "student_name": "Student_21",
+          "answer": "A",
+          "confidence": 0.67,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.52
+        },
+        {
+          "student_id": 22,
+          "student_name": "Student_22",
+          "answer": "A",
+          "confidence": 0.59,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 23,
+          "student_name": "Student_23",
+          "answer": "A",
+          "confidence": 0.58,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 24,
+          "student_name": "Student_24",
+          "answer": "C. A vertex was visited twice",
+          "confidence": 0.71,
+          "is_correct": false,
+          "rationale": "I think it's C. A vertex was visited twice based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.55
+        },
+        {
+          "student_id": 25,
+          "student_name": "Student_25",
+          "answer": "A",
+          "confidence": 0.86,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.84
+        },
+        {
+          "student_id": 26,
+          "student_name": "Student_26",
+          "answer": "A",
+          "confidence": 0.59,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.5
+        },
+        {
+          "student_id": 27,
+          "student_name": "Student_27",
+          "answer": "A. The graph contains a cycle",
+          "confidence": 0.18,
+          "is_correct": false,
+          "rationale": "I think it's A. The graph contains a cycle based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.25
+        },
+        {
+          "student_id": 28,
+          "student_name": "Student_28",
+          "answer": "A",
+          "confidence": 0.51,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.53
+        },
+        {
+          "student_id": 29,
+          "student_name": "Student_29",
+          "answer": "A. The graph contains a cycle",
+          "confidence": 0.29,
+          "is_correct": false,
+          "rationale": "I think it's A. The graph contains a cycle based on what I remember about dfs_traversal.",
+          "concept_mastery": 0.38
+        },
+        {
+          "student_id": 30,
+          "student_name": "Student_30",
+          "answer": "A",
+          "confidence": 0.62,
+          "is_correct": true,
+          "rationale": "I applied my understanding of dfs_traversal to arrive at A.",
+          "concept_mastery": 0.62
+        }
+      ],
+      "action": "move_on",
+      "action_reason": "Static policy - always proceed"
+    }
+  ],
+  "final_mastery": {
+    "bfs_traversal": 0.506,
+    "dfs_traversal": 0.509,
+    "graph_connectivity": 0.522,
+    "cycle_detection": 0.522,
+    "tree_properties": 0.533,
+    "bipartite_graphs": 0.518
+  }
+}

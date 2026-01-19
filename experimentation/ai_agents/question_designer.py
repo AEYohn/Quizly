@@ -27,7 +27,7 @@ class QuestionDesigner:
         if GEMINI_AVAILABLE and self.api_key:
             try:
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel("gemini-1.5-flash")
+                self.model = genai.GenerativeModel("gemini-2.0-flash")
             except Exception:
                 pass
     
@@ -65,25 +65,27 @@ class QuestionDesigner:
         """Design question using Gemini API."""
         difficulty_desc = "easy" if difficulty < 0.3 else "medium" if difficulty < 0.7 else "hard"
         
-        prompt = f"""You are an expert at creating conceptual questions for peer instruction.
+        prompt = f"""You are an expert educator creating a peer instruction question.
 
-Create a {difficulty_desc} {question_type} question about: {concept}
-
-Requirements:
-1. Target common misconceptions students have about this concept
-2. Make distractors plausible (based on real student errors)
-3. Include a clear explanation of why the correct answer is right
-4. Difficulty level: {difficulty:.1f}/1.0
-
+CONCEPT: {concept}
+DIFFICULTY: {difficulty_desc} ({difficulty:.1f}/1.0)
 {f'Context from session: {context}' if context else ''}
 
-Respond in JSON format:
+Create a SPECIFIC, EDUCATIONAL multiple choice question for this concept.
+
+CRITICAL REQUIREMENTS:
+1. Questions must have SPECIFIC content - actual details, real scenarios, concrete examples
+2. Options must be REAL answers (specific values, TRUE/FALSE about specific claims, concrete choices)
+3. At least one distractor should exploit a common misconception about this topic
+4. Include detailed explanation for each option
+
+Return ONLY valid JSON:
 {{
-    "prompt": "the question text",
-    "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+    "prompt": "A specific, educational question with real content",
+    "options": ["A. Specific real option", "B. Specific real option", "C. Specific real option", "D. Specific real option"],
     "correct_answer": "A",
-    "explanation": "why A is correct and others are wrong",
-    "misconceptions_targeted": ["list of misconceptions this tests"]
+    "explanation": "Detailed explanation of why A is correct and why each wrong option is wrong",
+    "misconceptions_targeted": ["misconception1", "misconception2"]
 }}
 """
         try:
@@ -105,39 +107,24 @@ Respond in JSON format:
         difficulty: float,
         question_type: str
     ) -> Dict[str, Any]:
-        """Generate mock question for testing."""
+        """Fallback when LLM unavailable - returns minimal placeholder."""
+        # LLM is required for proper question generation
+        # This returns a minimal result indicating the limitation
         difficulty_label = "Basic" if difficulty < 0.3 else "Intermediate" if difficulty < 0.7 else "Advanced"
         
-        if question_type == "mcq":
-            return {
-                "prompt": f"[{difficulty_label}] Which of the following best describes {concept}?",
-                "options": [
-                    f"The correct understanding of {concept}",
-                    f"A common misconception about {concept}",
-                    f"An overgeneralization of {concept}",
-                    f"A confusion with a related concept"
-                ],
-                "correct_answer": "A",
-                "explanation": f"Option A correctly describes {concept}. "
-                              f"Option B represents a common misconception where students... "
-                              f"Option C overgeneralizes by... "
-                              f"Option D confuses this with...",
-                "misconceptions_targeted": [
-                    f"Misconception 1 about {concept}",
-                    f"Misconception 2 about {concept}"
-                ]
-            }
-        else:  # short_answer
-            return {
-                "prompt": f"[{difficulty_label}] Explain in your own words: {concept}",
-                "options": [],
-                "correct_answer": f"A complete explanation of {concept} would include...",
-                "explanation": f"Key points for {concept}: 1) ... 2) ... 3) ...",
-                "misconceptions_targeted": [
-                    f"Students often omit the relationship between...",
-                    f"Students may conflate {concept} with..."
-                ]
-            }
+        return {
+            "prompt": f"[LLM Required] [{difficulty_label}] Question about {concept}",
+            "options": [
+                "A. [LLM required for option generation]",
+                "B. [LLM required for option generation]", 
+                "C. [LLM required for option generation]",
+                "D. [LLM required for option generation]"
+            ],
+            "correct_answer": "A",
+            "explanation": f"LLM is required to generate educational content for {concept}.",
+            "misconceptions_targeted": [],
+            "llm_required": True
+        }
     
     def generate_distractors(
         self,

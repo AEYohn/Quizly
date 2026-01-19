@@ -1,0 +1,454 @@
+{
+  "topic": "Predicates, Sets, and Proofs",
+  "concepts": [
+    "predicate_logic",
+    "set_operations",
+    "proof_techniques",
+    "quantifiers"
+  ],
+  "timestamp": "20260117_194811",
+  "results": [
+    {
+      "question_idx": 0,
+      "concept": "predicate_logic",
+      "correct_rate": 0.5833333333333334,
+      "avg_confidence": 59.916666666666664,
+      "answer_distribution": {
+        "D": 7,
+        "C": 1,
+        "A": 4
+      },
+      "recommendation": "PEER_DISCUSSION",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "D",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 73,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:47:59.938121"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "D",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 59,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:00.139303"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "C",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 46,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:00.340899"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "D",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 74,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:00.544112"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "A",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 58,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:00.749233"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "A",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 40,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:00.952144"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "D",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 71,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:01.153064"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "A",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 63,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:01.357367"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "D",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 73,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:01.562954"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "D",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 50,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:01.764082"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "A",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 55,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:01.969737"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "D",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 57,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:02.173018"
+        }
+      ]
+    },
+    {
+      "question_idx": 1,
+      "concept": "set_operations",
+      "correct_rate": 0.5833333333333334,
+      "avg_confidence": 62.5,
+      "answer_distribution": {
+        "C": 3,
+        "B": 1,
+        "A": 7,
+        "D": 1
+      },
+      "recommendation": "PEER_DISCUSSION",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "C",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 68,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:02.881319"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "B",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 57,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:03.086534"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "C",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 38,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:03.289852"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 80,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:03.495566"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 73,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:03.697805"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "D",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 47,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:03.899226"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 72,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:04.104899"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 61,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:04.306882"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 80,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:04.512673"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 64,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:04.714738"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 61,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:04.920491"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "C",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 49,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:05.124160"
+        }
+      ]
+    },
+    {
+      "question_idx": 2,
+      "concept": "proof_techniques",
+      "correct_rate": 0.75,
+      "avg_confidence": 57.25,
+      "answer_distribution": {
+        "B": 1,
+        "A": 9,
+        "C": 1,
+        "D": 1
+      },
+      "recommendation": "PEER_DISCUSSION",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "B",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 56,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:05.827632"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 43,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:06.029992"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 51,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:06.230993"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 66,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:06.433247"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 61,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:06.634951"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 34,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:06.839596"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 71,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:07.040545"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 67,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:07.244106"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "C",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 73,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:07.447032"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 49,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:07.649422"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "D",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 61,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:07.850977"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "A",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 55,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:08.056786"
+        }
+      ]
+    },
+    {
+      "question_idx": 3,
+      "concept": "quantifiers",
+      "correct_rate": 0.75,
+      "avg_confidence": 57.333333333333336,
+      "answer_distribution": {
+        "B": 9,
+        "A": 2,
+        "C": 1
+      },
+      "recommendation": "PEER_DISCUSSION",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 66,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:08.764384"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 47,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:08.970172"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 42,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:09.173020"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 70,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:09.378737"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "A",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 59,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:09.581037"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "A",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 36,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:09.784307"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 74,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:09.989560"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 68,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:10.191644"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 68,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:10.394182"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 66,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:10.598757"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "B",
+          "reasoning": "I worked through this systematically.",
+          "confidence": 46,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:48:10.802882"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "C",
+          "reasoning": "I'm not entirely sure about this one.",
+          "confidence": 46,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:48:11.006191"
+        }
+      ]
+    }
+  ]
+}

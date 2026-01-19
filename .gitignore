@@ -34,3 +34,16 @@ npm-debug.log*
 # Testing
 coverage/
 .pytest_cache/
+
+# Session State (local only)
+.active_session.json
+.shared_session_state.json
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Experiment outputs
+experimentation/lesson_simulation_output/
+experimentation/experiments/*.json

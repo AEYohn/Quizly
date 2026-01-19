@@ -109,43 +109,33 @@ Respond in valid JSON format with a "questions" array.
         time_budget_minutes: int,
         difficulty_curve: str
     ) -> Dict[str, Any]:
-        """Generate mock plan for testing without API."""
+        """Fallback when LLM unavailable - returns minimal placeholder."""
+        # LLM is required for proper session planning
+        # This returns a minimal result indicating the limitation
         questions = []
         
-        # Calculate time per question
-        num_questions = min(len(concepts) * 2, 8)
-        time_per_q = (time_budget_minutes * 60) // num_questions
-        
-        difficulties = {
-            "gradual": lambda i, n: 0.3 + (0.5 * i / max(n - 1, 1)),
-            "flat": lambda i, n: 0.5,
-            "challenging": lambda i, n: 0.5 + (0.4 * i / max(n - 1, 1))
-        }
-        difficulty_fn = difficulties.get(difficulty_curve, difficulties["gradual"])
-        
-        for i in range(num_questions):
-            concept = concepts[i % len(concepts)]
-            difficulty = difficulty_fn(i, num_questions)
-            
+        for i, concept in enumerate(concepts):
             questions.append({
                 "concept": concept,
-                "difficulty": round(difficulty, 2),
+                "difficulty": 0.5,
                 "type": "mcq",
-                "target_time_seconds": time_per_q,
-                "question_prompt": f"[Mock] Question about {concept} (difficulty: {difficulty:.1f})",
+                "target_time_seconds": (time_budget_minutes * 60) // max(len(concepts), 1),
+                "question_prompt": f"[LLM Required] Question about {concept}",
                 "options": [
-                    f"Correct answer for {concept}",
-                    f"Plausible distractor 1",
-                    f"Plausible distractor 2", 
-                    f"Plausible distractor 3"
+                    "[LLM required for option generation]",
+                    "[LLM required for option generation]",
+                    "[LLM required for option generation]", 
+                    "[LLM required for option generation]"
                 ],
                 "correct_answer": "A",
-                "explanation": f"This tests understanding of {concept} at {topic}."
+                "explanation": f"LLM is required to generate educational content for {concept}.",
+                "llm_required": True
             })
         
         return {
             "topic": topic,
             "concepts": concepts,
             "time_budget_minutes": time_budget_minutes,
-            "questions": questions
+            "questions": questions,
+            "llm_required": True
         }

@@ -1,0 +1,447 @@
+{
+  "topic": "Predicates, Sets, and Proofs",
+  "concepts": [
+    "predicate_logic",
+    "set_operations",
+    "proof_techniques",
+    "quantifiers"
+  ],
+  "timestamp": "20260117_195520",
+  "results": [
+    {
+      "question_idx": 0,
+      "concept": "set_operations",
+      "correct_rate": 1.0,
+      "avg_confidence": 75.0,
+      "answer_distribution": {
+        "A": 12
+      },
+      "recommendation": "MOVE_ON",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "A",
+          "reasoning": "First, I need to find B \u2229 A, which is the intersection of B and A. This means the elements that are in both sets, which are {3, 5}. Then I need to find the union of A and {3, 5}, which is A \u222a {3, 5}. Since {3, 5} is already a subset of A, the union is just A, which is {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:15.007919"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "A",
+          "reasoning": "Okay, so first I need to find B \u2229 A, which means the elements that are in BOTH B and A. Looking at the sets, that would be {3, 5}. Then I need to find A \u222a (B \u2229 A), meaning I need to combine A with {3, 5}. Since {3, 5} is already inside of A, A \u222a {3, 5} is just A. So the answer is {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:16.406293"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "A",
+          "reasoning": "Okay, so first I need to figure out B \u2229 A. That's where B and A overlap, which would be {3, 5}. Then I need to do A \u222a (B \u2229 A), which is A union {3, 5}. Since {3, 5} is already in A, it's just A. So the answer is {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:17.620655"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "A",
+          "reasoning": "First, I find the intersection of B and A, which is {3, 5}. Then, I find the union of A and {3, 5}, which is just A since {3, 5} is a subset of A. So the answer is {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:18.675972"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "A",
+          "reasoning": "Okay, so first I need to find B \u2229 A, which means the elements that are in both B and A. That would be {3, 5}. Then I need to find the union of A and {3, 5}, which means all the elements in A and {3, 5}. Since {3, 5} is already a subset of A, the union is just A, which is {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:19.917884"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "A",
+          "reasoning": "Okay, so A is {1,2,3,4,5} and B is {3,5,7,9}. The intersection of B and A means what's in BOTH, which is {3,5}. Then A union that is like... everything in A plus anything else in {3,5} that wasn't already there. But {3,5} is already in A! So it's just A again.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:21.337366"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "A",
+          "reasoning": "First, I need to find the intersection of B and A (B \u2229 A), which is {3, 5}. Then, I need to find the union of A and {3, 5}, which is A itself, {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:22.463692"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "A",
+          "reasoning": "First, I need to find B \u2229 A, which means the elements in both B and A. That's {3, 5}. Then I need to find A \u222a {3, 5}, which means all elements in A and {3, 5}. Since 3 and 5 are already in A, the result is just A: {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:23.651931"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "A",
+          "reasoning": "First, I need to find the intersection of B and A, which are the elements that are in both sets. B \u2229 A = {3, 5}. Then I need to find the union of A and {3, 5}, which is all the elements in A plus any elements in {3, 5} that aren't already in A. Since 3 and 5 are already in A, A \u222a (B \u2229 A) = A = {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:24.997328"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "A",
+          "reasoning": "First, I need to find the intersection of B and A, which means the elements that are in both sets. B \u2229 A = {3, 5}. Then, I need to find the union of A and the intersection I just found. A \u222a {3, 5} = {1, 2, 3, 4, 5}.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:26.149033"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "A",
+          "reasoning": "Okay, so first I need to find B \u2229 A, which means what's in both B and A. That's {3, 5}. Then I need to find A \u222a {3, 5}, which means everything in A plus anything in {3, 5} that's not already in A. But 3 and 5 are already in A, so it's just A again. Why does the intersection get combined like that? I guess it's just the definition of union.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:27.583348"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "A",
+          "reasoning": "Okay, I remember that the upside-down U means intersection (AND) and the normal U means union (OR). So, B \u2229 A means what's in both B and A. That's {3, 5}. Then A \u222a {3, 5} means A or {3, 5}, which is just A since {3, 5} is already in A. So it's A.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:28.813265"
+        }
+      ]
+    },
+    {
+      "question_idx": 1,
+      "concept": "predicate_logic",
+      "correct_rate": 0.8333333333333334,
+      "avg_confidence": 81.25,
+      "answer_distribution": {
+        "B": 10,
+        "A": 2
+      },
+      "recommendation": "MOVE_ON",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "B",
+          "reasoning": "The statement 'If a number is divisible by 4, then it is even' means that for all numbers, if the number is divisible by 4, then it must be even. P(x) is 'x is even' and Q(x) is 'x is divisible by 4'. Therefore, Q(x) implies P(x). The 'for all' quantifier is the correct quantifier, so the answer must be B.",
+          "confidence": 90,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:30.603304"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "B",
+          "reasoning": "Okay, so the question is about translating 'If divisible by 4, then even'. That sounds like Q(x) implies P(x). The 'if...then' part makes me think of implication. Since this is supposed to be true for ALL numbers (integers in this case), I think it needs the \u2200 quantifier. So it should be \u2200x (Q(x) \u2192 P(x)).",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:31.884457"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "A",
+          "reasoning": "Okay, so the question is about \"If a number is divisible by 4, then it is even\". That means if Q(x) is true, then P(x) must be true. The 'if...then' part is represented by the arrow '\u2192'. So it should be Q(x) \u2192 P(x). The statement should be true for ALL integers, so I think I need the '\u2200x'. So the answer should be \u2200x (Q(x) \u2192 P(x)), which is option B. Wait, hold on! Option A looks like \u2200x (P(x) \u2192 Q(x)) which says, 'if a number is even, then it's divisible by 4'. This is not true for all numbers. So it can't be A. Let's go back to B. So yeah, it's B.",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:54:33.551444"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "B",
+          "reasoning": "Okay, so we're saying that if something is divisible by 4, then it *must* be even. That means for *all* numbers, if they're divisible by 4, they're even. P(x) is 'x is even' and Q(x) is 'x is divisible by 4'. So, if Q(x) is true, then P(x) *must* be true. That sounds like Q(x) implies P(x) for all x. Therefore, it should be \u2200x (Q(x) \u2192 P(x)). I was too quick before; it's not P implies Q, it's Q implies P!",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:35.263988"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "B",
+          "reasoning": "Okay, so the statement is 'If a number is divisible by 4, then it is even'. Divisible by 4 is Q(x), and even is P(x). So, if Q(x), then P(x) which is Q(x) -> P(x). Since it needs to be true for ALL integers, I think it's \u2200x (Q(x) \u2192 P(x)). I almost picked A, but that would be saying all even numbers are divisible by 4, which isn't true.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:36.695678"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "A",
+          "reasoning": "Okay, so we're saying if something is divisible by 4, then it's even. Divisible by 4 means Q(x), and even means P(x). So, Q(x) implies P(x). Since it needs to be true for all integers, we use the universal quantifier. This makes it \u2200x (P(x) \u2192 Q(x)). I'm not super confident though because I sometimes mix these up.",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:54:37.932298"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "B",
+          "reasoning": "The statement 'If a number is divisible by 4, then it is even' means that for all x, if Q(x) is true (x is divisible by 4), then P(x) is true (x is even). This is represented by \u2200x (Q(x) \u2192 P(x)). Option A is the reverse, and C and D use existential quantifiers which don't accurately represent the universal implication.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:39.159315"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "B",
+          "reasoning": "Okay, I need to translate 'If a number is divisible by 4, then it is even' into logic. P(x) is 'x is even' and Q(x) is 'x is divisible by 4'. The statement means that whenever Q(x) is true, P(x) is also true. So, if x is divisible by 4 (Q(x)), then x is even (P(x)). That sounds like Q(x) implies P(x). Since this should be true for all numbers, I need a universal quantifier. Therefore, it should be \u2200x (Q(x) \u2192 P(x)). Option B looks correct. I initially thought it was A, but that would mean 'If a number is even, then it is divisible by 4', which isn't true.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:41.010272"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "B",
+          "reasoning": "The statement 'If a number is divisible by 4, then it is even' means that for all numbers x, if x is divisible by 4, then x is even. Q(x) implies P(x). The universal quantifier is needed since it applies to all numbers. So, \u2200x (Q(x) \u2192 P(x)) is the correct representation.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:42.188693"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "B",
+          "reasoning": "Okay, so the statement is 'If a number is divisible by 4, then it is even'. This means if Q(x) is true (divisible by 4), then P(x) is true (even). The 'if...then' translates to an implication (\u2192). Since this needs to be true for *all* numbers, not just some, it's a universal quantifier (\u2200x). So, it must be \u2200x (Q(x) \u2192 P(x)). Option A has the implication backwards, relating even to divisible by 4, and C and D use the existential quantifier which means only 'some' which isn't what the question is asking.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:43.695436"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "B",
+          "reasoning": "Okay, so the question is about translating 'If a number is divisible by 4, then it is even' into logic. I know 'if... then...' can be represented by an arrow '\u2192'. The question says 'divisible by 4' is Q(x) and 'even' is P(x). So, it should be something like 'If Q(x), then P(x)' which means Q(x) \u2192 P(x). Since this is true for *all* numbers in the domain, we need the universal quantifier \u2200x. Therefore, the answer is \u2200x (Q(x) \u2192 P(x)). But why not A? A says if a number is even then it's divisible by 4, which isn't true (like 6). So B is better. Why not C or D? Because it must be true for all integers.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:45.591533"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "B",
+          "reasoning": "Okay, so P(x) is 'x is even' and Q(x) is 'x is divisible by 4'. The statement is 'If a number is divisible by 4, then it is even'. That means if Q(x) is true, then P(x) is also true. The 'if...then' part makes it an implication (\u2192). Since it's true for *all* numbers divisible by 4, it should be \u2200x. So, it should be \u2200x (Q(x) \u2192 P(x)).",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:46.899180"
+        }
+      ]
+    },
+    {
+      "question_idx": 2,
+      "concept": "proof_techniques",
+      "correct_rate": 0.4166666666666667,
+      "avg_confidence": 82.91666666666667,
+      "answer_distribution": {
+        "C": 5,
+        "A": 7
+      },
+      "recommendation": "PEER_DISCUSSION",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "C",
+          "reasoning": "Okay, so I need to prove something about all n greater than or equal to 1. Proof by contradiction could work, but it feels clunky. Direct proof seems hard to apply here. Proof by exhaustion is only good for small finite cases. Mathematical induction is perfect for proving statements about all natural numbers (or integers greater than some starting point). So, I think induction is the best choice.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:48.593040"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "A",
+          "reasoning": "Hmm, I remember something about proofs. Proof by contradiction is when you assume the opposite is true and show it leads to a contradiction... so if the sum isn't n(n+1)/2, then it must be something else, and that leads to a problem. Induction seems harder to remember the steps.",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:54:49.722621"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "A",
+          "reasoning": "Um, I think it's proof by contradiction? Because you assume the opposite is true and then show that it leads to a contradiction, which proves the original statement. I'm not really sure about the other methods.",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:54:50.726273"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "C",
+          "reasoning": "Mathematical induction is perfect for proving statements about all positive integers. The base case is n=1, and then you assume the formula is true for n=k and show it's true for n=k+1. The others wouldn't work as well.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:51.776864"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "A",
+          "reasoning": "Okay, so I need to prove something about all n >= 1. Direct proof might work, but how do you start? Contradiction seems like I assume it's *not* true and then... get confused. Exhaustion would take forever since it's for all n. Mathematical induction is what we use when there's infinity, so that seems right, but what if there's an easier method? Okay, induction is the most standard. Wait, but what if the easier method is the *direct* proof since we can actually prove the exact formula? Maybe I can use contradiction. I assume it's not true and then show that this lead to a contradiction and then the formula is actually true. Okay, I think I will go with Proof by Contradiction.",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:54:53.494205"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "A",
+          "reasoning": "Okay, so I'm trying to prove that the sum of the first n positive integers is n(n+1)/2. Proof by contradiction means you assume the opposite is true and then show that leads to something impossible. It sounds like a good way to start because if I can show that assuming it's *not* true leads to a problem, then it *must* be true!",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:54:54.822525"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "C",
+          "reasoning": "Proof by mathematical induction is specifically designed for proving statements that hold for all natural numbers (or integers greater than or equal to a base case). It involves establishing a base case and then proving an inductive step that shows if the statement holds for n, it also holds for n+1, covering all cases for n >= 1.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:55.907560"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "C",
+          "reasoning": "Mathematical induction is perfect for proving statements about all integers greater than or equal to some base value, which is exactly what we have here (n >= 1). The other methods don't quite fit as well.",
+          "confidence": 90,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:56.972954"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "C",
+          "reasoning": "Proof by Mathematical Induction is the most suitable technique. It involves proving a base case and then showing that if the statement holds for some integer k, it also holds for k+1, establishing the truth for all n \u2265 1. While other methods might be used in specific cases, induction is a very structured and reliable approach for this type of problem.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:54:58.203058"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "A",
+          "reasoning": "I think proof by contradiction is best because you assume the opposite, which is the sum is *not* n(n+1)/2, and then try to find a case where that's wrong. Like, maybe it only fails for a very specific n, and that would disprove it!",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:54:59.330709"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "A",
+          "reasoning": "Okay, so we need to prove something for all n >= 1. Exhaustion is out because we can't test every single number. Direct proof seems like it could work, but maybe it's too straightforward? Mathematical Induction is specifically for proving things for all numbers, so it feels right, but... why would contradiction *not* work? Maybe if we assume the opposite is true, we can find a contradiction easily. I'm gonna pick contradiction...but why does induction feel so right?",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:55:00.863756"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "A",
+          "reasoning": "Okay, I remember learning about different proof methods. I think contradiction is about assuming the opposite is true and showing that it leads to something impossible. The formula looks kinda complex, so maybe if I assume it's *not* true, something crazy will happen. Induction seems like it's used when proving something is true for all numbers... but contradiction sounds more familiar for some reason.",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:55:02.301834"
+        }
+      ]
+    },
+    {
+      "question_idx": 3,
+      "concept": "quantifiers",
+      "correct_rate": 0.9166666666666666,
+      "avg_confidence": 81.25,
+      "answer_distribution": {
+        "D": 11,
+        "A": 1
+      },
+      "recommendation": "MOVE_ON",
+      "responses": [
+        {
+          "student_id": "Careful Casey",
+          "answer": "D",
+          "reasoning": "The array is not sorted if there exists at least one index `i` where `arr[i] > arr[i+1]`. Option A negates the entire statement, which means the array *could* be sorted. Option D correctly identifies the existence of such an `i` using the existential quantifier (\u2203) and the 'and' operator.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:04.038186"
+        },
+        {
+          "student_id": "Quick Quinn",
+          "answer": "D",
+          "reasoning": "Okay, so the array is NOT sorted. That means there's at least ONE place where the order is wrong. So, there exists an 'i' where arr[i] is greater than arr[i+1]. Options A and B are related and express all array being sorted or not all arrays are sorted, but I think it's more specific than that, like a finding one counterexample. C sounds good for the whole array being not sorted in ascending, but D is better because it means exists at least one element that is not sorted.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:05.456566"
+        },
+        {
+          "student_id": "Struggling Sam",
+          "answer": "D",
+          "reasoning": "Okay, so I need to say that the array is NOT sorted. That means there's at least one place where the order is wrong. Option A says 'not for all i, arr[i] <= arr[i+1]', which sounds right, but Option D, 'there exists an i, arr[i] > arr[i+1]' says the same thing in a clearer way - that there's at least one instance where the current element is bigger than the next. So D is better because it directly states there's a violation of sorted order. A is correct too, but D is a more direct approach. I think I'm overthinking this, but D makes the most sense now.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:07.047690"
+        },
+        {
+          "student_id": "Confident Chris",
+          "answer": "D",
+          "reasoning": "The array is NOT sorted if there exists at least one index 'i' where arr[i] is greater than arr[i+1]. Option A is a double negative and feels wrong. B means the array IS sorted. C is too restrictive; it requires EVERY element to be out of order. D captures the 'not sorted' condition because it only needs ONE pair to be out of order.",
+          "confidence": 90,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:08.339965"
+        },
+        {
+          "student_id": "Anxious Alex",
+          "answer": "D",
+          "reasoning": "Okay, so the question is asking when an array is NOT sorted. That means there must be at least one place where `arr[i]` is greater than `arr[i+1]`. Option A says \"not for all i, `arr[i]` is less than or equal to `arr[i+1]`\" which sounds like it *could* be right, but option D says \"there exists an i such that `arr[i]` is greater than `arr[i+1]`\". That makes more sense because it means we found a specific place where the array is out of order. So I think D is the better choice. I was initially drawn to A because of the negation, but D is more precise.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:09.882803"
+        },
+        {
+          "student_id": "Beginner Blake",
+          "answer": "A",
+          "reasoning": "Okay, so the array is NOT sorted. That means it's not true that *all* elements are in the right order. Option A seems to say that it's not the case that for all i, arr[i] <= arr[i+1], which is the definition of not sorted. I think B is saying it's always sorted, and C is saying it's always in descending order, which isn't what we want. D is saying that *some* element is out of order. A seems better because it negates the whole 'sorted' thing.",
+          "confidence": 75,
+          "is_correct": false,
+          "timestamp": "2026-01-17T19:55:11.408883"
+        },
+        {
+          "student_id": "Advanced Ava",
+          "answer": "D",
+          "reasoning": "The array is NOT sorted if there exists at least one index `i` such that `arr[i]` is greater than `arr[i+1]`. Option A is also a way to express the statement, but option D is more direct.",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:12.432187"
+        },
+        {
+          "student_id": "Visual Val",
+          "answer": "D",
+          "reasoning": "The array is NOT sorted if there exists at least one index i where arr[i] > arr[i+1]. Option A says that it is NOT true that FOR ALL i, arr[i] <= arr[i+1], but this can also be true if the array is partially sorted, which is not what we want. Option D correctly captures the existence of at least one such violation.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:13.564820"
+        },
+        {
+          "student_id": "Abstract Andy",
+          "answer": "D",
+          "reasoning": "The array is not sorted if there exists at least one index `i` such that the element at `i` is greater than the element at `i+1`. Option A is close because it negates the whole statement (every element is sorted) which means that the array may have elements that are in the correct order as well. Option D (there exists at least one element that violates the sorted order) makes more sense",
+          "confidence": 95,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:14.997556"
+        },
+        {
+          "student_id": "Practical Pat",
+          "answer": "D",
+          "reasoning": "Okay, so we want to say the array is NOT sorted. Option A says \"it is not true that for all i, arr[i] <= arr[i+1]\". This is technically correct, but it's a double negative and a bit confusing. It basically means 'there exists at least one i where arr[i] > arr[i+1]'. Option D says \"there exists an i such that arr[i] > arr[i+1]\". This is the most straightforward way to say the array is not sorted in ascending order. I almost picked A because it looks complicated, but I think D is clearer. B is wrong because that would mean it IS sorted. C is wrong because it would mean it's sorted in descending order.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:16.734370"
+        },
+        {
+          "student_id": "Questioning Quinn",
+          "answer": "D",
+          "reasoning": "Okay, so the question is asking when an array is NOT sorted. Option A says 'not for all i, arr[i] <= arr[i+1]', which sounds right at first. But wait... that just means it's not ALWAYS sorted, right? It could still be SOMETIMES sorted. Option D says 'there exists an i such that arr[i] > arr[i+1]', which means there's at least one place where the order is wrong. That makes more sense for NOT sorted. So, I choose D because it means there is a pair out of order. Why isn't it A? Because A just says it's not always sorted, not necessarily *not* sorted. I think...",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:18.334955"
+        },
+        {
+          "student_id": "Memorizer Morgan",
+          "answer": "D",
+          "reasoning": "Okay, so the array is NOT sorted. That means there has to be at least ONE place where the order is wrong. Option A negates the whole sorted thing, which seems right at first. But option D says there exists an i where arr[i] is bigger than arr[i+1]. That sounds like it's NOT sorted. Hmmm, A is like 'not all are sorted' and D is 'there is one that is not sorted'. D is more specific, so I think it's better. I almost picked A because it's simpler.",
+          "confidence": 75,
+          "is_correct": true,
+          "timestamp": "2026-01-17T19:55:19.911188"
+        }
+      ]
+    }
+  ]
+}
