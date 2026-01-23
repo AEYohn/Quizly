@@ -5,12 +5,20 @@ peer discussion, and exit tickets.
 """
 
 import os
+import asyncio
 import json
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+
+from ..rate_limiter import limiter, AI_RATE_LIMIT
+
+
+def utc_now() -> datetime:
+    """Return current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
 
 # Import schemas
 from ..schemas import (
@@ -58,7 +66,8 @@ router = APIRouter()
 # ==============================================================================
 
 @router.post("/generate-questions", response_model=QuestionGenerateResponse)
-async def generate_questions(request: QuestionGenerateRequest):
+@limiter.limit(AI_RATE_LIMIT)
+async def generate_questions(request: Request, data: QuestionGenerateRequest):
     """
     Generate AI-powered questions for a topic.
     
@@ -72,11 +81,11 @@ async def generate_questions(request: QuestionGenerateRequest):
     
     # Convert concepts or auto-generate from topic
     concepts = []
-    if request.concepts:
-        concepts = [c.model_dump() for c in request.concepts]
+    if data.concepts:
+        concepts = [c.model_dump() for c in data.concepts]
     else:
         # Auto-generate concepts from topic using LLM
-        concepts = await _generate_concepts_for_topic(request.topic, request.num_questions)
+        concepts = await _generate_concepts_for_topic(data.topic, data.num_questions)
     
     if not concepts:
         raise HTTPException(status_code=400, detail="No concepts available for question generation")
@@ -85,10 +94,21 @@ async def generate_questions(request: QuestionGenerateRequest):
     generator = QuestionBankGenerator()
     questions = []
     
-    for i, concept in enumerate(concepts[:request.num_questions]):
+    # Get question type if specified
+    question_type = getattr(data, 'question_type', 'conceptual')
+    target_misconception = getattr(data, 'target_misconception', None)
+    
+    for i, concept in enumerate(concepts[:data.num_questions]):
+        if i > 0 and GEMINI_AVAILABLE:
+            await asyncio.sleep(1.5)
         try:
             difficulty = 0.4 + (i * 0.15)  # Progressive difficulty
-            q = generator.generate_question(concept, difficulty=min(difficulty, 0.85))
+            q = generator.generate_question(
+                concept, 
+                difficulty=min(difficulty, 0.85),
+                question_type=question_type,
+                target_misconception=target_misconception
+            )
             questions.append(QuestionResponse(**q))
         except Exception as e:
             print(f"Failed to generate question for concept {concept.get('name', 'unknown')}: {e}")
@@ -97,10 +117,53 @@ async def generate_questions(request: QuestionGenerateRequest):
         raise HTTPException(status_code=500, detail="Failed to generate any questions")
     
     return QuestionGenerateResponse(
-        topic=request.topic,
+        topic=data.topic,
         questions=questions,
-        generated_at=datetime.utcnow()
+        generated_at=utc_now()
     )
+
+
+class RemediationQuestionRequest(BaseModel):
+    """Request for generating a remediation question."""
+    concept: ConceptInput
+    misconception: str
+    student_name: Optional[str] = None
+    difficulty: float = 0.5
+
+
+@router.post("/generate-remediation-question")
+@limiter.limit(AI_RATE_LIMIT)
+async def generate_remediation_question(request: Request, data: RemediationQuestionRequest):
+    """
+    Generate a question specifically targeting a misconception for remediation.
+    
+    POST /ai/generate-remediation-question
+    
+    Creates a question designed to expose and address a specific student misconception.
+    """
+    if not AI_AGENTS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="AI agents not available")
+    
+    generator = QuestionBankGenerator()
+    concept_dict = data.concept.model_dump()
+    
+    try:
+        q = generator.generate_question(
+            concept_dict,
+            difficulty=data.difficulty,
+            target_misconception=data.misconception,
+            question_type="conceptual"  # Best for addressing misconceptions
+        )
+        
+        return {
+            "question": QuestionResponse(**q),
+            "target_misconception": data.misconception,
+            "student_name": data.student_name,
+            "purpose": f"Remediation question targeting: {data.misconception}",
+            "generated_at": utc_now()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate remediation question: {e}")
 
 
 async def _generate_concepts_for_topic(topic: str, num_concepts: int = 4) -> List[Dict]:
@@ -141,7 +204,8 @@ Return ONLY valid JSON array:
 # ==============================================================================
 
 @router.post("/analyze-response", response_model=AnalyzeResponseResponse)
-async def analyze_response(request: AnalyzeResponseRequest):
+@limiter.limit(AI_RATE_LIMIT)
+async def analyze_response(request: Request, data: AnalyzeResponseRequest):
     """
     Analyze a student's response with AI.
     
@@ -152,12 +216,12 @@ async def analyze_response(request: AnalyzeResponseRequest):
     """
     if not GEMINI_AVAILABLE:
         # Basic analysis without LLM
-        correct_answer = request.question.get("correct_answer", "A")
-        is_correct = request.answer.upper() == correct_answer.upper()
+        correct_answer = data.question.get("correct_answer", "A")
+        is_correct = data.answer.upper() == correct_answer.upper()
         
         return AnalyzeResponseResponse(
             is_correct=is_correct,
-            reasoning_score=50 if request.reasoning else 10,
+            reasoning_score=50 if data.reasoning else 10,
             strengths=["Submitted an answer"] if is_correct else [],
             misconceptions=[],
             tips=["Review the explanation for this question"],
@@ -166,13 +230,13 @@ async def analyze_response(request: AnalyzeResponseRequest):
     
     prompt = f"""Analyze this student's response to a multiple choice question.
 
-QUESTION: {request.question.get('prompt', '')}
-OPTIONS: {request.question.get('options', [])}
-CORRECT ANSWER: {request.question.get('correct_answer', '')}
+QUESTION: {data.question.get('prompt', '')}
+OPTIONS: {data.question.get('options', [])}
+CORRECT ANSWER: {data.question.get('correct_answer', '')}
 
-STUDENT'S ANSWER: {request.answer}
-STUDENT'S REASONING: {request.reasoning or 'No reasoning provided'}
-CONFIDENCE: {request.confidence}%
+STUDENT'S ANSWER: {data.answer}
+STUDENT'S REASONING: {data.reasoning or 'No reasoning provided'}
+CONFIDENCE: {data.confidence}%
 
 Analyze:
 1. Is the answer correct?
@@ -201,8 +265,8 @@ Return ONLY valid JSON:
         return AnalyzeResponseResponse(**result)
     except Exception as e:
         print(f"Analysis failed: {e}")
-        correct_answer = request.question.get("correct_answer", "A")
-        is_correct = request.answer.upper() == correct_answer.upper()
+        correct_answer = data.question.get("correct_answer", "A")
+        is_correct = data.answer.upper() == correct_answer.upper()
         return AnalyzeResponseResponse(
             is_correct=is_correct,
             reasoning_score=50,
@@ -217,8 +281,12 @@ Return ONLY valid JSON:
 # Peer Discussion
 # ==============================================================================
 
+# Configurable peer name
+PEER_NAME = os.getenv("AI_PEER_NAME", "Alex")
+
 @router.post("/peer-discussion", response_model=PeerDiscussionResponse)
-async def generate_peer_discussion(request: PeerDiscussionRequest):
+@limiter.limit(AI_RATE_LIMIT)
+async def generate_peer_discussion(request: Request, data: PeerDiscussionRequest):
     """
     Generate an AI peer's perspective for discussion.
     
@@ -229,23 +297,23 @@ async def generate_peer_discussion(request: PeerDiscussionRequest):
     """
     if not GEMINI_AVAILABLE:
         return PeerDiscussionResponse(
-            peer_name="Alex",
+            peer_name=PEER_NAME,
             peer_answer="A",
             peer_reasoning="I think this is the correct approach based on the key concepts.",
             discussion_prompt="What made you choose your answer?",
             insight="Consider the underlying principles when evaluating options."
         )
     
-    prompt = f"""You are a fellow student named Alex discussing a question with a classmate.
+    prompt = f"""You are a fellow student named {PEER_NAME} discussing a question with a classmate.
 
-QUESTION: {request.question.get('prompt', '')}
-OPTIONS: {request.question.get('options', [])}
-CORRECT ANSWER: {request.question.get('correct_answer', '')}
+QUESTION: {data.question.get('prompt', '')}
+OPTIONS: {data.question.get('options', [])}
+CORRECT ANSWER: {data.question.get('correct_answer', '')}
 
-YOUR CLASSMATE chose: {request.student_answer}
-Their reasoning: {request.student_reasoning or 'Not provided'}
+YOUR CLASSMATE chose: {data.student_answer}
+Their reasoning: {data.student_reasoning or 'Not provided'}
 
-As Alex, provide your perspective. You should:
+As {PEER_NAME}, provide your perspective. You should:
 1. Sometimes agree, sometimes disagree (be pedagogically helpful)
 2. Explain your reasoning in a student-like way
 3. Ask a probing question to make them think
@@ -253,7 +321,7 @@ As Alex, provide your perspective. You should:
 
 Return ONLY valid JSON:
 {{
-    "peer_name": "Alex",
+    "peer_name": "{PEER_NAME}",
     "peer_answer": "A/B/C/D",
     "peer_reasoning": "Your reasoning as a student",
     "discussion_prompt": "A question for your classmate",
@@ -266,12 +334,15 @@ Return ONLY valid JSON:
             generation_config={"response_mime_type": "application/json"}
         )
         result = json.loads(response.text)
+        # Handle case where AI returns a list instead of an object
+        if isinstance(result, list):
+            result = result[0] if result else {}
         return PeerDiscussionResponse(**result)
     except Exception as e:
         print(f"Peer discussion generation failed: {e}")
         return PeerDiscussionResponse(
-            peer_name="Alex",
-            peer_answer=request.student_answer,
+            peer_name=PEER_NAME,
+            peer_answer=data.student_answer,
             peer_reasoning="I had a similar thought process.",
             discussion_prompt="What was the key factor in your decision?",
             insight="It's important to consider all the options carefully."
@@ -292,7 +363,8 @@ from ..schemas import (
 
 
 @router.post("/discussion/student-reply", response_model=DiscussionContinueResponse)
-async def student_reply_to_discussion(request: StudentReplyRequest):
+@limiter.limit(AI_RATE_LIMIT)
+async def student_reply_to_discussion(request: Request, data: StudentReplyRequest):
     """
     Student replies to the peer discussion.
     
@@ -305,16 +377,16 @@ async def student_reply_to_discussion(request: StudentReplyRequest):
     # Format discussion history
     history_text = "\n".join([
         f"{msg.name} ({msg.role}): {msg.content}"
-        for msg in request.discussion_history
-    ]) if request.discussion_history else "No previous messages"
+        for msg in data.discussion_history
+    ]) if data.discussion_history else "No previous messages"
     
     answer_change_context = ""
-    if request.wants_to_change_answer and request.new_answer:
-        answer_change_context = f"\n\nThe student wants to CHANGE their answer to {request.new_answer}."
+    if data.wants_to_change_answer and data.new_answer:
+        answer_change_context = f"\n\nThe student wants to CHANGE their answer to {data.new_answer}."
     
     if not GEMINI_AVAILABLE:
         return DiscussionContinueResponse(
-            speaker_name="Alex",
+            speaker_name=PEER_NAME,
             speaker_role="peer",
             message="That's a great point! I hadn't thought about it that way.",
             follow_up_question="Can you explain what made you think of that?",
@@ -322,19 +394,19 @@ async def student_reply_to_discussion(request: StudentReplyRequest):
             learning_moment=None
         )
     
-    prompt = f"""You are Alex, a fellow student continuing a peer discussion.
+    prompt = f"""You are {PEER_NAME}, a fellow student continuing a peer discussion.
 
-QUESTION: {request.question.get('prompt', '')}
-OPTIONS: {request.question.get('options', [])}
-CORRECT ANSWER: {request.question.get('correct_answer', '')}
+QUESTION: {data.question.get('prompt', '')}
+OPTIONS: {data.question.get('options', [])}
+CORRECT ANSWER: {data.question.get('correct_answer', '')}
 
 DISCUSSION SO FAR:
 {history_text}
 
-STUDENT'S NEW REPLY: "{request.student_reply}"
+STUDENT'S NEW REPLY: "{data.student_reply}"
 {answer_change_context}
 
-As Alex, respond naturally to continue the discussion:
+As {PEER_NAME}, respond naturally to continue the discussion:
 1. Acknowledge their point
 2. If they're getting closer to understanding, encourage them
 3. If they're still confused, gently guide them
@@ -348,7 +420,7 @@ Determine if:
 
 Return ONLY valid JSON:
 {{
-    "speaker_name": "Alex",
+    "speaker_name": "{PEER_NAME}",
     "speaker_role": "peer",
     "message": "Your response to the student",
     "follow_up_question": "A follow-up question if ongoing, or null",
@@ -366,7 +438,7 @@ Return ONLY valid JSON:
     except Exception as e:
         print(f"Student reply processing failed: {e}")
         return DiscussionContinueResponse(
-            speaker_name="Alex",
+            speaker_name=PEER_NAME,
             speaker_role="peer",
             message="Hmm, that's interesting! Let me think about that.",
             follow_up_question="What made you think of it that way?",
@@ -376,7 +448,8 @@ Return ONLY valid JSON:
 
 
 @router.post("/discussion/teacher-intervene", response_model=DiscussionContinueResponse)
-async def teacher_intervene_in_discussion(request: TeacherInterventionRequest):
+@limiter.limit(AI_RATE_LIMIT)
+async def teacher_intervene_in_discussion(request: Request, data: TeacherInterventionRequest):
     """
     Teacher intervenes in a peer discussion.
     
@@ -389,15 +462,15 @@ async def teacher_intervene_in_discussion(request: TeacherInterventionRequest):
     # Format discussion history
     history_text = "\n".join([
         f"{msg.name} ({msg.role}): {msg.content}"
-        for msg in request.discussion_history
-    ]) if request.discussion_history else "No previous messages"
+        for msg in data.discussion_history
+    ]) if data.discussion_history else "No previous messages"
     
     # If teacher provided a custom message, just use that
-    if request.teacher_message:
+    if data.teacher_message:
         return DiscussionContinueResponse(
-            speaker_name=request.teacher_name,
+            speaker_name=data.teacher_name,
             speaker_role="teacher",
-            message=request.teacher_message,
+            message=data.teacher_message,
             follow_up_question=None,
             discussion_status="ongoing",
             learning_moment=None
@@ -405,7 +478,7 @@ async def teacher_intervene_in_discussion(request: TeacherInterventionRequest):
     
     if not GEMINI_AVAILABLE:
         return DiscussionContinueResponse(
-            speaker_name=request.teacher_name,
+            speaker_name=data.teacher_name,
             speaker_role="teacher",
             message="Great discussion! Let me add some context to help clarify.",
             follow_up_question=None,
@@ -421,20 +494,20 @@ async def teacher_intervene_in_discussion(request: TeacherInterventionRequest):
     }
     
     instruction = intervention_prompts.get(
-        request.intervention_type, 
+        data.intervention_type, 
         "Provide helpful guidance"
     )
     
-    prompt = f"""You are {request.teacher_name}, the instructor.
+    prompt = f"""You are {data.teacher_name}, the instructor.
 
-QUESTION: {request.question.get('prompt', '')}
-CORRECT ANSWER: {request.question.get('correct_answer', '')}
-EXPLANATION: {request.question.get('explanation', '')}
+QUESTION: {data.question.get('prompt', '')}
+CORRECT ANSWER: {data.question.get('correct_answer', '')}
+EXPLANATION: {data.question.get('explanation', '')}
 
 STUDENT DISCUSSION SO FAR:
 {history_text}
 
-INTERVENTION TYPE: {request.intervention_type}
+INTERVENTION TYPE: {data.intervention_type}
 INSTRUCTION: {instruction}
 
 As the instructor, provide an intervention that:
@@ -445,7 +518,7 @@ As the instructor, provide an intervention that:
 
 Return ONLY valid JSON:
 {{
-    "speaker_name": "{request.teacher_name}",
+    "speaker_name": "{data.teacher_name}",
     "speaker_role": "teacher",
     "message": "Your intervention message",
     "follow_up_question": "Optional question for students to consider",
@@ -463,17 +536,22 @@ Return ONLY valid JSON:
     except Exception as e:
         print(f"Teacher intervention failed: {e}")
         return DiscussionContinueResponse(
-            speaker_name=request.teacher_name,
+            speaker_name=data.teacher_name,
             speaker_role="teacher",
             message="Let's think about this step by step. What's the key concept here?",
             follow_up_question=None,
             discussion_status="ongoing",
             learning_moment=None
         )
+
+
+# ==============================================================================
+# Exit Ticket
 # ==============================================================================
 
 @router.post("/exit-ticket", response_model=ExitTicketResponse)
-async def generate_exit_ticket(request: ExitTicketRequest):
+@limiter.limit(AI_RATE_LIMIT)
+async def generate_exit_ticket(request: Request, data: ExitTicketRequest):
     """
     Generate a personalized exit ticket for a student.
     
@@ -483,31 +561,31 @@ async def generate_exit_ticket(request: ExitTicketRequest):
     areas to improve, and a micro-lesson for their weakest area.
     """
     # Calculate basic stats
-    total = len(request.responses)
-    correct = sum(1 for r in request.responses if r.was_correct)
+    total = len(data.responses)
+    correct = sum(1 for r in data.responses if r.was_correct)
     score = int((correct / total * 100)) if total > 0 else 0
     
     # Find weak concepts
-    weak_concepts = [r.concept for r in request.responses if not r.was_correct]
-    strong_concepts = [r.concept for r in request.responses if r.was_correct]
+    weak_concepts = [r.concept for r in data.responses if not r.was_correct]
+    strong_concepts = [r.concept for r in data.responses if r.was_correct]
     
     if not GEMINI_AVAILABLE:
         return ExitTicketResponse(
-            student_name=request.student_name,
+            student_name=data.student_name,
             overall_score=score,
             strengths=strong_concepts[:2] if strong_concepts else ["Completed all questions"],
             areas_to_improve=weak_concepts[:2] if weak_concepts else [],
-            micro_lesson=f"Review {weak_concepts[0] if weak_concepts else request.topic} for better understanding.",
+            micro_lesson=f"Review {weak_concepts[0] if weak_concepts else data.topic} for better understanding.",
             follow_up_question=None
         )
     
     responses_summary = "\n".join([
         f"- Q: {r.question_prompt[:50]}... | Answer: {r.student_answer} | {'✓' if r.was_correct else '✗'} | Concept: {r.concept}"
-        for r in request.responses
+        for r in data.responses
     ])
     
-    prompt = f"""Create a personalized exit ticket for student: {request.student_name}
-Topic: {request.topic}
+    prompt = f"""Create a personalized exit ticket for student: {data.student_name}
+Topic: {data.topic}
 Score: {score}% ({correct}/{total} correct)
 
 Responses:
@@ -521,7 +599,7 @@ Create:
 
 Return ONLY valid JSON:
 {{
-    "student_name": "{request.student_name}",
+    "student_name": "{data.student_name}",
     "overall_score": {score},
     "strengths": ["strength1", "strength2"],
     "areas_to_improve": ["area1"],
@@ -539,7 +617,7 @@ Return ONLY valid JSON:
     except Exception as e:
         print(f"Exit ticket generation failed: {e}")
         return ExitTicketResponse(
-            student_name=request.student_name,
+            student_name=data.student_name,
             overall_score=score,
             strengths=strong_concepts[:2] if strong_concepts else ["Completed the session"],
             areas_to_improve=weak_concepts[:2] if weak_concepts else [],
@@ -558,5 +636,7 @@ async def ai_status():
     return {
         "ai_agents_available": AI_AGENTS_AVAILABLE,
         "gemini_available": GEMINI_AVAILABLE,
-        "gemini_api_key_set": bool(os.getenv("GEMINI_API_KEY"))
+        "gemini_api_key_set": bool(os.getenv("GEMINI_API_KEY")),
+        "rate_limit": AI_RATE_LIMIT,
+        "peer_name": PEER_NAME
     }

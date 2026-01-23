@@ -80,15 +80,9 @@ class DocumentProcessor:
         self.processed_docs: List[ProcessedDocument] = []
         self.uploaded_files: Dict[str, any] = {}  # For File API references
     
-    def process_pdf_native(self, pdf_path: str) -> ProcessedDocument:
+    async def process_pdf_native(self, pdf_path: str) -> ProcessedDocument:
         """
-        Process PDF using Gemini's native multimodal understanding.
-        
-        This is MORE efficient than text extraction because:
-        1. Gemini understands images, diagrams, tables directly
-        2. No OCR errors
-        3. Preserves document structure
-        4. Single API call for extraction
+        Process PDF using Gemini's native multimodal understanding (Async).
         """
         if not GEMINI_AVAILABLE or not MODEL:
             return ProcessedDocument(
@@ -106,12 +100,12 @@ class DocumentProcessor:
             pdf_bytes = f.read()
         
         if file_size > 20 * 1024 * 1024:  # > 20MB: Use File API
-            return self._process_large_pdf(pdf_path, file_name)
+            return await self._process_large_pdf(pdf_path, file_name)
         else:
-            return self._process_inline_pdf(pdf_bytes, file_name)
+            return await self._process_inline_pdf(pdf_bytes, file_name)
     
-    def _process_inline_pdf(self, pdf_bytes: bytes, file_name: str) -> ProcessedDocument:
-        """Process PDF inline (< 20MB) - single API call."""
+    async def _process_inline_pdf(self, pdf_bytes: bytes, file_name: str) -> ProcessedDocument:
+        """Process PDF inline (< 20MB) - single API call (Async)."""
         
         # Encode as base64 for Gemini
         pdf_b64 = base64.standard_b64encode(pdf_bytes).decode('utf-8')
@@ -141,7 +135,7 @@ For concepts: Be specific - not just "algorithms" but "time complexity of merge 
 For objectives: Use action verbs like "explain", "implement", "compare", "analyze"."""
 
         try:
-            response = MODEL.generate_content([
+            response = await MODEL.generate_content_async([
                 {"mime_type": "application/pdf", "data": pdf_b64},
                 prompt
             ])
@@ -168,11 +162,14 @@ For objectives: Use action verbs like "explain", "implement", "compare", "analyz
                 summary=f"Error: {str(e)}"  
             )
     
-    def _process_large_pdf(self, pdf_path: str, file_name: str) -> ProcessedDocument:
-        """Process large PDF using File API (> 20MB)."""
+    async def _process_large_pdf(self, pdf_path: str, file_name: str) -> ProcessedDocument:
+        """Process large PDF using File API (> 20MB) (Async)."""
         
         try:
-            # Upload to Gemini File API
+            # Upload to Gemini File API (Upload is still sync usually, but fast enough or run in thread)
+            # genai.upload_file is sync. We can wrap it if needed, but it's IO bound.
+            # ideally: await loop.run_in_executor(None, genai.upload_file, pdf_path)
+            # For now keeping sync upload as it's separate from generation
             uploaded_file = genai.upload_file(pdf_path)
             self.uploaded_files[file_name] = uploaded_file
             
@@ -188,7 +185,7 @@ Return JSON:
 
 Focus on concepts that would make good quiz questions."""
 
-            response = MODEL.generate_content([uploaded_file, prompt])
+            response = await MODEL.generate_content_async([uploaded_file, prompt])
             result = self._parse_json_response(response.text)
             
             return ProcessedDocument(
@@ -207,8 +204,8 @@ Focus on concepts that would make good quiz questions."""
                 summary=f"Error: {str(e)}"
             )
     
-    def process_text(self, text: str, source: str = "pasted") -> ProcessedDocument:
-        """Process text content with Gemini."""
+    async def process_text(self, text: str, source: str = "pasted") -> ProcessedDocument:
+        """Process text content with Gemini (Async)."""
         
         if not GEMINI_AVAILABLE or not MODEL:
             return ProcessedDocument(
@@ -245,7 +242,7 @@ IMPORTANT:
 - Be specific with concepts - they should make good quiz questions."""
 
         try:
-            response = MODEL.generate_content(prompt)
+            response = await MODEL.generate_content_async(prompt)
             result = self._parse_json_response(response.text)
             
             return ProcessedDocument(
@@ -267,8 +264,8 @@ IMPORTANT:
                 summary=f"Error: {str(e)}"
             )
     
-    def process_image(self, image_path: str) -> ProcessedDocument:
-        """Process image (diagram, chart, etc.) with Gemini vision."""
+    async def process_image(self, image_path: str) -> ProcessedDocument:
+        """Process image (diagram, chart, etc.) with Gemini vision (Async)."""
         
         if not GEMINI_AVAILABLE or not MODEL:
             return ProcessedDocument(
@@ -301,10 +298,11 @@ Return JSON:
 }"""
 
         try:
-            response = MODEL.generate_content([
+            response = await MODEL.generate_content_async([
                 {"mime_type": mime, "data": image_b64},
                 prompt
             ])
+            
             result = self._parse_json_response(response.text)
             
             return ProcessedDocument(
@@ -332,18 +330,18 @@ Return JSON:
             return json.loads(text[start:end])
         return {}
     
-    def process_file(self, file_path: str) -> ProcessedDocument:
-        """Auto-detect file type and process."""
+    async def process_file(self, file_path: str) -> ProcessedDocument:
+        """Auto-detect file type and process (Async)."""
         path = Path(file_path)
         suffix = path.suffix.lower()
         
         if suffix == '.pdf':
-            return self.process_pdf_native(file_path)
+            return await self.process_pdf_native(file_path)
         elif suffix in ['.png', '.jpg', '.jpeg', '.webp']:
-            return self.process_image(file_path)
+            return await self.process_image(file_path)
         elif suffix in ['.txt', '.md', '.py', '.js']:
             with open(file_path, 'r') as f:
-                return self.process_text(f.read(), path.name)
+                return await self.process_text(f.read(), path.name)
         else:
             return ProcessedDocument(
                 source=path.name,
@@ -388,9 +386,9 @@ doc_processor = DocumentProcessor()
 # INTEGRATION FUNCTIONS
 # ============================================================================
 
-def process_materials_efficient(files, text_content: str, url_content: str) -> Tuple[str, str, str, str]:
+async def process_materials_efficient(files, text_content: str, url_content: str) -> Tuple[str, str, str, str]:
     """
-    Process materials using Gemini's native capabilities.
+    Process materials using Gemini's native capabilities (Async).
     Returns (status_message, suggested_topic, extracted_concepts_csv, extracted_objectives_newline).
     """
     global doc_processor
@@ -405,7 +403,7 @@ def process_materials_efficient(files, text_content: str, url_content: str) -> T
     if files:
         for f in files:
             try:
-                doc = doc_processor.process_file(f.name)
+                doc = await doc_processor.process_file(f.name)
                 doc_processor.processed_docs.append(doc)
                 results.append(f"📄 {doc.source}: {len(doc.concepts)} concepts, {len(doc.objectives)} objectives")
                 if doc.topic:
@@ -417,7 +415,7 @@ def process_materials_efficient(files, text_content: str, url_content: str) -> T
     
     # Process pasted text
     if text_content and text_content.strip():
-        doc = doc_processor.process_text(text_content, "pasted_content")
+        doc = await doc_processor.process_text(text_content, "pasted_content")
         doc_processor.processed_docs.append(doc)
         results.append(f"📝 Pasted text: {len(doc.concepts)} concepts, {len(doc.objectives)} objectives")
         if doc.topic:

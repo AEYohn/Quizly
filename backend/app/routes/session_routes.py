@@ -1,150 +1,72 @@
 """
 Session Routes
-API endpoints for session management.
+API endpoints for session management (listing, history).
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
-from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Optional
+
+from ..database import get_db
+from ..services.session_service import SessionService
+from ..schemas import LiveSessionResponse
 
 router = APIRouter()
 
-
-# Request/Response Models
-class SessionCreate(BaseModel):
-    """Request model for creating a session."""
-    course_id: int
-    topic: str
-    syllabus_json: Dict[str, Any] = {}
-
-
-class SessionResponse(BaseModel):
-    """Response model for session data."""
-    id: int
-    course_id: int
-    topic: str
-    status: str
-    syllabus_json: Dict[str, Any]
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    questions: List[Dict[str, Any]] = []
-
-
-# Placeholder data (in-memory until DB is connected)
-sessions_db: Dict[int, Dict] = {}
-session_counter = 0
-
-
-@router.post("", response_model=SessionResponse)
-async def create_session(session: SessionCreate):
+@router.get("", response_model=dict)
+async def list_sessions(
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Create a new session from JSON syllabus.
-    
-    POST /sessions
+    List all sessions (Draft, Active, Completed).
     """
-    global session_counter
-    session_counter += 1
+    service = SessionService(db)
+    sessions = await service.get_all_sessions()
     
-    new_session = {
-        "id": session_counter,
-        "course_id": session.course_id,
-        "topic": session.topic,
-        "status": "draft",
-        "syllabus_json": session.syllabus_json,
-        "start_time": None,
-        "end_time": None,
-        "questions": []
-    }
-    sessions_db[session_counter] = new_session
-    
-    return SessionResponse(**new_session)
-
-
-@router.get("/{session_id}", response_model=SessionResponse)
-async def get_session(session_id: int):
-    """
-    Fetch session with question list.
-    
-    GET /sessions/{id}
-    """
-    if session_id not in sessions_db:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    return SessionResponse(**sessions_db[session_id])
-
-
-@router.post("/{session_id}/start")
-async def start_session(session_id: int):
-    """
-    Start a live session.
-    
-    POST /sessions/{id}/start
-    """
-    if session_id not in sessions_db:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions_db[session_id]
-    if session["status"] != "draft":
-        raise HTTPException(status_code=400, detail="Session already started or completed")
-    
-    session["status"] = "active"
-    session["start_time"] = datetime.utcnow()
-    
-    return {"message": "Session started", "session_id": session_id, "status": "active"}
-
-
-@router.post("/{session_id}/next")
-async def next_question(session_id: int):
-    """
-    Advance to next question in session.
-    
-    POST /sessions/{id}/next
-    """
-    if session_id not in sessions_db:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions_db[session_id]
-    if session["status"] != "active":
-        raise HTTPException(status_code=400, detail="Session is not active")
-    
-    # Placeholder - would advance question index
-    return {
-        "message": "Advanced to next question",
-        "session_id": session_id,
-        "current_question_index": 0  # Would track actual index
-    }
-
-
-@router.post("/{session_id}/end")
-async def end_session(session_id: int):
-    """
-    End a live session.
-    
-    POST /sessions/{id}/end
-    """
-    if session_id not in sessions_db:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions_db[session_id]
-    session["status"] = "completed"
-    session["end_time"] = datetime.utcnow()
-    
-    return {"message": "Session ended", "session_id": session_id, "status": "completed"}
-
-
-@router.get("")
-async def list_sessions(course_id: Optional[int] = None, status: Optional[str] = None):
-    """
-    List all sessions, optionally filtered by course or status.
-    
-    GET /sessions
-    """
-    results = list(sessions_db.values())
-    
-    if course_id:
-        results = [s for s in results if s["course_id"] == course_id]
-    if status:
-        results = [s for s in results if s["status"] == status]
-    
+    # Convert manually or use Pydantic schema if compatible
+    # Here we map to a simple list response
+    results = []
+    for s in sessions:
+        results.append({
+            "session_id": str(s.id),
+            "topic": s.topic,
+            "status": s.status,
+            "created_at": s.created_at,
+            "num_questions": len(s.questions) if s.questions else 0,
+            "active": s.status == "active",
+            "participant_count": len(s.participants) if s.participants else 0
+        })
+        
     return {"sessions": results}
+
+@router.get("/{session_id}", response_model=LiveSessionResponse)
+async def get_session_details(
+    session_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get details for a specific session."""
+    service = SessionService(db)
+    try:
+        import uuid
+        s_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+        
+    session = await service.get_session_by_id(s_uuid)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    return LiveSessionResponse(
+        session_id=session.id,
+        topic=session.topic,
+        status=session.status,
+        current_question_index=session.current_question_index,
+        active=session.status == "active",
+        num_questions=len(session.questions),
+        questions=[{
+            "id": str(q.id),
+            "prompt": q.prompt,
+            "options": q.options,
+            "concept": q.concept
+        } for q in session.questions]
+    )

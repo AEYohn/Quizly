@@ -98,7 +98,9 @@ class QuestionBankGenerator:
         self,
         concept: Dict[str, Any],
         difficulty: float = 0.5,
-        previous_prompts: List[str] = None
+        previous_prompts: List[str] = None,
+        target_misconception: Optional[str] = None,
+        question_type: str = "conceptual"
     ) -> Dict[str, Any]:
         """
         Generate a single question for a concept using LLM.
@@ -107,6 +109,8 @@ class QuestionBankGenerator:
             concept: Concept dict with id, name, topics, misconceptions
             difficulty: 0.0-1.0 difficulty level
             previous_prompts: List of previous question prompts to avoid repetition
+            target_misconception: Specific misconception to target (for adaptive remediation)
+            question_type: Type of question - "conceptual", "application", "analysis", "transfer"
             
         Returns:
             Question dict with prompt, options, correct_answer, explanation
@@ -120,12 +124,31 @@ class QuestionBankGenerator:
         if previous_prompts:
             prev_context = f"\n\nAvoid these previously asked questions:\n" + "\n".join(f"- {p}" for p in previous_prompts[-5:])
         
+        # Enhanced misconception targeting
+        misconception_instruction = ""
+        if target_misconception:
+            misconception_instruction = f"""
+CRITICAL - TARGET MISCONCEPTION: {target_misconception}
+Design the question to specifically expose and address this misconception.
+Make one wrong option directly embody this misconception (the "trap" option).
+The question scenario should make the misconception seem plausible."""
+        
+        # Question type guidance
+        type_guidance = {
+            "conceptual": "Test understanding of the core concept definition and principles.",
+            "application": "Present a real-world scenario where students must apply the concept.",
+            "analysis": "Require students to analyze a situation and identify underlying principles.",
+            "transfer": "Present a novel context where the concept applies in an unexpected way."
+        }.get(question_type, "Test understanding of the concept.")
+        
         prompt = f"""You are an expert educator creating a peer instruction question for a course.
 
 CONCEPT: {concept['name']}
 RELATED TOPICS: {', '.join(concept.get('topics', []))}
 COMMON STUDENT MISCONCEPTIONS: {', '.join(concept.get('misconceptions', []))}
 DIFFICULTY: {difficulty_label} ({difficulty:.1f}/1.0)
+QUESTION TYPE: {question_type.upper()} - {type_guidance}
+{misconception_instruction}
 {prev_context}
 
 Create a SPECIFIC, EDUCATIONAL multiple choice question for this concept.
@@ -135,6 +158,7 @@ CRITICAL REQUIREMENTS:
 2. Options must be REAL answers (specific values, concrete choices, TRUE/FALSE about specific claims)
 3. At least one distractor should exploit a listed misconception
 4. Include detailed explanation
+5. Identify which option is the "misconception trap" (the tempting wrong answer)
 
 Return ONLY valid JSON matching this structure:
 {{
@@ -142,27 +166,42 @@ Return ONLY valid JSON matching this structure:
     "options": ["A. Specific option", "B. Specific option", "C. Specific option", "D. Specific option"],
     "correct_answer": "A",
     "explanation": "Detailed explanation of why A is correct and why others are wrong",
-    "common_traps": ["What makes wrong options tempting"]
+    "common_traps": ["What makes wrong options tempting"],
+    "misconception_trap_option": "B",
+    "target_misconception": "{target_misconception or 'general'}"
 }}"""
 
-        try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config={"response_mime_type": "application/json"}
-            )
-            
-            result = json.loads(response.text)
-            
-            # Validate the question has real content
-            if self._validate_question(result):
-                result["id"] = f"q_{concept['id']}_{hash(result['prompt']) % 10000}"
-                result["concept"] = concept["id"]
-                result["difficulty"] = difficulty
-                # Shuffle options to randomize correct answer position
-                return shuffle_options(result)
-            
-        except Exception as e:
-            print(f"LLM question generation failed: {e}")
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config={"response_mime_type": "application/json"}
+                )
+                
+                result = json.loads(response.text)
+                
+                # Validate the question has real content
+                if self._validate_question(result):
+                    result["id"] = f"q_{concept['id']}_{hash(result['prompt']) % 10000}"
+                    result["concept"] = concept["id"]
+                    result["difficulty"] = difficulty
+                    result["question_type"] = question_type
+                    result["target_misconception"] = target_misconception
+                    # Shuffle options to randomize correct answer position
+                    return shuffle_options(result)
+                else:
+                    print(f"Generated question failed validation (attempt {attempt+1})")
+                    
+            except Exception as e:
+                print(f"LLM question generation failed (attempt {attempt+1}/{max_retries}): {e}")
+                
+            # Wait before retrying (exponential backoff)
+            if attempt < max_retries - 1:
+                sleep_time = 2 * (attempt + 1)
+                print(f"Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
         
         return self._fallback_question(concept, difficulty)
     

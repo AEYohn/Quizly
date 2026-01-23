@@ -6,7 +6,13 @@ API endpoints for student responses and WebSocket handling.
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def utc_now() -> datetime:
+    """Return current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
+
 
 router = APIRouter()
 
@@ -59,7 +65,7 @@ async def submit_answer(answer: AnswerSubmit):
         "confidence": answer.confidence,
         "rationale": answer.rationale,
         "is_correct": None,  # Would be computed from question data
-        "created_at": datetime.utcnow()
+        "created_at": utc_now()
     }
     responses_db[response_counter] = new_response
     
@@ -140,7 +146,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     "confidence": data.get("confidence"),
                     "rationale": data.get("rationale"),
                     "is_correct": None,
-                    "created_at": datetime.utcnow().isoformat()
+                    "created_at": utc_now().isoformat()
                 }
                 responses_db[response_counter] = new_response
                 

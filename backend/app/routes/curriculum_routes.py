@@ -90,7 +90,7 @@ async def process_materials(
                 tmp_path = tmp.name
             
             # Process with document processor
-            doc = doc_processor.process_file(tmp_path)
+            doc = await doc_processor.process_file(tmp_path)
             doc_processor.processed_docs.append(doc)
             
             if doc.topic:
@@ -109,7 +109,7 @@ async def process_materials(
     
     # Process pasted text
     if text_content and text_content.strip():
-        doc = doc_processor.process_text(text_content, "pasted_content")
+        doc = await doc_processor.process_text(text_content, "pasted_content")
         doc_processor.processed_docs.append(doc)
         
         if doc.topic:
@@ -202,16 +202,40 @@ Return JSON array:
 ]"""
 
     try:
-        response = MODEL.generate_content(prompt)
+        response = MODEL.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
         text = response.text.strip()
         
-        # Parse JSON
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        if start >= 0 and end > start:
-            generated = json.loads(text[start:end])
-        else:
-            generated = []
+        # Parse JSON - handle potential issues
+        try:
+            # Try direct parse first
+            if text.startswith("["):
+                generated = json.loads(text)
+            else:
+                # Extract JSON array from response
+                start = text.find("[")
+                end = text.rfind("]") + 1
+                if start >= 0 and end > start:
+                    generated = json.loads(text[start:end])
+                else:
+                    generated = []
+        except json.JSONDecodeError as je:
+            print(f"JSON parse error: {je}, attempting cleanup...")
+            # Clean up control characters and retry
+            import re
+            cleaned = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
+            start = cleaned.find("[")
+            end = cleaned.rfind("]") + 1
+            if start >= 0 and end > start:
+                generated = json.loads(cleaned[start:end])
+            else:
+                generated = []
+        
+        # Handle case where AI returns a single object instead of array
+        if isinstance(generated, dict):
+            generated = [generated]
         
         # Add IDs
         import random

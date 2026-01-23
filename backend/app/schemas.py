@@ -5,7 +5,12 @@ Request/Response models for all endpoints.
 
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def utc_now() -> datetime:
+    """Return current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
 
 
 # ==============================================================================
@@ -32,6 +37,14 @@ class QuestionGenerateRequest(BaseModel):
         default=None, 
         description="Additional context about the course level"
     )
+    question_type: str = Field(
+        default="conceptual",
+        description="Type: conceptual, application, analysis, or transfer"
+    )
+    target_misconception: Optional[str] = Field(
+        default=None,
+        description="Specific misconception to target for remediation"
+    )
 
 
 class QuestionOption(BaseModel):
@@ -50,13 +63,16 @@ class QuestionResponse(BaseModel):
     correct_answer: str
     explanation: str
     common_traps: List[str] = []
+    question_type: Optional[str] = None
+    target_misconception: Optional[str] = None
+    misconception_trap_option: Optional[str] = None
 
 
 class QuestionGenerateResponse(BaseModel):
     """Response containing generated questions."""
     topic: str
     questions: List[QuestionResponse]
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utc_now)
 
 
 # ==============================================================================
@@ -110,7 +126,7 @@ class DiscussionMessage(BaseModel):
     role: str = Field(..., description="'student', 'peer', or 'teacher'")
     name: str = Field(..., description="Name of the speaker")
     content: str = Field(..., description="Message content")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utc_now)
 
 
 class StudentReplyRequest(BaseModel):
@@ -201,6 +217,95 @@ class ExitTicketResponse(BaseModel):
 # ==============================================================================
 # Session Management (Enhanced)
 # ==============================================================================
+
+# ==============================================================================
+# Live Session Management
+# ==============================================================================
+
+class LiveSessionQuestion(BaseModel):
+    """Question in a live session."""
+    id: str
+    concept: str = ""
+    prompt: str
+    options: List[str] = []
+    correct_answer: str = ""
+    difficulty: float = 0.5
+    explanation: str = ""
+
+
+class LiveSessionStartRequest(BaseModel):
+    """Request to start a new live session."""
+    topic: str = Field(..., description="Session topic")
+    questions: List[Dict[str, Any]] = Field(..., description="Approved questions")
+    objectives: List[str] = Field(default=[], description="Learning objectives")
+
+
+class LiveSessionResponse(BaseModel):
+    """Response for live session data."""
+    session_id: str
+    topic: str
+    status: str = Field(description="Status: 'active', 'paused', 'completed'")
+    questions: List[LiveSessionQuestion]
+    current_question_index: int = 0
+    student_count: int = 0
+    started_at: datetime
+    updated_at: datetime
+
+
+class StudentJoinRequest(BaseModel):
+    """Request for a student to join a session."""
+    student_name: str = Field(..., description="Student's display name")
+
+
+class StudentJoinResponse(BaseModel):
+    """Response after joining a session."""
+    session_id: str
+    topic: str
+    student_name: str
+    num_questions: int
+    current_question_index: int
+    current_question: Optional[Dict[str, Any]] = None
+
+
+class StudentSubmissionRequest(BaseModel):
+    """Student's response submission."""
+    student_name: str = Field(..., description="Student's name")
+    question_id: str = Field(..., description="Question ID")
+    answer: str = Field(..., description="Selected answer (A, B, C, D) or text")
+    reasoning: Optional[str] = Field(default=None, description="Student's reasoning")
+    confidence: int = Field(default=50, ge=0, le=100, description="Confidence level")
+    response_type: str = Field(default="mcq", description="Type: mcq, code, image, text")
+    code_submission: Optional[str] = Field(default=None, description="Code if response_type is 'code'")
+    image_description: Optional[str] = Field(default=None, description="Image description if applicable")
+
+
+class StudentSubmissionResponse(BaseModel):
+    """Response after submitting an answer."""
+    success: bool
+    message: str
+    submitted_at: datetime
+
+
+class SessionStatusResponse(BaseModel):
+    """Real-time session status."""
+    session_id: str
+    topic: str
+    status: str
+    current_question_index: int
+    total_questions: int
+    students_joined: List[str]
+    responses_count: int
+    last_updated: datetime
+
+
+class ActiveSessionInfo(BaseModel):
+    """Brief info about active session."""
+    active: bool
+    session_id: Optional[str] = None
+    topic: Optional[str] = None
+    num_questions: int = 0
+    updated_at: Optional[datetime] = None
+
 
 class SessionCreateWithAI(BaseModel):
     """Create session with AI-generated questions."""

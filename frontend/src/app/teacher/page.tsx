@@ -6,6 +6,8 @@ import {
     TrendingUp,
     Clock,
     CheckCircle,
+    History,
+    Brain,
 } from "lucide-react";
 
 export default function TeacherDashboard() {
@@ -52,7 +54,7 @@ export default function TeacherDashboard() {
                 <h2 className="mb-4 text-lg font-semibold text-gray-900">
                     Quick Actions
                 </h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Link
                         href="/teacher/sessions/new"
                         className="group flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
@@ -90,12 +92,27 @@ export default function TeacherDashboard() {
                         className="group flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
                     >
                         <div className="rounded-lg bg-purple-100 p-3 text-purple-600 transition-colors group-hover:bg-purple-600 group-hover:text-white">
-                            <TrendingUp className="h-6 w-6" />
+                            <Brain className="h-6 w-6" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-gray-900">View Analytics</h3>
+                            <h3 className="font-semibold text-gray-900">Analytics</h3>
                             <p className="mt-1 text-sm text-gray-500">
-                                Analyze student performance and trends
+                                View learning insights and misconceptions
+                            </p>
+                        </div>
+                    </Link>
+
+                    <Link
+                        href="/teacher/history"
+                        className="group flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
+                    >
+                        <div className="rounded-lg bg-amber-100 p-3 text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
+                            <History className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-gray-900">History</h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Review past sessions and student progress
                             </p>
                         </div>
                     </Link>

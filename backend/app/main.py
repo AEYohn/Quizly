@@ -7,11 +7,17 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file before other imports
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import os
 
-from .routes import session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes
+from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes
+from .rate_limiter import limiter
+
+# Import slowapi for rate limiting
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 
 # Database lifecycle
@@ -54,6 +60,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS configuration
 origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
@@ -65,12 +75,14 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_routes.router, prefix="/auth", tags=["authentication"])
 app.include_router(session_routes.router, prefix="/sessions", tags=["sessions"])
 app.include_router(response_routes.router, prefix="/responses", tags=["responses"])
 app.include_router(analytics_routes.router, prefix="/analytics", tags=["analytics"])
 app.include_router(ai_routes.router, prefix="/ai", tags=["ai"])
 app.include_router(curriculum_routes.router, prefix="/curriculum", tags=["curriculum"])
 app.include_router(live_session_routes.router, prefix="/live-sessions", tags=["live-sessions"])
+app.include_router(adaptive_routes.router, prefix="/adaptive", tags=["adaptive-learning"])
 
 
 @app.get("/")
