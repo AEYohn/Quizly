@@ -37,17 +37,20 @@ async def start_live_session(
     request: LiveSessionStartRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Start a new live quiz session."""
+    """Start a new live quiz session.
+    
+    Multiple concurrent sessions are allowed to support:
+    - Async quizzes with different deadlines
+    - Multiple classes/sections at once
+    - Parallel live + async sessions
+    """
+    # Debug log to see what questions are being received
+    for i, q in enumerate(request.questions):
+        print(f"Question {i}: question_type={q.get('question_type')}, has_starter_code={q.get('starter_code') is not None}")
+    
     service = SessionService(db)
     
-    # Check if active session exists
-    existing = await service.get_latest_active_session()
-    if existing:
-        raise HTTPException(
-            status_code=400, 
-            detail="A session is already active. End it first."
-        )
-    
+    # No longer restrict to single session - teachers can run multiple concurrent sessions
     session = await service.create_session(request)
     
     return LiveSessionResponse(
@@ -62,7 +65,11 @@ async def start_live_session(
                 options=q.options if isinstance(q.options, list) else [],
                 correct_answer=q.correct_answer or "",
                 difficulty=q.difficulty,
-                explanation=q.explanation or ""
+                explanation=q.explanation or "",
+                question_type=q.question_type or "mcq",
+                starter_code=getattr(q, 'starter_code', None),
+                test_cases=getattr(q, 'test_cases', None),
+                language=getattr(q, 'language', None)
             )
             for q in session.questions
         ],
@@ -116,7 +123,13 @@ async def join_session(
             "id": str(current_q.id),
             "prompt": current_q.prompt,
             "options": current_q.options,
-            "concept": current_q.concept
+            "concept": current_q.concept,
+            "question_type": current_q.question_type,
+            "correct_answer": current_q.correct_answer,
+            "explanation": current_q.explanation,
+            "starter_code": current_q.starter_code,
+            "test_cases": current_q.test_cases,
+            "language": current_q.language
         }
 
     return StudentJoinResponse(
@@ -171,8 +184,12 @@ async def get_question(index: int, db: AsyncSession = Depends(get_db)):
             "prompt": q.prompt,
             "options": q.options,
             "concept": q.concept,
+            "question_type": q.question_type,
             "correct_answer": q.correct_answer,
-            "explanation": q.explanation
+            "explanation": q.explanation,
+            "starter_code": q.starter_code,
+            "test_cases": q.test_cases,
+            "language": q.language
         }
     }
 

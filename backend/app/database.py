@@ -26,18 +26,19 @@ class Base(DeclarativeBase):
 
 
 # Database URL from environment
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/quizly"
-)
+# Default to SQLite for local development, use DATABASE_URL env var for production (PostgreSQL)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Handle Railway's postgres:// prefix (needs postgresql+asyncpg://)
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL.startswith("sqlite://") and "+aiosqlite" not in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://", 1)
+if not DATABASE_URL:
+    # Local development: use SQLite
+    # Use a simple relative path without URL encoding
+    DATABASE_URL = "sqlite+aiosqlite:///./sql_app.db"
+else:
+    # Production: handle Railway's postgres:// prefix (needs postgresql+asyncpg://)
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 # Create async engine
 engine = create_async_engine(
@@ -65,6 +66,10 @@ async def get_db():
 
 async def init_db():
     """Create all tables (for development only)."""
+    # Import all models so they're registered with Base
+    from .db_models import User, Course, Session, Question, Response  # noqa
+    from .models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer  # noqa
+    
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

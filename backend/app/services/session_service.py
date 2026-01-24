@@ -44,7 +44,11 @@ class SessionService:
                 correct_answer=q_data.get("correct_answer"),
                 explanation=q_data.get("explanation"),
                 difficulty=q_data.get("difficulty", 0.5),
-                order_index=idx
+                order_index=idx,
+                question_type=q_data.get("question_type", "mcq"),
+                starter_code=q_data.get("starter_code"),
+                test_cases=q_data.get("test_cases"),
+                language=q_data.get("language")
             )
             self.db.add(question)
         
@@ -53,18 +57,24 @@ class SessionService:
         # Load relationships
         query = select(Session).where(Session.id == session.id).options(selectinload(Session.questions))
         result = await self.db.execute(query)
-        return result.scalars().first()
+        created = result.scalars().first()
+        if created is None:
+            raise RuntimeError("Failed to load newly-created session")
+        return created
 
     async def get_latest_active_session(self) -> Optional[Session]:
         """Get the most recent active session."""
         query = select(Session).where(Session.status == "active") \
             .order_by(Session.created_at.desc()) \
-            .options(selectinload(Session.questions))
+            .options(selectinload(Session.questions), selectinload(Session.participants))
         result = await self.db.execute(query)
         return result.scalars().first()
 
     async def get_session_by_id(self, session_id: uuid.UUID) -> Optional[Session]:
-        query = select(Session).where(Session.id == session_id).options(selectinload(Session.questions))
+        query = select(Session).where(Session.id == session_id).options(
+            selectinload(Session.questions),
+            selectinload(Session.participants),
+        )
         result = await self.db.execute(query)
         return result.scalars().first()
 
@@ -113,14 +123,31 @@ class SessionService:
 
     async def submit_response(self, session_id: uuid.UUID, data: StudentSubmissionRequest) -> Response:
         """Submit a student response."""
+        question_uuid = uuid.UUID(data.question_id)
+
+        q_result = await self.db.execute(
+            select(Question).where(
+                Question.id == question_uuid,
+                Question.session_id == session_id,
+            )
+        )
+        question = q_result.scalars().first()
+        if not question:
+            raise ValueError("Question not found for session")
+
+        is_correct = None
+        if data.response_type == "mcq" and question.correct_answer:
+            is_correct = data.answer.strip().upper() == question.correct_answer.strip().upper()
+
         response = Response(
             session_id=session_id,
-            question_id=uuid.UUID(data.question_id),
+            question_id=question_uuid,
             student_name=data.student_name,
             answer=data.answer,
             reasoning=data.reasoning,
             confidence=data.confidence,
             response_type=data.response_type,
+            is_correct=is_correct,
             code_submission=data.code_submission,
             image_description=data.image_description
         )

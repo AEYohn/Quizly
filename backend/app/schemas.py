@@ -45,6 +45,14 @@ class QuestionGenerateRequest(BaseModel):
         default=None,
         description="Specific misconception to target for remediation"
     )
+    format: str = Field(
+        default="mcq",
+        description="Question format: mcq, code, or mixed"
+    )
+    language: str = Field(
+        default="python",
+        description="Programming language for code questions"
+    )
 
 
 class QuestionOption(BaseModel):
@@ -53,19 +61,31 @@ class QuestionOption(BaseModel):
     text: str = Field(..., description="Option text")
 
 
+class TestCase(BaseModel):
+    """A test case for code questions."""
+    input: str = Field(..., description="Input for the test case")
+    expected_output: str = Field(..., description="Expected output")
+    is_hidden: bool = Field(default=False, description="Whether this test is hidden from students")
+
+
 class QuestionResponse(BaseModel):
     """Generated question response."""
     id: str
     concept: str
     difficulty: float
     prompt: str
-    options: List[str]
-    correct_answer: str
+    options: List[str] = []
+    correct_answer: str = ""
     explanation: str
     common_traps: List[str] = []
-    question_type: Optional[str] = None
+    question_type: str = "mcq"  # mcq, code, diagram, etc.
     target_misconception: Optional[str] = None
     misconception_trap_option: Optional[str] = None
+    # Code question fields
+    starter_code: Optional[str] = None
+    test_cases: List[TestCase] = []
+    language: Optional[str] = None
+    expected_output: Optional[str] = None
 
 
 class QuestionGenerateResponse(BaseModel):
@@ -231,6 +251,10 @@ class LiveSessionQuestion(BaseModel):
     correct_answer: str = ""
     difficulty: float = 0.5
     explanation: str = ""
+    question_type: str = "mcq"  # mcq, code, etc.
+    starter_code: Optional[str] = None
+    test_cases: Optional[List[Dict[str, Any]]] = None
+    language: Optional[str] = None
 
 
 class LiveSessionStartRequest(BaseModel):
@@ -396,4 +420,12 @@ class GenerateFromCurriculumRequest(BaseModel):
     materials_context: Optional[str] = Field(
         default=None,
         description="Context from uploaded materials"
+    )
+    format: Optional[str] = Field(
+        default="mcq",
+        description="Question format: 'mcq', 'code', or 'mixed'"
+    )
+    language: Optional[str] = Field(
+        default="python",
+        description="Programming language for code questions"
     )

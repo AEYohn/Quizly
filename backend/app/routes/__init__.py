@@ -2,6 +2,7 @@
 
 from . import (
     auth_routes,
+    auth_routes_enhanced,
     session_routes, 
     response_routes, 
     analytics_routes, 
@@ -9,4 +10,7 @@ from . import (
     curriculum_routes,
     live_session_routes,
     adaptive_routes,
+    quiz_routes,
+    game_routes,
+    websocket_routes,
 )

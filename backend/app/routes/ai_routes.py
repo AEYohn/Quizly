@@ -73,7 +73,7 @@ async def generate_questions(request: Request, data: QuestionGenerateRequest):
     
     POST /ai/generate-questions
     
-    Uses Gemini LLM to create educational multiple-choice questions
+    Uses Gemini LLM to create educational questions (MCQ or code)
     with real content, plausible distractors, and detailed explanations.
     """
     if not AI_AGENTS_AVAILABLE:
@@ -94,21 +94,41 @@ async def generate_questions(request: Request, data: QuestionGenerateRequest):
     generator = QuestionBankGenerator()
     questions = []
     
-    # Get question type if specified
+    # Get question parameters
     question_type = getattr(data, 'question_type', 'conceptual')
     target_misconception = getattr(data, 'target_misconception', None)
+    question_format = getattr(data, 'format', 'mcq')
+    code_language = getattr(data, 'language', 'python')
     
     for i, concept in enumerate(concepts[:data.num_questions]):
         if i > 0 and GEMINI_AVAILABLE:
             await asyncio.sleep(1.5)
         try:
             difficulty = 0.4 + (i * 0.15)  # Progressive difficulty
-            q = generator.generate_question(
-                concept, 
-                difficulty=min(difficulty, 0.85),
-                question_type=question_type,
-                target_misconception=target_misconception
-            )
+            
+            # Determine format for this question
+            if question_format == 'mixed':
+                # Alternate between MCQ and code
+                current_format = 'code' if i % 2 == 1 else 'mcq'
+            else:
+                current_format = question_format
+            
+            if current_format == 'code':
+                # Generate code question
+                q = await _generate_code_question(
+                    concept, 
+                    difficulty=min(difficulty, 0.85),
+                    language=code_language
+                )
+            else:
+                # Generate MCQ question
+                q = generator.generate_question(
+                    concept, 
+                    difficulty=min(difficulty, 0.85),
+                    question_type=question_type,
+                    target_misconception=target_misconception
+                )
+            
             questions.append(QuestionResponse(**q))
         except Exception as e:
             print(f"Failed to generate question for concept {concept.get('name', 'unknown')}: {e}")
@@ -129,6 +149,117 @@ class RemediationQuestionRequest(BaseModel):
     misconception: str
     student_name: Optional[str] = None
     difficulty: float = 0.5
+
+
+class CodingProblemRequest(BaseModel):
+    """Request for generating a coding problem."""
+    concept: str  # e.g., "binary search", "two pointers", "hash tables"
+    difficulty: str = "medium"  # easy, medium, hard
+    problem_type: str = "algorithm"  # algorithm, data_structure, string, math
+    course_context: Optional[str] = None
+    save_to_db: bool = False  # Whether to save the generated problem to database
+
+
+class CodingProblemBatchRequest(BaseModel):
+    """Request for generating multiple coding problems."""
+    topic: str
+    concepts: List[str]
+    difficulty_distribution: Optional[Dict[str, int]] = None  # {"easy": 2, "medium": 3, "hard": 1}
+    course_context: Optional[str] = None
+    save_to_db: bool = False
+
+
+@router.post("/generate-coding-problem")
+@limiter.limit(AI_RATE_LIMIT)
+async def generate_coding_problem(request: Request, data: CodingProblemRequest):
+    """
+    Generate a LeetCode-style coding problem using AI.
+    
+    POST /ai/generate-coding-problem
+    
+    Creates a complete coding problem with:
+    - Problem description with examples
+    - Starter code for Python, C++, JavaScript
+    - Driver code for test execution
+    - Test cases with expected outputs
+    """
+    try:
+        from ..ai_agents.coding_problem_generator import CodingProblemGenerator
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Coding problem generator not available")
+    
+    generator = CodingProblemGenerator()
+    
+    try:
+        problem = generator.generate_problem(
+            concept=data.concept,
+            difficulty=data.difficulty,
+            problem_type=data.problem_type,
+            course_context=data.course_context
+        )
+        
+        if problem.get("llm_required"):
+            raise HTTPException(status_code=503, detail="LLM not available for problem generation")
+        
+        # Optionally save to database
+        if data.save_to_db:
+            # Import here to avoid circular imports
+            from ..database import get_db
+            from ..db_models import CodingProblem, TestCase
+            from sqlalchemy.ext.asyncio import AsyncSession
+            import uuid
+            
+            # This would need to be done with proper DB session
+            # For now, just return the problem
+            pass
+        
+        return {
+            "problem": problem,
+            "generated_at": utc_now(),
+            "message": "Problem generated successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate coding problem: {e}")
+
+
+@router.post("/generate-coding-problems-batch")
+@limiter.limit("5/minute")  # Stricter limit for batch operations
+async def generate_coding_problems_batch(request: Request, data: CodingProblemBatchRequest):
+    """
+    Generate multiple LeetCode-style coding problems for a topic.
+    
+    POST /ai/generate-coding-problems-batch
+    
+    Creates multiple problems for different concepts with varied difficulty.
+    """
+    try:
+        from ..ai_agents.coding_problem_generator import CodingProblemGenerator
+    except ImportError:
+        raise HTTPException(status_code=503, detail="Coding problem generator not available")
+    
+    generator = CodingProblemGenerator()
+    
+    try:
+        problems = generator.generate_problems_for_topic(
+            topic=data.topic,
+            concepts=data.concepts,
+            difficulty_distribution=data.difficulty_distribution,
+            course_context=data.course_context
+        )
+        
+        # Filter out any LLM-required fallbacks
+        valid_problems = [p for p in problems if not p.get("llm_required")]
+        
+        return {
+            "topic": data.topic,
+            "problems": valid_problems,
+            "total_generated": len(valid_problems),
+            "generated_at": utc_now(),
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate coding problems: {e}")
 
 
 @router.post("/generate-remediation-question")
@@ -199,9 +330,245 @@ Return ONLY valid JSON array:
                 for i in range(num_concepts)]
 
 
+async def _generate_code_question(concept: Dict, difficulty: float = 0.5, language: str = "python") -> Dict:
+    """Generate a code question using Gemini LLM."""
+    import uuid
+    
+    concept_name = concept.get("name", "Programming")
+    topics = concept.get("topics", [])
+    
+    # Language-specific starter code examples that match the actual code runner wrapper
+    if language == "cpp":
+        default_starter = '''class Solution {
+public:
+    int solution(int n, vector<int>& arr) {
+        // Your code here
+        
+        return 0;
+    }
+};'''
+        language_note = """
+For C++: Use class Solution with a public method. The code runner expects this format.
+Available includes: iostream, vector, string, algorithm, map, set, queue, stack, cmath
+Example:
+class Solution {
+public:
+    int myFunction(vector<int>& nums) {
+        // Your code here
+        return 0;
+    }
+};"""
+    elif language == "javascript":
+        default_starter = '''function solution(nums) {
+    // Your code here
+    
+}'''
+        language_note = "For JavaScript: Input is parsed from JSON and passed as arguments to solution()."
+    else:  # python
+        default_starter = '''def solution(nums):
+    # Your code here
+    pass'''
+        language_note = "For Python: Input is parsed from JSON and passed as kwargs (dict) or args (list/value)."
+    
+    if not GEMINI_AVAILABLE:
+        # Return a basic code question template
+        return {
+            "id": str(uuid.uuid4()),
+            "concept": concept_name,
+            "difficulty": difficulty,
+            "question_type": "code",
+            "prompt": f"Write a {language} function that demonstrates {concept_name}.",
+            "options": [],
+            "correct_answer": "",
+            "explanation": f"This question tests your understanding of {concept_name}.",
+            "common_traps": [],
+            "starter_code": default_starter,
+            "test_cases": [
+                {"input": "[1, 2, 3]", "expected_output": "6", "is_hidden": False}
+            ],
+            "language": language,
+            "expected_output": None
+        }
+    
+    # Difficulty description
+    difficulty_label = "easy" if difficulty < 0.4 else "medium" if difficulty < 0.7 else "hard"
+    
+    prompt = f"""Generate a {difficulty_label} coding question about {concept_name} in {language}.
+Related topics: {', '.join(topics) if topics else concept_name}
+
+{language_note}
+
+Requirements:
+1. A clear problem statement asking to write a function
+2. SKELETON starter code with function signature (NOT the solution - students implement the logic)
+3. 3-4 test cases with VALID JSON input format (at least 1 hidden)
+4. Example input/output in the prompt
+5. A detailed explanation of the solution approach
+
+CRITICAL - TEST CASE INPUT FORMAT:
+- Must be valid JSON that can be parsed
+- Arrays: "[1, 2, 3]"  
+- Numbers: "5" or "3.14"
+- Strings: "\\"hello\\""
+- Multiple params: "{{\\"n\\": 5, \\"arr\\": [1, 2, 3]}}"
+- DO NOT use formats like "n = 5, arr = {{1,2,3}}" - that's not valid JSON!
+
+CRITICAL - STARTER CODE:
+- Provide SKELETON code with function signature only
+- Use comments like "# Your code here" or "// TODO: implement"
+- DO NOT include the solution logic
+- The function should be named "solution" for consistency
+
+Example starter code for {language}:
+```
+{default_starter}
+```
+
+Return ONLY valid JSON:
+{{
+    "prompt": "Problem description with example input/output",
+    "starter_code": "<skeleton code matching the language>",
+    "test_cases": [
+        {{"input": "[1, 2, 3]", "expected_output": "6", "is_hidden": false}},
+        {{"input": "[10, 20, 30]", "expected_output": "60", "is_hidden": true}}
+    ],
+    "explanation": "Solution approach and key concepts"
+}}"""
+
+    try:
+        response = MODEL.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
+        result = json.loads(response.text)
+        
+        return {
+            "id": str(uuid.uuid4()),
+            "concept": concept_name,
+            "difficulty": difficulty,
+            "question_type": "code",
+            "prompt": result.get("prompt", f"Code question about {concept_name}"),
+            "options": [],
+            "correct_answer": "",
+            "explanation": result.get("explanation", ""),
+            "common_traps": [],
+            "starter_code": result.get("starter_code", default_starter),
+            "test_cases": result.get("test_cases", []),
+            "language": language,
+            "expected_output": None
+        }
+    except Exception as e:
+        print(f"Failed to generate code question: {e}")
+        return {
+            "id": str(uuid.uuid4()),
+            "concept": concept_name,
+            "difficulty": difficulty,
+            "question_type": "code",
+            "prompt": f"Write a {language} function that demonstrates {concept_name}.",
+            "options": [],
+            "correct_answer": "",
+            "explanation": f"This question tests your understanding of {concept_name}.",
+            "common_traps": [],
+            "starter_code": default_starter,
+            "test_cases": [
+                {"input": "[1, 2, 3]", "expected_output": "6", "is_hidden": False}
+            ],
+            "language": language,
+            "expected_output": None
+        }
+
+
 # ==============================================================================
 # Response Analysis
 # ==============================================================================
+
+class AnalyzeCodeRequest(BaseModel):
+    """Request to analyze student's code submission."""
+    problem_description: str
+    student_code: str
+    language: str = "python"
+    test_results: list = []
+    error_message: str = None
+
+class AnalyzeCodeResponse(BaseModel):
+    """AI analysis of student's code."""
+    summary: str
+    issues: list[str]
+    suggestions: list[str]
+    hints: list[str]
+    correct_approach: str
+    complexity_analysis: str = None
+
+@router.post("/analyze-code")
+@limiter.limit(AI_RATE_LIMIT)
+async def analyze_code(request: Request, data: AnalyzeCodeRequest):
+    """
+    Analyze a student's code submission with AI.
+    Provides detailed feedback on what's wrong and how to fix it.
+    
+    POST /ai/analyze-code
+    """
+    if not GEMINI_AVAILABLE:
+        return AnalyzeCodeResponse(
+            summary="AI analysis not available",
+            issues=["Could not analyze code - AI service unavailable"],
+            suggestions=["Check your logic and try again"],
+            hints=["Review the problem requirements"],
+            correct_approach="Implement the algorithm step by step"
+        )
+    
+    # Build test results summary
+    test_summary = ""
+    if data.test_results:
+        passed = sum(1 for t in data.test_results if t.get("status") == "passed")
+        total = len(data.test_results)
+        test_summary = f"\n\nTest Results: {passed}/{total} passed"
+        for i, t in enumerate(data.test_results[:3]):  # Show first 3
+            if t.get("status") != "passed":
+                test_summary += f"\n- Test {i+1}: Input={t.get('input')}, Expected={t.get('expected_output')}, Got={t.get('actual_output', 'error')}"
+    
+    error_info = f"\n\nError: {data.error_message}" if data.error_message else ""
+    
+    prompt = f"""Analyze this student's {data.language} code submission and provide helpful feedback.
+
+PROBLEM:
+{data.problem_description}
+
+STUDENT'S CODE:
+```{data.language}
+{data.student_code}
+```
+{test_summary}{error_info}
+
+Provide a JSON response with:
+1. "summary": Brief 1-2 sentence summary of what's wrong (be encouraging but honest)
+2. "issues": List of specific bugs or logic errors found (max 3)
+3. "suggestions": Concrete code fixes they should make (max 3)
+4. "hints": Conceptual hints without giving away the answer (max 2)
+5. "correct_approach": High-level description of the correct algorithm/approach
+6. "complexity_analysis": Expected time/space complexity for optimal solution
+
+Be educational and encouraging. Don't give the complete solution, but guide them.
+
+Return ONLY valid JSON."""
+
+    try:
+        response = MODEL.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
+        result = json.loads(response.text)
+        return AnalyzeCodeResponse(**result)
+    except Exception as e:
+        print(f"Code analysis failed: {e}")
+        return AnalyzeCodeResponse(
+            summary="Your code has some issues. Let's work through them!",
+            issues=["Check your implementation against the requirements"],
+            suggestions=["Try tracing through your code with the example inputs"],
+            hints=["Think about edge cases", "Consider the base case"],
+            correct_approach="Break down the problem into smaller steps"
+        )
+
 
 @router.post("/analyze-response", response_model=AnalyzeResponseResponse)
 @limiter.limit(AI_RATE_LIMIT)
@@ -624,6 +991,175 @@ Return ONLY valid JSON:
             micro_lesson=f"Great effort! Focus on reviewing {weak_concepts[0] if weak_concepts else 'the material'}.",
             follow_up_question=None
         )
+
+
+# ==============================================================================
+# AI Chat Interface for Question Generation
+# ==============================================================================
+
+class ChatAttachment(BaseModel):
+    """Attachment in chat message (image, file, or text)."""
+    type: str  # "image", "file", "text"
+    name: str
+    content: str  # base64 for images, text content for files
+    mime_type: Optional[str] = None
+
+
+class ChatGenerateRequest(BaseModel):
+    """Request for AI chat-based question generation."""
+    message: str
+    question_type: str = "mcq"  # "mcq" or "coding"
+    attachments: Optional[List[ChatAttachment]] = None
+
+
+class ChatGenerateResponse(BaseModel):
+    """Response from AI chat generation."""
+    message: str
+    questions: Optional[List[Dict[str, Any]]] = None
+    coding_problem: Optional[Dict[str, Any]] = None
+
+
+@router.post("/chat-generate", response_model=ChatGenerateResponse)
+@limiter.limit("10/minute")
+async def chat_generate(request: Request, data: ChatGenerateRequest):
+    """
+    AI chat interface for generating questions from text, images, or files.
+    
+    POST /ai/chat-generate
+    
+    Accepts multimodal input (text + images + files) and generates
+    questions based on the content.
+    """
+    if not GEMINI_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Gemini AI not available. Please set GEMINI_API_KEY.")
+    
+    # Build the prompt parts
+    prompt_parts = []
+    
+    # Add attachments to prompt
+    if data.attachments:
+        for att in data.attachments:
+            if att.type == "image" and att.content.startswith("data:"):
+                # Handle base64 image
+                import base64
+                # Extract base64 data after the comma
+                base64_data = att.content.split(",")[1] if "," in att.content else att.content
+                image_bytes = base64.b64decode(base64_data)
+                
+                # Create image part for Gemini
+                image_part = {
+                    "mime_type": att.mime_type or "image/jpeg",
+                    "data": base64_data
+                }
+                prompt_parts.append(image_part)
+                prompt_parts.append(f"\n[Image: {att.name}]\n")
+            elif att.type == "file":
+                prompt_parts.append(f"\n--- File: {att.name} ---\n{att.content}\n--- End File ---\n")
+            elif att.type == "text":
+                prompt_parts.append(f"\n--- Text Content ---\n{att.content}\n--- End Text ---\n")
+    
+    # Build the generation prompt based on question type
+    if data.question_type == "mcq":
+        system_prompt = """You are an expert educator creating multiple choice questions.
+
+Based on the user's request and any provided content (images, files, text), generate educational multiple choice questions.
+
+For each question, provide:
+1. A clear question
+2. 4 answer options (A, B, C, D)
+3. The index of the correct answer (0-3)
+4. A brief explanation
+5. Difficulty level (easy, medium, hard)
+6. The concept being tested
+
+Return ONLY valid JSON in this exact format:
+{
+    "message": "Brief response to the user about what you generated",
+    "questions": [
+        {
+            "question": "Question text here",
+            "options": ["Option A", "Option B", "Option C", "Option D"],
+            "correct_answer": 0,
+            "explanation": "Why this is correct",
+            "difficulty": "medium",
+            "concept": "Topic/concept tested"
+        }
+    ]
+}
+
+Generate 3-5 questions unless the user specifies a different number.
+Make questions educational and test real understanding, not just memorization."""
+
+    else:  # coding
+        system_prompt = """You are an expert educator creating coding problems.
+
+Based on the user's request and any provided content, generate a coding problem.
+
+The problem should include:
+1. A clear title
+2. A problem description with examples
+3. Function signature
+4. Test cases
+
+Return ONLY valid JSON in this exact format:
+{
+    "message": "Brief response about the problem you created",
+    "coding_problem": {
+        "title": "Problem Title",
+        "description": "Full problem description with examples",
+        "difficulty": "medium",
+        "function_name": "solveProblem",
+        "parameters": [
+            {"name": "nums", "type": "list[int]", "description": "Array of integers"}
+        ],
+        "return_type": "int",
+        "starter_code": {
+            "python": "class Solution:\\n    def solveProblem(self, nums: list[int]) -> int:\\n        pass"
+        },
+        "test_cases": [
+            {"input": "nums = [1, 2, 3]", "expected": "6"}
+        ]
+    }
+}"""
+
+    # Add user message
+    full_prompt = f"{system_prompt}\n\nUser request: {data.message}"
+    prompt_parts.append(full_prompt)
+    
+    try:
+        # Generate with Gemini
+        response = MODEL.generate_content(prompt_parts)
+        
+        # Parse the response
+        response_text = response.text.strip()
+        
+        # Extract JSON from response
+        if "```json" in response_text:
+            json_start = response_text.find("```json") + 7
+            json_end = response_text.find("```", json_start)
+            response_text = response_text[json_start:json_end].strip()
+        elif "```" in response_text:
+            json_start = response_text.find("```") + 3
+            json_end = response_text.find("```", json_start)
+            response_text = response_text[json_start:json_end].strip()
+        
+        result = json.loads(response_text)
+        
+        return ChatGenerateResponse(
+            message=result.get("message", "Questions generated successfully!"),
+            questions=result.get("questions"),
+            coding_problem=result.get("coding_problem"),
+        )
+        
+    except json.JSONDecodeError as e:
+        # If JSON parsing fails, return the raw text as message
+        return ChatGenerateResponse(
+            message=f"I generated some content but couldn't format it properly. Here's what I created:\n\n{response.text[:1000]}",
+            questions=None,
+            coding_problem=None,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI generation error: {str(e)}")
 
 
 # ==============================================================================

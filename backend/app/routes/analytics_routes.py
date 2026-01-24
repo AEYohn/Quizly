@@ -12,7 +12,7 @@ from datetime import datetime
 import math
 
 from ..database import get_db
-from ..db_models import Session, Question, Response, SessionParticipant
+from ..db_models import Session, Question, Response, SessionParticipant, Misconception
 
 router = APIRouter()
 
@@ -389,4 +389,101 @@ async def export_session_report(session_id: str, format: str = "json"):
         "format": format,
         "status": "generated",
         "download_url": f"/exports/session_{session_id}.{format}"
+    }
+
+
+class MisconceptionResponse(BaseModel):
+    """Response model for misconception data."""
+    id: int
+    topic: str
+    misconception: str
+    description: Optional[str]
+    affected_count: int
+    total_count: int
+    percentage: float
+    severity: str
+    common_wrong_answer: Optional[str]
+    suggested_intervention: Optional[str]
+    session_id: Optional[str]
+    detected_at: datetime
+
+
+@router.get("/misconceptions")
+async def get_misconceptions(
+    creator_id: Optional[int] = None,
+    limit: int = 10,
+    severity: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+) -> List[Dict[str, Any]]:
+    """
+    Get misconceptions for a teacher.
+    
+    GET /analytics/misconceptions?creator_id=1&limit=10&severity=high
+    
+    Returns list of detected misconceptions from sessions.
+    """
+    query = select(Misconception).where(Misconception.is_active == True)
+    
+    if creator_id:
+        query = query.where(Misconception.creator_id == creator_id)
+    
+    if severity:
+        query = query.where(Misconception.severity == severity)
+    
+    query = query.order_by(Misconception.affected_count.desc()).limit(limit)
+    
+    result = await db.execute(query)
+    misconceptions = result.scalars().all()
+    
+    return [
+        {
+            "id": m.id,
+            "topic": m.topic,
+            "misconception": m.misconception,
+            "description": m.description,
+            "affected_count": m.affected_count,
+            "total_count": m.total_count,
+            "percentage": round((m.affected_count / m.total_count * 100) if m.total_count > 0 else 0, 1),
+            "severity": m.severity,
+            "common_wrong_answer": m.common_wrong_answer,
+            "suggested_intervention": m.suggested_intervention,
+            "session_id": m.session_id,
+            "detected_at": m.detected_at.isoformat() if m.detected_at else None
+        }
+        for m in misconceptions
+    ]
+
+
+@router.get("/misconceptions/{misconception_id}")
+async def get_misconception_detail(
+    misconception_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get detailed information about a specific misconception.
+    
+    GET /analytics/misconceptions/{misconception_id}
+    """
+    result = await db.execute(
+        select(Misconception).where(Misconception.id == misconception_id)
+    )
+    misconception = result.scalar_one_or_none()
+    
+    if not misconception:
+        raise HTTPException(status_code=404, detail="Misconception not found")
+    
+    return {
+        "id": misconception.id,
+        "topic": misconception.topic,
+        "misconception": misconception.misconception,
+        "description": misconception.description,
+        "affected_count": misconception.affected_count,
+        "total_count": misconception.total_count,
+        "percentage": round((misconception.affected_count / misconception.total_count * 100) if misconception.total_count > 0 else 0, 1),
+        "severity": misconception.severity,
+        "common_wrong_answer": misconception.common_wrong_answer,
+        "suggested_intervention": misconception.suggested_intervention,
+        "session_id": misconception.session_id,
+        "question_id": misconception.question_id,
+        "detected_at": misconception.detected_at.isoformat() if misconception.detected_at else None
     }

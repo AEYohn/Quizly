@@ -110,7 +110,7 @@ class DocumentProcessor:
         # Encode as base64 for Gemini
         pdf_b64 = base64.standard_b64encode(pdf_bytes).decode('utf-8')
         
-        prompt = """Analyze this PDF document and extract educational content for quiz generation.
+        prompt = """Analyze this PDF document and extract educational content for CONCEPTUAL QUIZ generation (ConcepTest/peer instruction style).
 
 Return a JSON object with:
 {
@@ -118,18 +118,26 @@ Return a JSON object with:
     "summary": "2-3 sentence summary of what this document covers",
     "concepts": ["concept1", "concept2", ...],  // 8-12 key concepts for quiz questions
     "objectives": ["Students will be able to...", ...],  // 4-6 learning objectives
-    "extracted_questions": [  // Any practice problems, exercises, or questions already in the document
+    "extracted_questions": [  // ONLY extract SHORT conceptual multiple-choice questions
         {
-            "prompt": "The question text",
-            "options": ["A. ...", "B. ...", "C. ...", "D. ..."],  // If multiple choice
-            "correct_answer": "A/B/C/D or the answer",
-            "source": "Page X" or "Section Y"
+            "prompt": "The question text (should be SHORT and conceptual)",
+            "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+            "correct_answer": "A/B/C/D",
+            "source": "extracted"
         }
     ],
     "difficulty_level": "beginner/intermediate/advanced"
 }
 
-IMPORTANT: Extract any existing practice problems, quiz questions, or exercises from the document.
+CRITICAL RULES for extracted_questions:
+1. ONLY extract questions that are ALREADY multiple-choice with 4 options
+2. SKIP long homework problems, proofs, or programming assignments
+3. SKIP problems that require lengthy calculations or written explanations
+4. PREFER short conceptual questions that test understanding ("What happens when...", "Which is true about...")
+5. MAX 10 questions - pick the BEST conceptual ones
+6. Each question prompt should be under 300 characters
+7. If the document has no good MCQ questions, return an EMPTY array []
+
 For topic: Give the main subject area this document covers.
 For concepts: Be specific - not just "algorithms" but "time complexity of merge sort".
 For objectives: Use action verbs like "explain", "implement", "compare", "analyze"."""
@@ -215,7 +223,7 @@ Focus on concepts that would make good quiz questions."""
                 summary="Gemini not available"
             )
         
-        prompt = f"""Analyze this educational content and extract key information for quiz generation.
+        prompt = f"""Analyze this educational content and extract key information for CONCEPTUAL QUIZ generation.
 
 CONTENT:
 {text[:8000]}
@@ -226,20 +234,21 @@ Return JSON:
     "summary": "Brief summary of the content",
     "concepts": ["concept1", "concept2", ...],  // 6-10 specific concepts
     "objectives": ["Students will be able to...", ...],  // 3-5 learning objectives
-    "extracted_questions": [  // Any practice problems or questions already in the content
+    "extracted_questions": [  // ONLY short conceptual MCQ questions
         {{
-            "prompt": "The question text",
+            "prompt": "Short question (under 300 chars)",
             "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
-            "correct_answer": "The answer",
-            "source": "From content"
+            "correct_answer": "A/B/C/D",
+            "source": "extracted"
         }}
     ]
 }}
 
-IMPORTANT: 
-- Extract the main TOPIC from the content.
-- Find any existing practice problems, exercises, or questions in the text.
-- Be specific with concepts - they should make good quiz questions."""
+CRITICAL RULES:
+- ONLY extract questions that are ALREADY multiple-choice with 4 options
+- SKIP homework problems, proofs, or lengthy calculations  
+- MAX 10 questions - pick the BEST conceptual ones
+- If no good MCQ questions exist, return empty array []"""
 
         try:
             response = await MODEL.generate_content_async(prompt)

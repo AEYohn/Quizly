@@ -9,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..auth import (
-    UserCreate, UserLogin, UserResponse, Token,
-    create_access_token, authenticate_user, create_user,
-    get_user_by_email, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
+    UserCreate, UserLogin, UserResponse, Token, RefreshToken,
+    create_access_token, create_refresh_token, authenticate_user, create_user,
+    get_user_by_email, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES,
+    decode_refresh_token, get_user_by_id
 )
 from ..db_models import User
 
@@ -58,8 +59,18 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
+    refresh_token = create_refresh_token(
+        data={
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role
+        }
+    )
+
     return Token(
         access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         user={
             "id": str(user.id),
             "email": user.email,
@@ -95,8 +106,70 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
+    refresh_token = create_refresh_token(
+        data={
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role
+        }
+    )
+
     return Token(
         access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user={
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "role": user.role
+        }
+    )
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_access_token(
+    token_data: RefreshToken,
+    db: AsyncSession = Depends(get_db)
+):
+    """Refresh an access token using a refresh token."""
+    token_info = decode_refresh_token(token_data.refresh_token)
+    if not token_info or not token_info.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    user = await get_user_by_id(db, token_info.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    access_token = create_access_token(
+        data={
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role
+        },
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+
+    refresh_token = create_refresh_token(
+        data={
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role
+        }
+    )
+
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         user={
             "id": str(user.id),
             "email": user.email,
@@ -133,3 +206,64 @@ async def verify_token(current_user: User = Depends(get_current_user)):
     Returns 200 if token is valid, 401 otherwise.
     """
     return {"valid": True, "user_id": str(current_user.id), "role": current_user.role}
+
+
+@router.post("/demo", response_model=Token)
+async def demo_login(db: AsyncSession = Depends(get_db)):
+    """
+    Quick demo login - no credentials needed!
+    
+    POST /auth/demo
+    
+    Creates or retrieves a demo teacher account for easy MVP testing.
+    Perfect for quick demos without registration hassle.
+    """
+    from ..auth import get_password_hash
+    
+    demo_email = "demo@quizly.app"
+    demo_password = "demo123"  # Fixed password for demo account
+    
+    # Check if demo user exists
+    user = await get_user_by_email(db, demo_email)
+    
+    if not user:
+        # Create demo teacher account
+        user = User(
+            email=demo_email,
+            name="Demo Teacher",
+            hashed_password=get_password_hash(demo_password),
+            role="teacher"
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+    
+    # Generate tokens
+    access_token = create_access_token(
+        data={
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role
+        },
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    refresh_token = create_refresh_token(
+        data={
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role
+        }
+    )
+
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user={
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "role": user.role
+        }
+    )

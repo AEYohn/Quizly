@@ -4,6 +4,7 @@ JWT-based authentication with teacher/student roles.
 """
 
 import os
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Request
@@ -19,8 +20,10 @@ from .db_models import User
 
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+REFRESH_SECRET_KEY = os.getenv("JWT_REFRESH_SECRET_KEY", "your-refresh-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 hours
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -44,8 +47,15 @@ class TokenData(BaseModel):
 class Token(BaseModel):
     """Token response."""
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
+    expires_in: Optional[int] = None
     user: dict
+
+
+class RefreshToken(BaseModel):
+    """Refresh token request."""
+    refresh_token: str
 
 
 class UserCreate(BaseModel):
@@ -100,10 +110,34 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
+def create_refresh_token(data: dict) -> str:
+    """Create a refresh token with longer expiry."""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
+
+
 def decode_token(token: str) -> Optional[TokenData]:
     """Decode and validate a JWT token."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return TokenData(
+            user_id=payload.get("user_id"),
+            email=payload.get("email"),
+            role=payload.get("role"),
+            exp=datetime.fromtimestamp(payload.get("exp"))
+        )
+    except JWTError:
+        return None
+
+
+def decode_refresh_token(token: str) -> Optional[TokenData]:
+    """Decode and validate a refresh token."""
+    try:
+        payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") and payload.get("type") != "refresh":
+            return None
         return TokenData(
             user_id=payload.get("user_id"),
             email=payload.get("email"),
@@ -121,6 +155,16 @@ def decode_token(token: str) -> Optional[TokenData]:
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     """Get a user by email."""
     result = await db.execute(select(User).where(User.email == email))
+    return result.scalars().first()
+
+
+async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[User]:
+    """Get a user by ID."""
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        return None
+    result = await db.execute(select(User).where(User.id == user_uuid))
     return result.scalars().first()
 
 
@@ -212,3 +256,7 @@ async def require_student(user: User = Depends(get_current_user)) -> User:
             detail="Student access required"
         )
     return user
+
+
+# Alias for explore routes
+get_optional_user = get_current_user_optional

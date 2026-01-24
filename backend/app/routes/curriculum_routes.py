@@ -167,11 +167,184 @@ async def generate_questions_from_curriculum(request: GenerateFromCurriculumRequ
     if not GEMINI_AVAILABLE or not MODEL:
         raise HTTPException(status_code=500, detail="Gemini API not available")
     
-    # Build prompt
+    # Build prompt based on format
     objectives_str = "\n".join(f"- {obj}" for obj in request.objectives) if request.objectives else ""
     materials_str = request.materials_context or ""
+    question_format = getattr(request, 'format', 'mcq') or 'mcq'
+    code_language = getattr(request, 'language', 'python') or 'python'
     
-    prompt = f"""You are an expert professor creating peer instruction questions.
+    if question_format == 'code':
+        # Generate code questions
+        # Build language-specific examples that MATCH the actual code runner wrapper
+        if code_language == 'cpp':
+            # C++ wrapper expects: solution(string input) -> returns auto (typically string)
+            # Input is passed as raw JSON string via stdin
+            starter_example = '''// Problem: Given an array of integers, find the sum
+// Input: JSON string like "[1, 2, 3, 4, 5]"
+// Output: Print the result
+
+#include <sstream>  // for string parsing
+
+// This function receives the raw JSON input as a string
+// Parse it and return the result as a string
+string solution(string input) {
+    // Parse the input (it's a JSON array like "[1, 2, 3]")
+    // The parseIntArray helper is available to convert to vector<int>
+    
+    // Your code here
+    
+    return "";  // Return result as string
+}'''
+            test_case_example = '''IMPORTANT: Input is passed as a raw JSON string to solution(string input)
+The wrapper provides these helpers:
+- parseIntArray(input) -> vector<int> for arrays like "[1, 2, 3]"  
+- parseJsonString(input) -> string for strings like "\\"hello\\""
+
+Example test cases:
+  input: "[1, 2, 3]"
+  expected_output: "6"'''
+        elif code_language == 'javascript':
+            # JavaScript wrapper calls: solution(...args) where args is parsed JSON
+            starter_example = '''// Problem: Given an array of integers, find the sum
+// Input will be passed as function arguments
+
+function solution(nums) {
+    // Your code here
+    
+}'''
+            test_case_example = '''Input is automatically parsed from JSON and passed to solution().
+For arrays: input "[1, 2, 3]" calls solution([1, 2, 3])
+For objects: input {"n": 5, "arr": [1,2]} calls solution(n=5, arr=[1,2])
+
+Example test cases:
+  input: "[1, 2, 3]"
+  expected_output: "6"'''
+        else:  # python
+            # Python wrapper auto-detects function and passes kwargs/args
+            starter_example = '''# Problem: Given an array of integers, find the sum
+# Input will be passed as function parameters
+
+def solution(nums):
+    # Your code here
+    pass'''
+            test_case_example = '''Input is automatically parsed from JSON and passed to your function.
+For arrays: input "[1, 2, 3]" calls solution([1, 2, 3]) OR solution(nums=[1,2,3])
+For objects: input {"n": 5, "arr": [1,2]} calls solution(n=5, arr=[1,2])
+
+Example test cases:
+  input: "[1, 2, 3]"
+  expected_output: "6"
+
+Example with multiple params:
+  input: "{{\\"nums\\": [1, 2, 3], \\"target\\": 3}}"
+  expected_output: "[0, 1]"'''
+        
+        prompt = f"""You are an expert professor creating coding problems for students.
+
+TOPIC: {request.topic}
+CONCEPTS: {', '.join(request.concepts)}
+PROGRAMMING LANGUAGE: {code_language}
+
+{f'LEARNING OBJECTIVES:{chr(10)}{objectives_str}' if objectives_str else ''}
+
+{f'MATERIALS CONTEXT:{chr(10)}{materials_str}' if materials_str else ''}
+
+Generate {request.num_questions} coding problems in {code_language}.
+
+CRITICAL - STARTER CODE RULES:
+- Starter code must be a SKELETON/TEMPLATE only, NOT a complete solution
+- Include function signature and any necessary imports/includes
+- Use comments like "// Your code here" or "# TODO: implement" to mark where students write code
+- DO NOT include the algorithm logic - students must write that themselves
+
+CRITICAL - TEST CASE FORMAT RULES:
+- Input must be valid JSON that can be parsed
+- For single values: use JSON primitives like "5" or "\\"hello\\""
+- For arrays: use JSON array format like "[1, 2, 3]"
+- For multiple parameters: use JSON object like "{{\\"n\\": 8, \\"prices\\": [1, 5, 8]}}"
+- expected_output must be a STRING representing the expected return value
+- DO NOT use formats like "n = 8, prices = {{1,2,3}}" - this is NOT valid JSON
+
+{test_case_example}
+
+For EACH problem:
+1. Make it SPECIFIC and educational
+2. Start with an easy problem and gradually increase difficulty
+3. Include SKELETON starter code (NOT the solution!)
+4. Include 2-3 test cases with VALID JSON input format
+5. Include a detailed explanation of the approach
+
+EXAMPLE of proper starter code:
+```
+{starter_example}
+```
+
+Return JSON array:
+[
+    {{
+        "concept": "concept_name",
+        "prompt": "Clear problem description explaining what to implement",
+        "format": "code",
+        "language": "{code_language}",
+        "starter_code": "<SKELETON CODE with function signature and TODOs, NOT the solution>",
+        "test_cases": [
+            {{"input": "[1, 2, 3]", "expected_output": "6", "is_hidden": false}},
+            {{"input": "[10, 20, 30]", "expected_output": "60", "is_hidden": true}}
+        ],
+        "explanation": "Approach explanation (shown after solving)",
+        "difficulty": 0.0-1.0,
+        "source": "generated",
+        "options": [],
+        "correct_answer": ""
+    }}
+]"""
+    elif question_format == 'mixed':
+        # Generate mix of MCQ and code
+        prompt = f"""You are an expert professor creating educational questions.
+
+TOPIC: {request.topic}
+CONCEPTS: {', '.join(request.concepts)}
+PROGRAMMING LANGUAGE: {code_language}
+
+{f'LEARNING OBJECTIVES:{chr(10)}{objectives_str}' if objectives_str else ''}
+
+{f'MATERIALS CONTEXT:{chr(10)}{materials_str}' if materials_str else ''}
+
+Generate {request.num_questions} questions - ALTERNATE between MCQ and coding problems.
+
+For MCQ questions, include:
+- prompt, options (4 choices), correct_answer (A/B/C/D), explanation, format: "mcq"
+
+For CODING problems:
+- prompt: Clear problem description
+- starter_code: SKELETON code only (function signature + "// Your code here"), NOT the solution!
+- test_cases with VALID JSON input format (see below)
+- explanation, language: "{code_language}", format: "code"
+
+CRITICAL - TEST CASE FORMAT:
+- Input must be valid JSON: "[1, 2, 3]" for arrays, "5" for numbers, "{{\\"key\\": value}}" for objects
+- DO NOT use invalid formats like "n = 8, arr = {{1,2,3}}"
+- expected_output is a string of the expected return value
+
+Return JSON array:
+[
+    {{
+        "concept": "concept_name",
+        "prompt": "Question text",
+        "format": "mcq" or "code",
+        "options": ["A. ...", "B. ...", "C. ...", "D. ..."],  // for MCQ
+        "correct_answer": "A/B/C/D",  // for MCQ
+        "language": "{code_language}",  // for code
+        "starter_code": "def func(params):\\n    # Your code here\\n    pass",  // SKELETON only for code
+        "test_cases": [{{"input": "[1, 2, 3]", "expected_output": "6", "is_hidden": false}}],  // valid JSON input
+        "explanation": "Explanation",
+        "difficulty": 0.0-1.0,
+        "source": "generated"
+    }}
+]"""
+    else:
+        # Generate MCQ questions (default)
+        prompt = f"""You are an expert professor creating peer instruction questions.
 
 TOPIC: {request.topic}
 CONCEPTS: {', '.join(request.concepts)}
