@@ -5,14 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "~/lib/utils";
 import {
     LayoutDashboard,
-    Code2,
+    Library,
+    Radio,
+    BarChart3,
     LogOut,
     Sparkles,
 } from "lucide-react";
 
 const navigation = [
     { name: "Dashboard", href: "/teacher", icon: LayoutDashboard },
-    { name: "Coding", href: "/teacher/coding", icon: Code2 },
+    { name: "Library", href: "/teacher/library", icon: Library },
+    { name: "Live", href: "/teacher/live", icon: Radio },
+    { name: "Analytics", href: "/teacher/analytics", icon: BarChart3 },
 ];
 
 export function Sidebar() {

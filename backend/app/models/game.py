@@ -34,7 +34,7 @@ def generate_game_code() -> str:
 class Quiz(Base):
     """A collection of questions created by a teacher."""
     __tablename__ = "quizzes"
-    
+
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     teacher_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -43,7 +43,31 @@ class Quiz(Base):
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
-    
+
+    # Async-first timing settings
+    timer_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # Timer OFF by default for async
+    default_time_limit: Mapped[int] = mapped_column(Integer, default=30)  # seconds per question
+
+    # Question behavior settings
+    shuffle_questions: Mapped[bool] = mapped_column(Boolean, default=False)
+    shuffle_answers: Mapped[bool] = mapped_column(Boolean, default=False)
+    allow_retries: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_retries: Mapped[int] = mapped_column(Integer, default=0)  # 0 = unlimited
+
+    # Feedback settings
+    show_correct_answer: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_explanation: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_distribution: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # AI feature settings
+    difficulty_adaptation: Mapped[bool] = mapped_column(Boolean, default=True)
+    peer_discussion_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    peer_discussion_trigger: Mapped[str] = mapped_column(String(50), default="high_confidence_wrong")  # always, high_confidence_wrong, never
+
+    # Live mode settings
+    allow_teacher_intervention: Mapped[bool] = mapped_column(Boolean, default=True)
+    sync_pacing_available: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # Relationships
     questions: Mapped[List["QuizQuestion"]] = relationship(back_populates="quiz", cascade="all, delete-orphan", order_by="QuizQuestion.order")
     games: Mapped[List["GameSession"]] = relationship(back_populates="quiz", cascade="all, delete-orphan")
@@ -159,6 +183,9 @@ class PlayerAnswer(Base):
     # Adaptive learning fields
     confidence: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0-100 confidence level
     reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Student's reasoning for answer
+
+    # AI analysis fields
+    misconception_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # Misconception analysis from AI
 
     # Timestamp
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

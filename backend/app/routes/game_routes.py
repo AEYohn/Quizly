@@ -630,8 +630,29 @@ async def submit_answer(
         confidence=confidence,
         reasoning=reasoning
     )
+
+    # If wrong answer with reasoning, run misconception analysis
+    misconception_data = None
+    if not is_correct and reasoning:
+        try:
+            from ..services.misconception_service import analyze_wrong_answer
+            misconception_data = await analyze_wrong_answer(
+                question={
+                    "question_text": question.question_text,
+                    "options": question.options,
+                    "explanation": question.explanation
+                },
+                student_answer=answer.upper(),
+                student_reasoning=reasoning,
+                correct_answer=question.correct_answer,
+                options=question.options
+            )
+            player_answer.misconception_data = misconception_data
+        except Exception as e:
+            print(f"Misconception analysis failed: {e}")
+
     db.add(player_answer)
-    
+
     # Update player score
     player.total_score += points_earned
     if is_correct:
@@ -639,16 +660,22 @@ async def submit_answer(
         player.current_streak += 1
     else:
         player.current_streak = 0
-    
+
     await db.commit()
 
-    return {
+    response_data = {
         "submitted": True,
         "is_correct": is_correct,
         "correct_answer": question.correct_answer,
         "points_earned": points_earned,
         "total_score": player.total_score,
     }
+
+    # Include misconception data if available
+    if misconception_data:
+        response_data["misconception"] = misconception_data
+
+    return response_data
 
 
 @router.get("/{game_id}/results")
@@ -675,8 +702,15 @@ async def get_game_results(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    if game.status not in ["results", "finished"]:
-        raise HTTPException(status_code=400, detail="Results not available yet")
+    # For sync mode, results only available during "results" or "finished" phases
+    # For async mode, allow results access anytime the game has started
+    if game.sync_mode:
+        if game.status not in ["results", "finished"]:
+            raise HTTPException(status_code=400, detail="Results not available yet")
+    else:
+        # Async mode: allow results once game has started (not in lobby)
+        if game.status == "lobby":
+            raise HTTPException(status_code=400, detail="Game has not started yet")
 
     questions = sorted(game.quiz.questions, key=lambda q: q.order)
     active_players = [p for p in game.players if p.is_active]
@@ -844,6 +878,30 @@ async def get_game_for_player(
             "points": q.points,
         }
 
+    # Get quiz settings for async-first behavior
+    quiz = game.quiz
+    quiz_settings = {
+        # Timing
+        "timer_enabled": getattr(quiz, "timer_enabled", False),
+        "default_time_limit": getattr(quiz, "default_time_limit", 30),
+        # Question behavior
+        "shuffle_questions": getattr(quiz, "shuffle_questions", False),
+        "shuffle_answers": getattr(quiz, "shuffle_answers", False),
+        "allow_retries": getattr(quiz, "allow_retries", True),
+        "max_retries": getattr(quiz, "max_retries", 0),
+        # Feedback
+        "show_correct_answer": getattr(quiz, "show_correct_answer", True),
+        "show_explanation": getattr(quiz, "show_explanation", True),
+        "show_distribution": getattr(quiz, "show_distribution", False),
+        # AI features
+        "difficulty_adaptation": getattr(quiz, "difficulty_adaptation", True),
+        "peer_discussion_enabled": getattr(quiz, "peer_discussion_enabled", True),
+        "peer_discussion_trigger": getattr(quiz, "peer_discussion_trigger", "high_confidence_wrong"),
+        # Live mode
+        "allow_teacher_intervention": getattr(quiz, "allow_teacher_intervention", True),
+        "sync_pacing_available": getattr(quiz, "sync_pacing_available", False),
+    }
+
     return {
         "id": str(game.id),
         "status": effective_status,
@@ -852,6 +910,7 @@ async def get_game_for_player(
         "quiz_title": game.quiz.title,
         "current_question": current_question,
         "sync_mode": game.sync_mode,
+        "quiz_settings": quiz_settings,
     }
 
 
@@ -1504,5 +1563,547 @@ def generate_game_csv_export(game: GameSession) -> str:
                 row.extend(["", "", "0"])
         
         lines.append(",".join(row))
-    
+
     return "\n".join(lines)
+
+
+# ==============================================================================
+# Peer Matching for Async Discussions
+# ==============================================================================
+
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Set
+import asyncio
+import time
+
+# In-memory storage for peer matching (consider Redis for production scale)
+peer_queues: Dict[str, Dict[int, List[Dict]]] = defaultdict(lambda: defaultdict(list))  # game_id -> question_index -> list of waiting players
+peer_matches: Dict[str, Dict[str, Dict]] = defaultdict(dict)  # game_id -> player_id -> match info
+chat_rooms: Dict[str, List[Dict]] = defaultdict(list)  # room_id -> messages
+
+
+class PeerFindRequest(BaseModel):
+    player_id: str
+    player_name: str
+    question_index: int
+    player_answer: str
+    is_correct: bool
+    confidence: int = 50
+
+
+class PeerMatchResponse(BaseModel):
+    status: str  # "waiting", "matched", "timeout"
+    peer_id: Optional[str] = None
+    peer_name: Optional[str] = None
+    peer_answer: Optional[str] = None
+    room_id: Optional[str] = None
+    use_ai: bool = False
+    ai_peer_name: Optional[str] = None
+
+
+class ChatMessage(BaseModel):
+    sender_id: str
+    sender_name: str
+    content: str
+
+
+class ChatMessageResponse(BaseModel):
+    id: str
+    sender_id: str
+    sender_name: str
+    content: str
+    timestamp: float
+
+
+@router.post("/{game_id}/peer/find", response_model=PeerMatchResponse)
+async def find_peer_for_discussion(
+    game_id: UUID,
+    request: PeerFindRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Find a peer for discussion in async mode.
+
+    Matching strategy:
+    1. If player got it WRONG: Find someone who got it RIGHT (mentor)
+    2. If player got it RIGHT: Find someone who got it WRONG (be a mentor)
+    3. Fall back to AI peer if no match within timeout
+    """
+    game_key = str(game_id)
+    player_key = request.player_id
+    q_idx = request.question_index
+
+    # Check if already matched
+    if player_key in peer_matches[game_key]:
+        match = peer_matches[game_key][player_key]
+        return PeerMatchResponse(
+            status="matched",
+            peer_id=match["peer_id"],
+            peer_name=match["peer_name"],
+            peer_answer=match["peer_answer"],
+            room_id=match["room_id"],
+            use_ai=match.get("use_ai", False),
+            ai_peer_name=match.get("ai_peer_name")
+        )
+
+    # Try to find a match from the queue
+    queue = peer_queues[game_key][q_idx]
+
+    # Look for complementary match (wrong student needs correct mentor, vice versa)
+    match_found = None
+    for i, waiting in enumerate(queue):
+        if waiting["player_id"] == player_key:
+            continue  # Skip self
+
+        # Match strategy: pair opposite correctness
+        if waiting["is_correct"] != request.is_correct:
+            match_found = queue.pop(i)
+            break
+
+    if match_found:
+        # Create chat room
+        room_id = f"{game_key}_{q_idx}_{player_key}_{match_found['player_id']}"
+
+        # Determine mentor/learner roles
+        if request.is_correct:
+            mentor_id, mentor_name = player_key, request.player_name
+            learner_id, learner_name = match_found["player_id"], match_found["player_name"]
+        else:
+            mentor_id, mentor_name = match_found["player_id"], match_found["player_name"]
+            learner_id, learner_name = player_key, request.player_name
+
+        # Store match for both players
+        match_info_requester = {
+            "peer_id": match_found["player_id"],
+            "peer_name": match_found["player_name"],
+            "peer_answer": match_found["player_answer"],
+            "room_id": room_id,
+            "is_mentor": request.is_correct,
+            "use_ai": False
+        }
+        match_info_other = {
+            "peer_id": player_key,
+            "peer_name": request.player_name,
+            "peer_answer": request.player_answer,
+            "room_id": room_id,
+            "is_mentor": not request.is_correct,
+            "use_ai": False
+        }
+
+        peer_matches[game_key][player_key] = match_info_requester
+        peer_matches[game_key][match_found["player_id"]] = match_info_other
+
+        # Initialize chat room with system message
+        chat_rooms[room_id] = [{
+            "id": f"sys_{int(time.time()*1000)}",
+            "sender_id": "system",
+            "sender_name": "Quizly",
+            "content": f"🎯 {mentor_name} (got it right) is paired with {learner_name} to discuss this question. Help each other understand!",
+            "timestamp": time.time()
+        }]
+
+        return PeerMatchResponse(
+            status="matched",
+            peer_id=match_found["player_id"],
+            peer_name=match_found["player_name"],
+            peer_answer=match_found["player_answer"],
+            room_id=room_id,
+            use_ai=False
+        )
+
+    # No match found - add to queue if not already waiting
+    already_waiting = any(w["player_id"] == player_key for w in queue)
+    if not already_waiting:
+        queue.append({
+            "player_id": player_key,
+            "player_name": request.player_name,
+            "player_answer": request.player_answer,
+            "is_correct": request.is_correct,
+            "confidence": request.confidence,
+            "joined_at": time.time()
+        })
+
+    # Check if been waiting too long (5 seconds for quick fallback to AI)
+    for waiting in queue:
+        if waiting["player_id"] == player_key:
+            wait_time = time.time() - waiting["joined_at"]
+            if wait_time > 5:
+                # Remove from queue
+                queue[:] = [w for w in queue if w["player_id"] != player_key]
+
+                # Create AI peer match
+                ai_names = ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey"]
+                ai_name = ai_names[hash(player_key) % len(ai_names)]
+                room_id = f"{game_key}_{q_idx}_{player_key}_ai"
+
+                ai_match = {
+                    "peer_id": "ai",
+                    "peer_name": ai_name,
+                    "peer_answer": "B" if request.player_answer == "A" else "A",  # Different answer
+                    "room_id": room_id,
+                    "use_ai": True,
+                    "ai_peer_name": ai_name
+                }
+                peer_matches[game_key][player_key] = ai_match
+
+                return PeerMatchResponse(
+                    status="matched",
+                    peer_id="ai",
+                    peer_name=ai_name,
+                    room_id=room_id,
+                    use_ai=True,
+                    ai_peer_name=ai_name
+                )
+            break
+
+    return PeerMatchResponse(status="waiting", use_ai=False)
+
+
+@router.get("/{game_id}/peer/status/{player_id}", response_model=PeerMatchResponse)
+async def get_peer_match_status(
+    game_id: UUID,
+    player_id: str
+):
+    """Check if a peer match has been found."""
+    game_key = str(game_id)
+
+    if player_id in peer_matches[game_key]:
+        match = peer_matches[game_key][player_id]
+        return PeerMatchResponse(
+            status="matched",
+            peer_id=match["peer_id"],
+            peer_name=match["peer_name"],
+            peer_answer=match.get("peer_answer"),
+            room_id=match["room_id"],
+            use_ai=match.get("use_ai", False),
+            ai_peer_name=match.get("ai_peer_name")
+        )
+
+    return PeerMatchResponse(status="waiting", use_ai=False)
+
+
+@router.post("/{game_id}/peer/message/{room_id}")
+async def send_peer_message(
+    game_id: UUID,
+    room_id: str,
+    message: ChatMessage
+):
+    """Send a message in a peer chat room."""
+    msg = {
+        "id": f"msg_{int(time.time()*1000)}_{message.sender_id[:4]}",
+        "sender_id": message.sender_id,
+        "sender_name": message.sender_name,
+        "content": message.content,
+        "timestamp": time.time()
+    }
+    chat_rooms[room_id].append(msg)
+
+    # Keep only last 50 messages per room
+    if len(chat_rooms[room_id]) > 50:
+        chat_rooms[room_id] = chat_rooms[room_id][-50:]
+
+    return {"status": "sent", "message_id": msg["id"]}
+
+
+@router.get("/{game_id}/peer/messages/{room_id}")
+async def get_peer_messages(
+    game_id: UUID,
+    room_id: str,
+    after: Optional[float] = Query(None, description="Get messages after this timestamp")
+) -> List[ChatMessageResponse]:
+    """Get messages from a peer chat room."""
+    messages = chat_rooms.get(room_id, [])
+
+    if after:
+        messages = [m for m in messages if m["timestamp"] > after]
+
+    return [
+        ChatMessageResponse(
+            id=m["id"],
+            sender_id=m["sender_id"],
+            sender_name=m["sender_name"],
+            content=m["content"],
+            timestamp=m["timestamp"]
+        )
+        for m in messages
+    ]
+
+
+@router.delete("/{game_id}/peer/leave/{player_id}")
+async def leave_peer_queue(
+    game_id: UUID,
+    player_id: str
+):
+    """Leave the peer matching queue."""
+    game_key = str(game_id)
+
+    # Remove from all queues
+    for q_idx in peer_queues[game_key]:
+        peer_queues[game_key][q_idx] = [
+            w for w in peer_queues[game_key][q_idx]
+            if w["player_id"] != player_id
+        ]
+
+    # Clear match
+    if player_id in peer_matches[game_key]:
+        del peer_matches[game_key][player_id]
+
+    return {"status": "left"}
+
+
+# ==============================================================================
+# Smart AI Peer Chat
+# ==============================================================================
+
+class SmartChatRequest(BaseModel):
+    """Request for smart AI peer chat."""
+    player_id: str
+    question_index: int
+    message: str
+    context: Optional[Dict[str, Any]] = None  # {student_answer, is_correct, question, reasoning}
+
+
+class SmartChatResponse(BaseModel):
+    """Response from smart AI peer."""
+    name: str
+    message: str
+    follow_up_question: Optional[str] = None
+
+
+# In-memory chat history storage per player/question (consider Redis for production)
+smart_chat_histories: Dict[str, List[Dict[str, str]]] = {}
+
+
+@router.post("/{game_id}/peer/smart-chat", response_model=SmartChatResponse)
+async def smart_peer_chat(
+    game_id: UUID,
+    request: SmartChatRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    AI peer that understands the question context and student's reasoning.
+
+    Unlike basic AI peer:
+    - Shows actual option text, not just "A" or "C"
+    - Asks about concepts and reasoning, not letter choices
+    - Helps students discover the answer through guided discussion
+    """
+    from ..services.smart_peer_service import generate_smart_peer_response, get_peer_name
+
+    # Get chat history key
+    history_key = f"{game_id}_{request.player_id}_{request.question_index}"
+
+    # Initialize history if needed
+    if history_key not in smart_chat_histories:
+        smart_chat_histories[history_key] = []
+
+    # Get context from request or fetch from DB
+    context = request.context or {}
+    question_data = context.get("question", {})
+    student_answer = context.get("student_answer", "A")
+    is_correct = context.get("is_correct", False)
+    student_reasoning = context.get("reasoning")
+    confidence = context.get("confidence")
+
+    # If no question in context, try to fetch from DB
+    if not question_data:
+        result = await db.execute(
+            select(GameSession)
+            .options(selectinload(GameSession.quiz).selectinload(Quiz.questions))
+            .where(GameSession.id == game_id)
+        )
+        game = result.scalars().first()
+
+        if game:
+            questions = sorted(game.quiz.questions, key=lambda q: q.order)
+            if 0 <= request.question_index < len(questions):
+                q = questions[request.question_index]
+                question_data = {
+                    "question_text": q.question_text,
+                    "options": q.options,
+                    "correct_answer": q.correct_answer,
+                    "explanation": q.explanation
+                }
+
+    # Add user message to history
+    peer_name = get_peer_name(request.player_id)
+    if request.message:
+        smart_chat_histories[history_key].append({
+            "role": "student",
+            "name": "Student",
+            "content": request.message
+        })
+
+    # Generate AI response
+    response = await generate_smart_peer_response(
+        question=question_data,
+        student_answer=student_answer,
+        student_reasoning=student_reasoning,
+        correct_answer=question_data.get("correct_answer", "A"),
+        is_correct=is_correct,
+        chat_history=smart_chat_histories[history_key],
+        player_id=request.player_id,
+        confidence=confidence
+    )
+
+    # Add AI response to history
+    smart_chat_histories[history_key].append({
+        "role": "peer",
+        "name": response["name"],
+        "content": response["message"]
+    })
+
+    # Keep history limited
+    if len(smart_chat_histories[history_key]) > 20:
+        smart_chat_histories[history_key] = smart_chat_histories[history_key][-20:]
+
+    return SmartChatResponse(
+        name=response["name"],
+        message=response["message"],
+        follow_up_question=response.get("follow_up_question")
+    )
+
+
+@router.delete("/{game_id}/peer/smart-chat/{player_id}")
+async def clear_smart_chat_history(
+    game_id: UUID,
+    player_id: str,
+    question_index: Optional[int] = Query(None)
+):
+    """Clear chat history for a player (optionally for specific question)."""
+    if question_index is not None:
+        history_key = f"{game_id}_{player_id}_{question_index}"
+        if history_key in smart_chat_histories:
+            del smart_chat_histories[history_key]
+    else:
+        # Clear all histories for this player in this game
+        keys_to_delete = [k for k in smart_chat_histories.keys()
+                         if k.startswith(f"{game_id}_{player_id}_")]
+        for key in keys_to_delete:
+            del smart_chat_histories[key]
+
+    return {"status": "cleared"}
+
+
+# ==============================================================================
+# Misconception Insights for Teachers
+# ==============================================================================
+
+@router.get("/{game_id}/insights/misconceptions")
+async def get_game_misconception_insights(
+    game_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get detailed misconception insights for a game.
+
+    Returns aggregated misconception data including:
+    - Top misconception types across all students
+    - Category distribution (conceptual, procedural, careless, etc.)
+    - Severity distribution
+    - Per-question misconception breakdown
+    - Individual student misconceptions with remediation suggestions
+    """
+    # Verify game exists and user is the host
+    result = await db.execute(
+        select(GameSession)
+        .options(
+            selectinload(GameSession.players).selectinload(Player.answers),
+            selectinload(GameSession.quiz).selectinload(Quiz.questions)
+        )
+        .where(GameSession.id == game_id)
+    )
+    game = result.scalars().first()
+
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    if game.host_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the host can view insights")
+
+    questions = sorted(game.quiz.questions, key=lambda q: q.order)
+    question_map = {str(q.id): q for q in questions}
+
+    # Collect all misconceptions
+    all_misconceptions = []
+    student_misconceptions = []
+    question_misconceptions: Dict[str, List[Dict]] = {str(q.id): [] for q in questions}
+
+    for player in game.players:
+        if not player.is_active:
+            continue
+
+        player_misconceptions = []
+        for answer in player.answers:
+            if answer.misconception_data and not answer.is_correct:
+                misconception = {
+                    "player_id": str(player.id),
+                    "player_name": player.nickname,
+                    "question_id": str(answer.question_id),
+                    "answer": answer.answer,
+                    "confidence": answer.confidence,
+                    "reasoning": answer.reasoning,
+                    **answer.misconception_data
+                }
+                all_misconceptions.append(answer.misconception_data)
+                player_misconceptions.append(misconception)
+
+                # Add to question breakdown
+                q_id = str(answer.question_id)
+                if q_id in question_misconceptions:
+                    question_misconceptions[q_id].append(misconception)
+
+        if player_misconceptions:
+            student_misconceptions.append({
+                "player_id": str(player.id),
+                "nickname": player.nickname,
+                "misconception_count": len(player_misconceptions),
+                "misconceptions": player_misconceptions
+            })
+
+    # Aggregate misconception stats
+    from ..services.misconception_service import get_class_misconception_summary
+    summary = await get_class_misconception_summary(all_misconceptions)
+
+    # Build per-question breakdown
+    questions_breakdown = []
+    for i, q in enumerate(questions):
+        q_id = str(q.id)
+        q_misconceptions = question_misconceptions.get(q_id, [])
+
+        # Count unique misconception types for this question
+        type_counts: Dict[str, int] = {}
+        for m in q_misconceptions:
+            mtype = m.get("misconception_type", "unknown")
+            type_counts[mtype] = type_counts.get(mtype, 0) + 1
+
+        questions_breakdown.append({
+            "question_index": i,
+            "question_text": q.question_text[:100] + "..." if len(q.question_text) > 100 else q.question_text,
+            "correct_answer": q.correct_answer,
+            "misconception_count": len(q_misconceptions),
+            "top_misconceptions": sorted(type_counts.items(), key=lambda x: -x[1])[:3],
+            "misconceptions": q_misconceptions
+        })
+
+    return {
+        "game_id": str(game_id),
+        "quiz_title": game.quiz.title,
+        "total_players": len([p for p in game.players if p.is_active]),
+        "total_misconceptions": summary["total_misconceptions"],
+
+        # Aggregated insights
+        "summary": summary,
+
+        # Per-question breakdown
+        "questions_breakdown": questions_breakdown,
+
+        # Per-student breakdown
+        "student_misconceptions": sorted(
+            student_misconceptions,
+            key=lambda x: x["misconception_count"],
+            reverse=True
+        )
+    }

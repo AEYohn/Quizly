@@ -23,6 +23,13 @@ import {
     Image,
     Paperclip,
     PenLine,
+    Settings,
+    Clock,
+    Shuffle,
+    RotateCcw,
+    MessageCircle,
+    Brain,
+    Radio,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -65,6 +72,28 @@ interface ChatMessage {
     timestamp: Date;
 }
 
+interface QuizSettings {
+    // Timing
+    timer_enabled: boolean;
+    default_time_limit: number;
+    // Question behavior
+    shuffle_questions: boolean;
+    shuffle_answers: boolean;
+    allow_retries: boolean;
+    max_retries: number;
+    // Feedback
+    show_correct_answer: boolean;
+    show_explanation: boolean;
+    show_distribution: boolean;
+    // AI features
+    difficulty_adaptation: boolean;
+    peer_discussion_enabled: boolean;
+    peer_discussion_trigger: "always" | "high_confidence_wrong" | "never";
+    // Live mode
+    allow_teacher_intervention: boolean;
+    sync_pacing_available: boolean;
+}
+
 export default function NewQuizPage() {
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +116,28 @@ export default function NewQuizPage() {
     });
     const [questions, setQuestions] = useState<QuestionData[]>([]);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [showSettings, setShowSettings] = useState(false);
+    const [quizSettings, setQuizSettings] = useState<QuizSettings>({
+        // Timing - async-first defaults
+        timer_enabled: false,
+        default_time_limit: 30,
+        // Question behavior
+        shuffle_questions: false,
+        shuffle_answers: false,
+        allow_retries: true,
+        max_retries: 0, // 0 = unlimited
+        // Feedback
+        show_correct_answer: true,
+        show_explanation: true,
+        show_distribution: false,
+        // AI features
+        difficulty_adaptation: true,
+        peer_discussion_enabled: true,
+        peer_discussion_trigger: "high_confidence_wrong",
+        // Live mode
+        allow_teacher_intervention: true,
+        sync_pacing_available: false,
+    });
 
     const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -350,6 +401,7 @@ export default function NewQuizPage() {
             const finalQuizData = {
                 ...quizData,
                 title: quizData.title || "Untitled Quiz",
+                ...quizSettings, // Include all quiz settings
             };
 
             const quizResponse = await fetch(`${API_URL}/quizzes/`, {
@@ -454,6 +506,18 @@ export default function NewQuizPage() {
                                     Manual
                                 </button>
                             </div>
+                            {/* Settings Toggle */}
+                            <button
+                                onClick={() => setShowSettings(!showSettings)}
+                                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors border ${
+                                    showSettings
+                                        ? "bg-purple-500/20 text-purple-400 border-purple-500/50"
+                                        : "text-gray-400 border-gray-700 hover:bg-gray-800 hover:text-white"
+                                }`}
+                            >
+                                <Settings className="h-4 w-4" />
+                                Settings
+                            </button>
                             <button
                                 onClick={saveQuiz}
                                 disabled={saving || questions.length === 0}
@@ -466,6 +530,256 @@ export default function NewQuizPage() {
                     </div>
                 </div>
             </header>
+
+            {/* Quiz Settings Panel */}
+            {showSettings && (
+                <div className="border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm">
+                    <div className="mx-auto max-w-4xl px-6 py-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {/* Timing Settings */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-sky-400" />
+                                    Timing
+                                </h3>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Enable timer</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, timer_enabled: !s.timer_enabled }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.timer_enabled ? "bg-sky-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.timer_enabled ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                {quizSettings.timer_enabled && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-400">Time per question:</span>
+                                        <select
+                                            value={quizSettings.default_time_limit}
+                                            onChange={(e) => setQuizSettings(s => ({ ...s, default_time_limit: parseInt(e.target.value) }))}
+                                            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:border-sky-500 focus:outline-none"
+                                        >
+                                            <option value={15}>15 seconds</option>
+                                            <option value={30}>30 seconds</option>
+                                            <option value={60}>1 minute</option>
+                                            <option value={120}>2 minutes</option>
+                                            <option value={300}>5 minutes</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Question Behavior */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                    <Shuffle className="h-4 w-4 text-purple-400" />
+                                    Question Behavior
+                                </h3>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Shuffle questions</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, shuffle_questions: !s.shuffle_questions }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.shuffle_questions ? "bg-purple-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.shuffle_questions ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Shuffle answers</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, shuffle_answers: !s.shuffle_answers }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.shuffle_answers ? "bg-purple-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.shuffle_answers ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Allow retries</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, allow_retries: !s.allow_retries }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.allow_retries ? "bg-purple-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.allow_retries ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                {quizSettings.allow_retries && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-400">Max retries:</span>
+                                        <select
+                                            value={quizSettings.max_retries}
+                                            onChange={(e) => setQuizSettings(s => ({ ...s, max_retries: parseInt(e.target.value) }))}
+                                            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:border-sky-500 focus:outline-none"
+                                        >
+                                            <option value={0}>Unlimited</option>
+                                            <option value={1}>1 retry</option>
+                                            <option value={2}>2 retries</option>
+                                            <option value={3}>3 retries</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Feedback Settings */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                    <MessageCircle className="h-4 w-4 text-green-400" />
+                                    Feedback & Answers
+                                </h3>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Show correct answer</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, show_correct_answer: !s.show_correct_answer }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.show_correct_answer ? "bg-green-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.show_correct_answer ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Show explanation</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, show_explanation: !s.show_explanation }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.show_explanation ? "bg-green-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.show_explanation ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Show answer distribution</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, show_distribution: !s.show_distribution }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.show_distribution ? "bg-green-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.show_distribution ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                            </div>
+
+                            {/* AI Features */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                    <Brain className="h-4 w-4 text-amber-400" />
+                                    AI Features
+                                </h3>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Difficulty adaptation</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, difficulty_adaptation: !s.difficulty_adaptation }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.difficulty_adaptation ? "bg-amber-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.difficulty_adaptation ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Peer discussion</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, peer_discussion_enabled: !s.peer_discussion_enabled }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.peer_discussion_enabled ? "bg-amber-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.peer_discussion_enabled ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                {quizSettings.peer_discussion_enabled && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-400">Trigger:</span>
+                                        <select
+                                            value={quizSettings.peer_discussion_trigger}
+                                            onChange={(e) => setQuizSettings(s => ({ ...s, peer_discussion_trigger: e.target.value as QuizSettings["peer_discussion_trigger"] }))}
+                                            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:border-sky-500 focus:outline-none"
+                                        >
+                                            <option value="always">Always</option>
+                                            <option value="high_confidence_wrong">High confidence wrong</option>
+                                            <option value="never">Never</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Live Mode */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                    <Radio className="h-4 w-4 text-red-400" />
+                                    Live Mode Options
+                                </h3>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Teacher intervention</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, allow_teacher_intervention: !s.allow_teacher_intervention }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.allow_teacher_intervention ? "bg-red-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.allow_teacher_intervention ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                                <label className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">Sync pacing available</span>
+                                    <button
+                                        onClick={() => setQuizSettings(s => ({ ...s, sync_pacing_available: !s.sync_pacing_available }))}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            quizSettings.sync_pacing_available ? "bg-red-500" : "bg-gray-600"
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            quizSettings.sync_pacing_available ? "translate-x-6" : "translate-x-1"
+                                        }`} />
+                                    </button>
+                                </label>
+                            </div>
+
+                            {/* Async-first indicator */}
+                            <div className="space-y-4">
+                                <div className="rounded-xl bg-sky-500/10 border border-sky-500/30 p-4">
+                                    <p className="text-sm text-sky-300 font-medium mb-1">Async-First Mode</p>
+                                    <p className="text-xs text-gray-400">
+                                        By default, students can start immediately and work at their own pace.
+                                        {quizSettings.timer_enabled
+                                            ? " Timer is enabled for each question."
+                                            : " No timer pressure."}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex-1 flex flex-col">
                 {/* AI Chat Mode */}

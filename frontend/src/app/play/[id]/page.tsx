@@ -8,8 +8,27 @@ import { useGameSocket } from "~/lib/useGameSocket";
 import ConfidenceSlider from "~/components/ConfidenceSlider";
 import PeerDiscussion from "~/components/PeerDiscussion";
 import LearningAnalytics from "~/components/LearningAnalytics";
+import PostQuizSummary from "~/components/PostQuizSummary";
+import PracticeRecommendations from "~/components/PracticeRecommendations";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+interface QuizSettings {
+    timer_enabled: boolean;
+    default_time_limit: number;
+    shuffle_questions: boolean;
+    shuffle_answers: boolean;
+    allow_retries: boolean;
+    max_retries: number;
+    show_correct_answer: boolean;
+    show_explanation: boolean;
+    show_distribution: boolean;
+    difficulty_adaptation: boolean;
+    peer_discussion_enabled: boolean;
+    peer_discussion_trigger: "always" | "high_confidence_wrong" | "never";
+    allow_teacher_intervention: boolean;
+    sync_pacing_available: boolean;
+}
 
 interface GameState {
     id: string;
@@ -18,6 +37,7 @@ interface GameState {
     total_questions: number;
     quiz_title: string;
     sync_mode: boolean;
+    quiz_settings?: QuizSettings;
     current_question?: {
         question_text: string;
         question_type: string;
@@ -75,6 +95,24 @@ export default function PlayGamePage() {
     // Learning Analytics state
     const [showAnalytics, setShowAnalytics] = useState(false);
 
+    // Post-quiz flow stages: "summary" -> "exit_ticket" -> "practice" -> "complete"
+    const [postQuizStage, setPostQuizStage] = useState<"summary" | "exit_ticket" | "practice" | "complete">("summary");
+    const [analyticsData, setAnalyticsData] = useState<{
+        quadrants?: { confident_correct: number; confident_incorrect: number; uncertain_correct: number; uncertain_incorrect: number };
+        calibration?: { status: "overconfident" | "underconfident" | "well_calibrated"; gap: number; message: string };
+        avgConfidence?: number;
+        misconceptionCount?: number;
+        weakConcepts?: string[];
+    } | null>(null);
+    const [practiceQuestions, setPracticeQuestions] = useState<Array<{
+        id: string;
+        question_text: string;
+        options: { [key: string]: string };
+        correct_answer: string;
+        explanation: string;
+        concept: string;
+    }>>([]);
+
     // Exit Ticket state (using new student learning API)
     const [exitTicket, setExitTicket] = useState<{
         id: string;
@@ -108,10 +146,11 @@ export default function PlayGamePage() {
         : null;
 
     // WebSocket for real-time game updates (timer sync, question transitions)
+    // Only needed for sync mode - async games work via HTTP polling
     const { isConnected, timeRemaining: wsTimeRemaining } = useGameSocket({
         gameId,
         playerId: playerId || undefined,
-        enabled: !!playerId,
+        enabled: !!playerId && game?.sync_mode !== false,
         onGameStarted: () => {
             // Game started - fetch latest state
             fetchGame();
@@ -317,13 +356,19 @@ export default function PlayGamePage() {
         return () => clearInterval(interval);
     }, [fetchGame, fetchPlayerState, playerId, router, hasAnswered, game?.status, isConnected]);
 
-    // Timer initialization
+    // Timer initialization - only if timer is enabled in quiz settings
     useEffect(() => {
         if (game?.status === "question" && game.current_question && !hasAnswered) {
-            setTimeLeft(game.current_question.time_limit);
+            // Only set timer if quiz_settings.timer_enabled is true
+            const timerEnabled = game.quiz_settings?.timer_enabled ?? false;
+            if (timerEnabled) {
+                setTimeLeft(game.current_question.time_limit);
+            } else {
+                setTimeLeft(null); // No timer for async-first mode
+            }
             setQuestionStartTime(Date.now());
         }
-    }, [game?.current_question_index]);
+    }, [game?.current_question_index, game?.quiz_settings?.timer_enabled]);
 
     // Timer countdown
     useEffect(() => {
@@ -386,9 +431,17 @@ export default function PlayGamePage() {
                     setStreak(prev => prev + 1);
                 } else {
                     setStreak(0);
-                    // Show peer discussion for wrong answers with high confidence (misconception)
-                    if (confidence >= 60) {
-                        setShowPeerDiscussion(true);
+                    // Show peer discussion based on quiz settings
+                    const peerEnabled = game.quiz_settings?.peer_discussion_enabled ?? true;
+                    const peerTrigger = game.quiz_settings?.peer_discussion_trigger ?? "high_confidence_wrong";
+
+                    if (peerEnabled) {
+                        if (peerTrigger === "always") {
+                            setShowPeerDiscussion(true);
+                        } else if (peerTrigger === "high_confidence_wrong" && confidence >= 60) {
+                            setShowPeerDiscussion(true);
+                        }
+                        // "never" - don't show peer discussion
                     }
                 }
 
@@ -524,7 +577,38 @@ export default function PlayGamePage() {
     }
 
     // Lobby - waiting for game to start
+    // Async-first: students can start immediately without waiting for teacher
+    // Sync mode: students wait for teacher to start the game
     if (game.status === "lobby") {
+        // In async-first mode (sync_mode=false), skip lobby and go directly to questions
+        if (game.sync_mode === false) {
+            // This shouldn't render - fetchGame should return "question" status for async
+            // But just in case, show a "ready to start" state
+            return (
+                <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-8">
+                    <div className="mb-8">
+                        <Sparkles className="h-20 w-20 text-sky-400" />
+                    </div>
+                    <h1 className="mb-4 text-4xl font-bold text-white">
+                        Hey {nickname}! 👋
+                    </h1>
+                    <p className="mb-8 text-xl text-gray-400">
+                        Ready to start your quiz
+                    </p>
+                    <div className="text-center">
+                        <p className="text-gray-500 text-sm mb-4">
+                            {game.quiz_settings?.timer_enabled
+                                ? `Timer: ${game.quiz_settings.default_time_limit}s per question`
+                                : "Self-paced - take your time!"}
+                        </p>
+                        <Loader2 className="h-6 w-6 animate-spin text-sky-400 mx-auto" />
+                        <p className="text-gray-400 text-sm mt-2">Loading questions...</p>
+                    </div>
+                </div>
+            );
+        }
+
+        // Sync mode: wait for teacher
         return (
             <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-8">
                 <div className="mb-8 animate-bounce">
@@ -674,6 +758,77 @@ export default function PlayGamePage() {
                             </button>
                         </div>
                     </div>
+                ) : postQuizStage === "summary" ? (
+                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
+                        <PostQuizSummary
+                            score={playerState?.score || 0}
+                            totalQuestions={game.total_questions}
+                            correctAnswers={playerState?.correct_answers || Math.floor((playerState?.score || 0) / 100)}
+                            rank={playerState?.rank}
+                            totalPlayers={undefined}
+                            accuracy={game.total_questions > 0 ? Math.round(((playerState?.correct_answers || Math.floor((playerState?.score || 0) / 100)) / game.total_questions) * 100) : 0}
+                            avgConfidence={analyticsData?.avgConfidence}
+                            quadrants={analyticsData?.quadrants}
+                            calibration={analyticsData?.calibration}
+                            misconceptionCount={analyticsData?.misconceptionCount}
+                            onContinue={() => {
+                                fetchExitTicket();
+                                setPostQuizStage("exit_ticket");
+                            }}
+                        />
+                    </div>
+                ) : postQuizStage === "practice" ? (
+                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
+                        <PracticeRecommendations
+                            weakConcepts={analyticsData?.weakConcepts || []}
+                            questions={practiceQuestions}
+                            onComplete={(results) => {
+                                console.log("Practice completed:", results);
+                                setPostQuizStage("complete");
+                            }}
+                            onSkip={() => setPostQuizStage("complete")}
+                        />
+                    </div>
+                ) : postQuizStage === "complete" ? (
+                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
+                        <div className="text-center max-w-md">
+                            <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-500/20 mb-4">
+                                <Check className="h-8 w-8 text-green-400" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2">All Done!</h2>
+                            <p className="text-gray-400 mb-6">
+                                Great job completing the quiz. Your weak areas have been added to your adaptive review queue.
+                            </p>
+                            <div className="rounded-xl bg-sky-500/10 border border-sky-500/30 p-4 mb-6">
+                                <p className="text-sm text-sky-300">
+                                    <Sparkles className="inline h-4 w-4 mr-1" />
+                                    Come back tomorrow for spaced repetition review!
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={() => setShowAnalytics(true)}
+                                    className="rounded-xl bg-sky-600 px-6 py-3 font-medium text-white hover:bg-sky-700 flex items-center justify-center gap-2"
+                                >
+                                    <BarChart3 className="h-5 w-5" />
+                                    View Full Analytics
+                                </button>
+                                <Link
+                                    href="/student/learning"
+                                    className="rounded-xl bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-500 flex items-center justify-center gap-2"
+                                >
+                                    <BookOpen className="h-5 w-5" />
+                                    Learning Dashboard
+                                </Link>
+                                <button
+                                    onClick={() => router.push("/join")}
+                                    className="rounded-xl border border-gray-700 px-6 py-3 font-medium text-gray-300 hover:bg-gray-800 flex items-center justify-center gap-2"
+                                >
+                                    Play Again
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 ) : (
                     <div className="flex min-h-[90vh] flex-col items-center justify-center">
                         <div className="animate-bounce mb-6">
@@ -784,16 +939,22 @@ export default function PlayGamePage() {
                     )}
 
                     {/* AI Peer Discussion for misconceptions */}
-                    {showPeerDiscussion && game?.current_question && lastCorrectAnswer && selectedAnswer && (
+                    {showPeerDiscussion && game?.current_question && lastCorrectAnswer && selectedAnswer && playerId && (
                         <div className="mb-6 w-full">
                             <PeerDiscussion
+                                gameId={gameId}
+                                playerId={playerId}
+                                playerName={nickname || "Player"}
                                 question={{
                                     question_text: game.current_question.question_text,
                                     options: game.current_question.options,
                                 }}
+                                questionIndex={game.current_question_index}
                                 studentAnswer={selectedAnswer}
                                 studentReasoning={reasoning}
                                 correctAnswer={lastCorrectAnswer}
+                                isCorrect={false}
+                                confidence={confidence}
                                 onComplete={() => setShowPeerDiscussion(false)}
                             />
                         </div>
@@ -829,8 +990,8 @@ export default function PlayGamePage() {
                         )}
                     </div>
 
-                    {/* FOR ASYNC MODE: Show Next Question Button */}
-                    {game?.sync_mode === false && !showPeerDiscussion && (
+                    {/* FOR ASYNC MODE: Show Next Question Button (always visible, even during peer discussion) */}
+                    {game?.sync_mode === false && (
                         <div className="mt-8">
                             {asyncQuestionIndex + 1 < game.total_questions ? (
                                 <button
