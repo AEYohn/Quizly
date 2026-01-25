@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 import os
 from sqlalchemy import text
 
-from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes
+from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes
 from .rate_limiter import limiter
 
 # Import slowapi for rate limiting
@@ -98,6 +98,8 @@ app.include_router(course_routes.router, prefix="/courses", tags=["courses"])
 app.include_router(coding_routes.router, prefix="/coding", tags=["coding"])
 # Code execution routes
 app.include_router(code_routes.router, tags=["code-execution"])
+# AI Game Host routes
+app.include_router(host_routes.router, tags=["game-host"])
 
 
 @app.get("/")

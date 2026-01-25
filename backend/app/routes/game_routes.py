@@ -316,7 +316,7 @@ async def start_game(
     })
     
     # Broadcast the first question (without correct answer)
-    await broadcast_game_state(game_id_str, "question_show", {
+    await broadcast_game_state(game_id_str, "question_start", {
         "question_index": 0,
         "question_text": first_question.question_text,
         "question_type": first_question.question_type,
@@ -366,7 +366,7 @@ async def next_question(
         
         # Broadcast results to all players
         current_q = questions[game.current_question_index]
-        await broadcast_game_state(game_id_str, "results_show", {
+        await broadcast_game_state(game_id_str, "results", {
             "question_index": game.current_question_index,
             "correct_answer": current_q.correct_answer if game.show_correct_answer else None,
             "explanation": current_q.explanation
@@ -385,7 +385,7 @@ async def next_question(
             await db.commit()
             
             # Broadcast game finished
-            await broadcast_game_state(game_id_str, "game_finished", {
+            await broadcast_game_state(game_id_str, "game_end", {
                 "message": "Game complete!"
             })
             
@@ -399,7 +399,7 @@ async def next_question(
             
             # Broadcast next question
             next_q = questions[next_index]
-            await broadcast_game_state(game_id_str, "question_show", {
+            await broadcast_game_state(game_id_str, "question_start", {
                 "question_index": next_index,
                 "question_text": next_q.question_text,
                 "question_type": next_q.question_type,
@@ -411,8 +411,20 @@ async def next_question(
             # Start timer if sync_mode
             if game.sync_mode:
                 await start_question_timer(game_id_str, next_q.time_limit, None)
-            
-            return {"message": "Next question", "status": "question", "question_index": next_index}
+
+            return {
+                "message": "Next question",
+                "status": "question",
+                "question_index": next_index,
+                "current_question_index": next_index,
+                "current_question": {
+                    "question_text": next_q.question_text,
+                    "question_type": next_q.question_type,
+                    "options": next_q.options,
+                    "time_limit": next_q.time_limit,
+                    "points": next_q.points
+                }
+            }
     
     else:
         raise HTTPException(status_code=400, detail=f"Cannot advance from status: {game.status}")
@@ -782,7 +794,7 @@ async def get_player_state(
     # Get last answer result
     last_answer = None
     if player.answers:
-        last_answer = sorted(player.answers, key=lambda a: a.answered_at, reverse=True)[0]
+        last_answer = sorted(player.answers, key=lambda a: a.submitted_at, reverse=True)[0]
     
     return {
         "score": player.total_score,
@@ -1101,7 +1113,7 @@ def generate_game_json_export(game: GameSession) -> dict:
             "total_score": player.total_score,
             "answers": []
         }
-        for ans in sorted(player.answers, key=lambda a: a.created_at):
+        for ans in sorted(player.answers, key=lambda a: a.submitted_at):
             q = next((q for q in questions if q.id == ans.question_id), None)
             if q:
                 player_data["answers"].append({

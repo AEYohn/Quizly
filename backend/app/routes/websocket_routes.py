@@ -24,15 +24,16 @@ async def player_websocket(
 ):
     """
     WebSocket endpoint for players to receive real-time game updates.
-    
+
     Events sent to players:
     - game_started: Game has begun
-    - question_show: New question to display (without correct answer)
-    - timer_tick: Timer countdown update
-    - timer_complete: Time's up
-    - results_show: Show question results
-    - game_finished: Game is over
+    - question_start: New question to display (without correct answer)
+    - timer_tick: Timer countdown update (includes time_remaining)
+    - question_end: Time's up for current question
+    - results: Show question results
+    - game_end: Game is over
     - player_joined: Another player joined (for lobby)
+    - host_disconnected: Host has left the game
     """
     await manager.connect_player(websocket, game_id, player_id)
     
@@ -92,38 +93,50 @@ async def host_websocket(
     """
     # TODO: Validate token for host authentication
     await manager.connect_host(websocket, game_id)
-    
+
     try:
-        await manager.send_to_player(websocket, {
+        # Send connection confirmation to host (not to players)
+        await websocket.send_text(json.dumps({
             "type": "connected",
             "role": "host",
             "game_id": game_id,
             "player_count": manager.get_player_count(game_id)
-        })
-        
+        }))
+
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            
+
             # Handle host commands
             msg_type = message.get("type")
-            
+
             if msg_type == "ping":
-                await manager.send_to_player(websocket, {"type": "pong"})
-            
-            # Other host commands are handled via REST API for simplicity
-            # but we acknowledge them here
+                await websocket.send_text(json.dumps({"type": "pong"}))
+
+            # Host commands - acknowledge and process
             elif msg_type in ["start_game", "next_question", "show_results", "end_game"]:
-                await manager.send_to_player(websocket, {
+                await websocket.send_text(json.dumps({
                     "type": "command_received",
-                    "command": msg_type
-                })
-    
+                    "command": msg_type,
+                    "status": "acknowledged"
+                }))
+                # Note: Actual game state changes are handled via REST API
+                # This is intentional - REST provides proper DB transactions
+                # WebSocket is for real-time sync only
+
+            # Host requesting current player count
+            elif msg_type == "get_player_count":
+                await websocket.send_text(json.dumps({
+                    "type": "player_count",
+                    "count": manager.get_player_count(game_id)
+                }))
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, game_id)
-        # If host disconnects, optionally notify players
+        # Notify all players that host disconnected
         await manager.broadcast_to_game(game_id, {
-            "type": "host_disconnected"
+            "type": "host_disconnected",
+            "message": "The host has left the game"
         })
 
 

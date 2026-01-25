@@ -125,18 +125,20 @@ class GameTimer:
         """Internal countdown loop."""
         while self.remaining > 0 and self.running:
             # Broadcast timer update every second
+            # Use time_remaining to match frontend expectations
             await manager.broadcast_to_game(self.game_id, {
                 "type": "timer_tick",
-                "remaining": self.remaining
+                "time_remaining": self.remaining,
+                "remaining": self.remaining  # Keep for backward compatibility
             })
             await asyncio.sleep(1)
             self.remaining -= 1
-        
+
         if self.running:
-            # Timer completed
+            # Timer completed - send question_end event
             await manager.broadcast_to_game(self.game_id, {
-                "type": "timer_complete",
-                "remaining": 0
+                "type": "question_end",
+                "time_remaining": 0
             })
             if self.on_complete:
                 await self.on_complete()

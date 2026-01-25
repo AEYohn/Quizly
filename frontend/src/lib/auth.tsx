@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import type { ReactNode } from "react";
 
 // ==============================================================================
 // Types
@@ -21,6 +22,7 @@ interface AuthContextType {
     isTeacher: boolean;
     isStudent: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    demoLogin: () => Promise<{ success: boolean; error?: string }>;
     register: (email: string, password: string, name: string, role: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => void;
 }
@@ -90,6 +92,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(data.user);
             localStorage.setItem("quizly_token", data.access_token);
             localStorage.setItem("quizly_user", JSON.stringify(data.user));
+            // Also save to "token" for backward compatibility
+            localStorage.setItem("token", data.access_token);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: "Network error" };
+        }
+    };
+
+    const demoLogin = async () => {
+        try {
+            const response = await fetch(`${API_URL}/auth/demo`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                return { success: false, error: data.detail || "Demo login failed" };
+            }
+
+            const data = await response.json();
+            setToken(data.access_token);
+            setUser(data.user);
+            localStorage.setItem("quizly_token", data.access_token);
+            localStorage.setItem("quizly_user", JSON.stringify(data.user));
+            // Also save to "token" for backward compatibility
+            localStorage.setItem("token", data.access_token);
             return { success: true };
         } catch (error) {
             return { success: false, error: "Network error" };
@@ -114,6 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(data.user);
             localStorage.setItem("quizly_token", data.access_token);
             localStorage.setItem("quizly_user", JSON.stringify(data.user));
+            // Also save to "token" for backward compatibility
+            localStorage.setItem("token", data.access_token);
             return { success: true };
         } catch (error) {
             return { success: false, error: "Network error" };
@@ -125,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         localStorage.removeItem("quizly_token");
         localStorage.removeItem("quizly_user");
+        localStorage.removeItem("token"); // Backward compatibility
     };
 
     return (
@@ -137,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 isTeacher: user?.role === "teacher",
                 isStudent: user?.role === "student",
                 login,
+                demoLogin,
                 register,
                 logout,
             }}

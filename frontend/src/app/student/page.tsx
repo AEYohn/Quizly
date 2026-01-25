@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { api } from "~/lib/api";
@@ -11,6 +11,14 @@ export default function StudentJoinPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    useEffect(() => {
+        // If student already has a name, redirect to dashboard
+        const savedName = localStorage.getItem("quizly_student_name");
+        if (savedName) {
+            router.push("/student/dashboard");
+        }
+    }, [router]);
+
     const handleJoin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
@@ -18,25 +26,10 @@ export default function StudentJoinPage() {
         setIsLoading(true);
         setError(null);
 
-        // Check for active session first
-        const status = await api.liveSessions.getStatus();
-
-        if (!status.success) {
-            setError("No active session found. Please wait for your teacher.");
-            setIsLoading(false);
-            return;
-        }
-
-        // Join the session
-        const result = await api.liveSessions.join(name);
-
-        if (result.success) {
-            sessionStorage.setItem("quizly_student_name", name);
-            router.push(`/student/session/${result.data.session_id}`);
-        } else {
-            setError(result.error || "Failed to join session");
-        }
-        setIsLoading(false);
+        // Save student name and go to dashboard
+        localStorage.setItem("quizly_student_name", name);
+        sessionStorage.setItem("quizly_student_name", name);
+        router.push("/student/dashboard");
     };
 
     return (
@@ -46,7 +39,7 @@ export default function StudentJoinPage() {
                     <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-3xl shadow-lg shadow-indigo-600/20">
                         🎒
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Join Class Session</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Welcome to Quizly!</h1>
                     <p className="mt-2 text-gray-500">
                         Enter your name to join the live quiz
                     </p>
@@ -55,7 +48,7 @@ export default function StudentJoinPage() {
                 <form onSubmit={handleJoin} className="space-y-6">
                     <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
-                            Display Name
+                            What&apos;s your name?
                         </label>
                         <input
                             type="text"
@@ -82,7 +75,7 @@ export default function StudentJoinPage() {
                             <Loader2 className="h-6 w-6 animate-spin" />
                         ) : (
                             <>
-                                Join Session
+                                Get Started
                                 <ArrowRight className="h-5 w-5" />
                             </>
                         )}

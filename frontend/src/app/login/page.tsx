@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 
 export default function LoginPage() {
     const router = useRouter();
-    const { login, isLoading } = useAuth();
+    const { login, demoLogin, isLoading } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -24,6 +24,20 @@ export default function LoginPage() {
             router.push("/teacher");
         } else {
             setError(result.error || "Login failed");
+        }
+        setSubmitting(false);
+    };
+
+    const handleDemoLogin = async () => {
+        setError("");
+        setSubmitting(true);
+
+        const result = await demoLogin();
+        
+        if (result.success) {
+            router.push("/teacher");
+        } else {
+            setError(result.error || "Demo login failed");
         }
         setSubmitting(false);
     };
@@ -88,6 +102,24 @@ export default function LoginPage() {
                             {submitting ? "Signing in..." : "Sign In"}
                         </button>
                     </form>
+
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-gray-500">Or try demo</span>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleDemoLogin}
+                        disabled={submitting}
+                        className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        <span>🚀</span>
+                        <span>{submitting ? "Loading..." : "Quick Demo Login"}</span>
+                    </button>
 
                     <div className="mt-6 text-center text-sm">
                         <span className="text-gray-500">Don&apos;t have an account? </span>

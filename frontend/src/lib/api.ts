@@ -172,13 +172,15 @@ export const aiApi = {
     /**
      * Generate questions for a topic
      */
-    generateQuestions: (topic: string, numQuestions = 4, concepts?: string[]) =>
+    generateQuestions: (topic: string, numQuestions = 4, concepts?: string[], format?: 'mcq' | 'code' | 'mixed', language?: string) =>
         fetchApi<{ topic: string; questions: Question[] }>('/ai/generate-questions', {
             method: 'POST',
             body: JSON.stringify({
                 topic,
                 num_questions: numQuestions,
                 concepts: concepts?.map((c, i) => ({ id: `c_${i}`, name: c })) || [],
+                format: format || 'mcq',
+                language: language || 'python',
             }),
         }),
 
@@ -187,6 +189,28 @@ export const aiApi = {
      */
     analyzeResponse: (data: AnalyzeResponseRequest) =>
         fetchApi<AnalyzeResponseResult>('/ai/analyze-response', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    /**
+     * Analyze student's code submission with AI
+     */
+    analyzeCode: (data: {
+        problem_description: string;
+        student_code: string;
+        language: string;
+        test_results?: Array<{ status: string; input: string; expected_output: string; actual_output?: string }>;
+        error_message?: string;
+    }) =>
+        fetchApi<{
+            summary: string;
+            issues: string[];
+            suggestions: string[];
+            hints: string[];
+            correct_approach: string;
+            complexity_analysis?: string;
+        }>('/ai/analyze-code', {
             method: 'POST',
             body: JSON.stringify(data),
         }),
@@ -472,6 +496,375 @@ export const api = {
     health: healthApi,
     analytics: analyticsApi,
     adaptive: adaptiveApi,
+};
+
+// ============================================
+// Auth API (Simplified for MVP)
+// ============================================
+
+export const authApi = {
+    /**
+     * Demo login - no credentials needed!
+     * Perfect for quick demos.
+     */
+    demoLogin: () =>
+        fetchApi<{
+            access_token: string;
+            refresh_token?: string;
+            expires_in: number;
+            user: { id: string; email: string; name: string; role: string };
+        }>('/auth/demo', { method: 'POST' }),
+
+    /**
+     * Register a new user
+     */
+    register: (email: string, password: string, name: string, role: 'teacher' | 'student') =>
+        fetchApi<{
+            access_token: string;
+            refresh_token?: string;
+            expires_in: number;
+            user: { id: string; email: string; name: string; role: string };
+        }>('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ email, password, name, role }),
+        }),
+
+    /**
+     * Login with credentials
+     */
+    login: (email: string, password: string) =>
+        fetchApi<{
+            access_token: string;
+            refresh_token?: string;
+            expires_in: number;
+            user: { id: string; email: string; name: string; role: string };
+        }>('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        }),
+
+    /**
+     * Get current user profile
+     */
+    me: (token: string) =>
+        fetchApi<{ id: string; email: string; name: string; role: string }>('/auth/me', {
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+};
+
+// ============================================
+// Quiz API
+// ============================================
+
+export const quizApi = {
+    /**
+     * Create a new quiz
+     */
+    create: (token: string, data: {
+        title: string;
+        description?: string;
+        subject?: string;
+        is_public?: boolean;
+        questions?: Array<{
+            question_text: string;
+            question_type?: string;
+            options: Record<string, string>;
+            correct_answer: string;
+            explanation?: string;
+            time_limit?: number;
+            points?: number;
+        }>;
+    }) =>
+        fetchApi<{ id: string; title: string }>('/quizzes', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify(data),
+        }),
+
+    /**
+     * List user's quizzes
+     */
+    list: (token: string) =>
+        fetchApi<Array<{
+            id: string;
+            title: string;
+            description?: string;
+            subject?: string;
+            question_count: number;
+            created_at: string;
+        }>>('/quizzes', {
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+
+    /**
+     * Get quiz details
+     */
+    get: (token: string, quizId: string) =>
+        fetchApi<{
+            id: string;
+            title: string;
+            questions: Array<{
+                id: string;
+                question_text: string;
+                options: Record<string, string>;
+                correct_answer: string;
+                explanation?: string;
+            }>;
+        }>(`/quizzes/${quizId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+
+    /**
+     * Export quiz in various formats
+     * @param format - 'md' (markdown), 'json', or 'study' (student-friendly)
+     */
+    export: (quizId: string, format: 'md' | 'json' | 'study' = 'md', includeAnswers = true) => {
+        const url = `${API_BASE}/quizzes/${quizId}/export?format=${format}&include_answers=${includeAnswers}`;
+        return url; // Return URL for download link
+    },
+
+    /**
+     * Download quiz export
+     */
+    downloadExport: async (quizId: string, format: 'md' | 'json' | 'study' = 'md', includeAnswers = true) => {
+        const response = await fetch(
+            `${API_BASE}/quizzes/${quizId}/export?format=${format}&include_answers=${includeAnswers}`
+        );
+        if (!response.ok) throw new Error('Export failed');
+        return response;
+    },
+};
+
+// ============================================
+// Games API (Kahoot-style)
+// ============================================
+
+export const gamesApi = {
+    /**
+     * Create a new game from a quiz
+     */
+    create: (token: string, quizId: string, options?: {
+        sync_mode?: boolean;
+        show_leaderboard_after_each?: boolean;
+        randomize_questions?: boolean;
+    }) =>
+        fetchApi<{
+            id: string;
+            game_code: string;
+            quiz_title: string;
+            status: string;
+        }>('/games', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ quiz_id: quizId, ...options }),
+        }),
+
+    /**
+     * Join a game (no auth needed - Kahoot style!)
+     */
+    join: (gameCode: string, nickname: string, avatar?: string) =>
+        fetchApi<{
+            player_id: string;
+            game_id: string;
+            nickname: string;
+        }>('/games/join', {
+            method: 'POST',
+            body: JSON.stringify({ game_code: gameCode, nickname, avatar }),
+        }),
+
+    /**
+     * Get game by code (check if joinable)
+     */
+    getByCode: (gameCode: string) =>
+        fetchApi<{
+            game_id: string;
+            game_code: string;
+            quiz_title: string;
+            status: string;
+            player_count: number;
+        }>(`/games/code/${gameCode}`),
+
+    /**
+     * Get game state
+     */
+    getState: (gameId: string) =>
+        fetchApi<{
+            id: string;
+            game_code: string;
+            status: string;
+            current_question_index: number;
+            total_questions: number;
+            players: Array<{ nickname: string; score: number }>;
+        }>(`/games/${gameId}`),
+
+    /**
+     * Start a game (host only)
+     */
+    start: (token: string, gameId: string) =>
+        fetchApi<{ message: string; status: string }>(`/games/${gameId}/start`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+
+    /**
+     * Advance to next question (host only)
+     */
+    next: (token: string, gameId: string) =>
+        fetchApi<{ message: string; status: string }>(`/games/${gameId}/next`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+
+    /**
+     * Submit an answer (player)
+     */
+    submitAnswer: (gameId: string, playerId: string, answer: string, timeTaken: number) =>
+        fetchApi<{ is_correct: boolean; points_earned: number }>(`/games/${gameId}/answer`, {
+            method: 'POST',
+            body: JSON.stringify({ player_id: playerId, answer, time_taken: timeTaken }),
+        }),
+
+    /**
+     * Export game results
+     * @param format - 'md' (markdown), 'json', or 'csv'
+     */
+    exportResults: (gameId: string, format: 'md' | 'json' | 'csv' = 'md') => {
+        const url = `${API_BASE}/games/${gameId}/export?format=${format}`;
+        return url;
+    },
+
+    /**
+     * Download game results export
+     */
+    downloadResults: async (gameId: string, format: 'md' | 'json' | 'csv' = 'md') => {
+        const response = await fetch(`${API_BASE}/games/${gameId}/export?format=${format}`);
+        if (!response.ok) throw new Error('Export failed');
+        return response;
+    },
+};
+
+// ============================================
+// Code Execution API (LeetCode-style with Judge0)
+// ============================================
+
+export interface TestCaseInput {
+    input: string;
+    expected_output: string;
+    is_hidden?: boolean;
+}
+
+export interface TestCaseResult {
+    test_case_index: number;
+    input: string;
+    expected_output: string;
+    actual_output: string;
+    status: 'passed' | 'failed' | 'error' | 'timeout' | 'runtime_error' | 'compilation_error' | 'pending' | 'processing';
+    execution_time_ms: number;
+    memory_kb?: number;
+    error_message?: string;
+    is_hidden: boolean;
+}
+
+export interface CodeExecutionResult {
+    status: 'passed' | 'failed' | 'error' | 'timeout' | 'runtime_error' | 'compilation_error';
+    passed_count: number;
+    total_count: number;
+    test_results: TestCaseResult[];
+    overall_time_ms: number;
+    error_message?: string;
+    all_passed: boolean;
+    score_percent: number;
+}
+
+export interface CodeHealthCheck {
+    status: 'healthy' | 'unhealthy' | 'unknown';
+    execution_engine: 'judge0' | 'local';
+    api_url?: string;
+    details?: {
+        status: string;
+        judge0?: {
+            version?: string;
+            homepage?: string;
+        };
+    };
+    warning?: string;
+}
+
+export interface LanguageInfo {
+    id: string;
+    name: string;
+    extension: string;
+    judge0_id?: number;
+    default_template: string;
+}
+
+export interface LanguagesResponse {
+    languages: LanguageInfo[];
+    allowed_languages: string[];
+    execution_engine: 'judge0' | 'local';
+    total_supported: number;
+}
+
+export const codeApi = {
+    /**
+     * Run code against test cases (sequential execution)
+     */
+    runCode: (code: string, language: string, testCases: TestCaseInput[], functionName = 'solution', driverCode?: string) =>
+        fetchApi<CodeExecutionResult>('/code/run', {
+            method: 'POST',
+            body: JSON.stringify({
+                code,
+                language,
+                test_cases: testCases,
+                function_name: functionName,
+                driver_code: driverCode,
+            }),
+        }),
+
+    /**
+     * Run code against test cases (batch execution - faster for multiple tests)
+     */
+    runCodeBatch: (code: string, language: string, testCases: TestCaseInput[], functionName = 'solution', driverCode?: string) =>
+        fetchApi<CodeExecutionResult>('/code/run/batch', {
+            method: 'POST',
+            body: JSON.stringify({
+                code,
+                language,
+                test_cases: testCases,
+                function_name: functionName,
+                driver_code: driverCode,
+            }),
+        }),
+
+    /**
+     * Validate code syntax
+     */
+    validateCode: (code: string, language: string) =>
+        fetchApi<{ valid: boolean; error?: string; line?: number }>('/code/validate', {
+            method: 'POST',
+            body: JSON.stringify({ code, language, test_cases: [] }),
+        }),
+
+    /**
+     * Get supported languages
+     */
+    getLanguages: () =>
+        fetchApi<LanguagesResponse>('/code/languages'),
+
+    /**
+     * Check code execution service health (Judge0 status)
+     */
+    healthCheck: () =>
+        fetchApi<CodeHealthCheck>('/code/health'),
+
+    /**
+     * Generate test cases using AI
+     */
+    generateTestCases: (problem: string, functionSignature: string, numCases = 5) =>
+        fetchApi<{ test_cases: Array<TestCaseInput & { description?: string }> }>('/code/generate-test-cases', {
+            method: 'POST',
+            body: JSON.stringify({ problem, function_signature: functionSignature, num_cases: numCases }),
+        }),
 };
 
 export default api;

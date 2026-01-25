@@ -1,275 +1,279 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-    PlayCircle,
+    Play,
     PlusCircle,
     Users,
-    TrendingUp,
+    Trophy,
+    Sparkles,
+    Loader2,
+    ChevronRight,
+    Gamepad2,
     Clock,
-    CheckCircle,
-    History,
-    Brain,
+    Zap,
 } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+interface Quiz {
+    id: string;
+    title: string;
+    question_count: number;
+    times_played: number;
+}
+
+interface Game {
+    id: string;
+    code: string;
+    quiz_title: string;
+    status: string;
+    player_count: number;
+    created_at: string;
+}
+
 export default function TeacherDashboard() {
-    return (
-        <div className="p-8">
-            {/* Header */}
-            <header className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                <p className="mt-1 text-gray-500">
-                    Welcome back! Here&apos;s an overview of your sessions.
-                </p>
-            </header>
+    const router = useRouter();
+    const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+    const [activeGames, setActiveGames] = useState<Game[]>([]);
+    const [recentGames, setRecentGames] = useState<Game[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [startingGame, setStartingGame] = useState<string | null>(null);
 
-            {/* Stats Grid */}
-            <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                    icon={<PlayCircle className="h-5 w-5" />}
-                    label="Active Sessions"
-                    value="2"
-                    color="green"
-                />
-                <StatCard
-                    icon={<Users className="h-5 w-5" />}
-                    label="Total Students"
-                    value="156"
-                    color="blue"
-                />
-                <StatCard
-                    icon={<CheckCircle className="h-5 w-5" />}
-                    label="Questions Asked"
-                    value="342"
-                    color="purple"
-                />
-                <StatCard
-                    icon={<TrendingUp className="h-5 w-5" />}
-                    label="Avg. Correctness"
-                    value="78%"
-                    color="amber"
-                />
-            </div>
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-            {/* Quick Actions */}
-            <section className="mb-8">
-                <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                    Quick Actions
-                </h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Link
-                        href="/teacher/sessions/new"
-                        className="group flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
-                    >
-                        <div className="rounded-lg bg-sky-100 p-3 text-sky-600 transition-colors group-hover:bg-sky-600 group-hover:text-white">
-                            <PlusCircle className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-900">
-                                Create New Session
-                            </h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Design a new quiz session with AI-generated questions
-                            </p>
-                        </div>
-                    </Link>
+    async function fetchData() {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.push("/login");
+            return;
+        }
 
-                    <Link
-                        href="/teacher/sessions"
-                        className="group flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
-                    >
-                        <div className="rounded-lg bg-green-100 p-3 text-green-600 transition-colors group-hover:bg-green-600 group-hover:text-white">
-                            <PlayCircle className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-900">Start Session</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Launch a prepared session for your class
-                            </p>
-                        </div>
-                    </Link>
+        const headers = { Authorization: `Bearer ${token}` };
 
-                    <Link
-                        href="/teacher/analytics"
-                        className="group flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
-                    >
-                        <div className="rounded-lg bg-purple-100 p-3 text-purple-600 transition-colors group-hover:bg-purple-600 group-hover:text-white">
-                            <Brain className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-900">Analytics</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                                View learning insights and misconceptions
-                            </p>
-                        </div>
-                    </Link>
+        try {
+            // Fetch quizzes
+            const quizzesRes = await fetch(`${API_URL}/quizzes/`, { headers });
+            if (quizzesRes.ok) {
+                const data = await quizzesRes.json();
+                setQuizzes(data.slice(0, 6));
+            }
 
-                    <Link
-                        href="/teacher/history"
-                        className="group flex items-start gap-4 rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
-                    >
-                        <div className="rounded-lg bg-amber-100 p-3 text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
-                            <History className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-900">History</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Review past sessions and student progress
-                            </p>
-                        </div>
-                    </Link>
-                </div>
-            </section>
+            // Fetch games
+            const gamesRes = await fetch(`${API_URL}/games/`, { headers });
+            if (gamesRes.ok) {
+                const games = await gamesRes.json();
+                setActiveGames(games.filter((g: Game) => g.status === "lobby" || g.status === "question"));
+                setRecentGames(games.filter((g: Game) => g.status === "finished").slice(0, 5));
+            }
+        } catch (err) {
+            console.error("Failed to fetch data:", err);
+        }
+        setIsLoading(false);
+    }
 
-            {/* Recent Sessions */}
-            <section>
-                <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        Recent Sessions
-                    </h2>
-                    <Link
-                        href="/teacher/sessions"
-                        className="text-sm font-medium text-sky-600 hover:text-sky-700"
-                    >
-                        View all →
-                    </Link>
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-                    <table className="w-full">
-                        <thead className="border-b border-gray-100 bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                    Session
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                    Students
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                    Date
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            <SessionRow
-                                topic="Newton's Laws of Motion"
-                                status="active"
-                                students={32}
-                                date="Today, 2:30 PM"
-                            />
-                            <SessionRow
-                                topic="Conservation of Energy"
-                                status="completed"
-                                students={28}
-                                date="Yesterday"
-                            />
-                            <SessionRow
-                                topic="Wave Mechanics"
-                                status="draft"
-                                students={0}
-                                date="Jan 15, 2026"
-                            />
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-    );
-}
-
-function StatCard({
-    icon,
-    label,
-    value,
-    color,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    value: string;
-    color: "green" | "blue" | "purple" | "amber";
-}) {
-    const colors = {
-        green: "bg-green-100 text-green-600",
-        blue: "bg-blue-100 text-blue-600",
-        purple: "bg-purple-100 text-purple-600",
-        amber: "bg-amber-100 text-amber-600",
+    const startGame = async (quizId: string) => {
+        setStartingGame(quizId);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/games/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ quiz_id: quizId }),
+            });
+            if (response.ok) {
+                const game = await response.json();
+                router.push(`/teacher/game/${game.id}/lobby`);
+            }
+        } catch (error) {
+            console.error("Failed to start game:", error);
+        }
+        setStartingGame(null);
     };
 
+    if (isLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+        );
+    }
+
     return (
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-4">
-                <div className={`rounded-lg p-3 ${colors[color]}`}>{icon}</div>
-                <div>
-                    <p className="text-sm text-gray-500">{label}</p>
-                    <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <div className="min-h-screen bg-gray-50 p-8">
+            <div className="mx-auto max-w-5xl">
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                    <p className="mt-1 text-gray-500">Create quizzes with AI and host live games</p>
                 </div>
+
+                {/* Active Games Banner */}
+                {activeGames.length > 0 && (
+                    <div className="mb-8 space-y-3">
+                        {activeGames.map((game) => (
+                            <div
+                                key={game.id}
+                                className="rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white shadow-lg"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
+                                            <div className="h-3 w-3 animate-pulse rounded-full bg-white" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold uppercase tracking-wide text-white/80">
+                                                    Live Game
+                                                </span>
+                                                <span className="rounded bg-white/20 px-2 py-0.5 text-sm font-mono font-bold">
+                                                    {game.code}
+                                                </span>
+                                            </div>
+                                            <h2 className="text-xl font-bold">{game.quiz_title}</h2>
+                                            <p className="text-white/80">{game.player_count} players joined</p>
+                                        </div>
+                                    </div>
+                                    <Link
+                                        href={`/teacher/game/${game.id}/${game.status === "lobby" ? "lobby" : "host"}`}
+                                        className="rounded-xl bg-white px-6 py-3 font-bold text-green-600 shadow-lg transition-transform hover:scale-105"
+                                    >
+                                        {game.status === "lobby" ? "Open Lobby" : "Control Game"}
+                                    </Link>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Main Actions */}
+                <div className="mb-8 grid grid-cols-2 gap-4">
+                    <Link
+                        href="/teacher/quizzes/new"
+                        className="group rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 p-6 text-white shadow-lg transition-transform hover:scale-[1.02]"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
+                                <Sparkles className="h-7 w-7" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold">Create Quiz with AI</h3>
+                                <p className="text-purple-100">Generate questions instantly</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 flex items-center gap-2 text-sm text-purple-200">
+                            <Zap className="h-4 w-4" />
+                            Powered by Gemini
+                        </div>
+                    </Link>
+
+                    <Link
+                        href="/teacher/coding/new"
+                        className="group rounded-2xl bg-white p-6 border-2 border-gray-200 shadow-sm transition-all hover:border-purple-300 hover:shadow-md"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 group-hover:bg-purple-100 transition-colors">
+                                <span className="text-2xl">{"</>"}</span>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Coding Challenge</h3>
+                                <p className="text-gray-500">LeetCode-style problems</p>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+
+                {/* Quick Start Games */}
+                {quizzes.length > 0 && (
+                    <div className="mb-8">
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-gray-900">Quick Start</h2>
+                            <Link href="/teacher/quizzes" className="text-sm text-purple-600 hover:underline">
+                                View all quizzes →
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            {quizzes.map((quiz) => (
+                                <div
+                                    key={quiz.id}
+                                    className="rounded-xl bg-white p-4 border border-gray-200 shadow-sm"
+                                >
+                                    <h3 className="font-semibold text-gray-900 truncate">{quiz.title}</h3>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        {quiz.question_count} questions
+                                    </p>
+                                    <button
+                                        onClick={() => startGame(quiz.id)}
+                                        disabled={startingGame === quiz.id}
+                                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+                                    >
+                                        {startingGame === quiz.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <>
+                                                <Play className="h-4 w-4" />
+                                                Start Game
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Empty State */}
+                {quizzes.length === 0 && (
+                    <div className="rounded-2xl bg-white p-12 text-center border-2 border-dashed border-gray-200">
+                        <Gamepad2 className="mx-auto h-12 w-12 text-gray-300" />
+                        <h3 className="mt-4 text-lg font-semibold text-gray-900">No quizzes yet</h3>
+                        <p className="mt-2 text-gray-500">Create your first quiz with AI to get started</p>
+                        <Link
+                            href="/teacher/quizzes/new"
+                            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-700"
+                        >
+                            <PlusCircle className="h-5 w-5" />
+                            Create Quiz
+                        </Link>
+                    </div>
+                )}
+
+                {/* Recent Games */}
+                {recentGames.length > 0 && (
+                    <div>
+                        <h2 className="mb-4 text-lg font-bold text-gray-900">Recent Games</h2>
+                        <div className="rounded-xl bg-white border border-gray-200 divide-y divide-gray-100">
+                            {recentGames.map((game) => (
+                                <Link
+                                    key={game.id}
+                                    href={`/teacher/game/${game.id}/results`}
+                                    className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
+                                            <Trophy className="h-5 w-5 text-purple-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900">{game.quiz_title}</p>
+                                            <p className="text-sm text-gray-500">
+                                                {game.player_count} players
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
-    );
-}
-
-function SessionRow({
-    topic,
-    status,
-    students,
-    date,
-}: {
-    topic: string;
-    status: "active" | "completed" | "draft";
-    students: number;
-    date: string;
-}) {
-    const statusStyles = {
-        active: "bg-green-100 text-green-700",
-        completed: "bg-blue-100 text-blue-700",
-        draft: "bg-gray-100 text-gray-600",
-    };
-
-    return (
-        <tr className="transition-colors hover:bg-gray-50">
-            <td className="px-6 py-4">
-                <div className="font-medium text-gray-900">{topic}</div>
-            </td>
-            <td className="px-6 py-4">
-                <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[status]}`}
-                >
-                    {status === "active" && (
-                        <span className="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
-                    )}
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                </span>
-            </td>
-            <td className="px-6 py-4 text-gray-500">
-                {students > 0 ? `${students} joined` : "—"}
-            </td>
-            <td className="px-6 py-4 text-sm text-gray-500">
-                <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    {date}
-                </div>
-            </td>
-            <td className="px-6 py-4 text-right">
-                {status === "draft" && (
-                    <button className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-700">
-                        Start
-                    </button>
-                )}
-                {status === "active" && (
-                    <button className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-                        Control
-                    </button>
-                )}
-                {status === "completed" && (
-                    <button className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-                        View
-                    </button>
-                )}
-            </td>
-        </tr>
     );
 }

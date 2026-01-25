@@ -17,9 +17,20 @@ export interface Question {
     explanation: string;
     status?: 'pending' | 'approved' | 'rejected';
     source?: string;
-    question_type?: 'conceptual' | 'application' | 'analysis' | 'transfer';
+    question_type?: 'mcq' | 'code' | 'conceptual' | 'application' | 'analysis' | 'transfer';
     target_misconception?: string;
     misconception_trap_option?: string;
+    // Code question fields
+    starter_code?: string;
+    test_cases?: TestCase[];
+    language?: string;
+    expected_output?: string;
+}
+
+export interface TestCase {
+    input: string;
+    expected_output: string;
+    is_hidden?: boolean;
 }
 
 export interface QuestionGenerateRequest {
@@ -29,6 +40,8 @@ export interface QuestionGenerateRequest {
     course_context?: string;
     question_type?: 'conceptual' | 'application' | 'analysis' | 'transfer';
     target_misconception?: string;
+    format?: 'mcq' | 'code' | 'mixed';
+    language?: string;  // For code questions: python, javascript, java, etc.
 }
 
 export interface ConceptInput {
@@ -181,6 +194,8 @@ export interface GenerateFromCurriculumRequest {
     num_questions?: number;
     include_extracted?: boolean;
     materials_context?: string;
+    format?: 'mcq' | 'code' | 'mixed';
+    language?: string;
 }
 
 // ============================================

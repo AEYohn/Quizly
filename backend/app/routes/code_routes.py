@@ -1,19 +1,54 @@
 """
 Code Execution Routes - LeetCode-style code submission and testing
+
+Supports multiple code execution backends:
+- Piston (default): Free, no API key required, 70+ languages
+- Judge0: Commercial, requires API key, 60+ languages
+- Local: Development only, not sandboxed
+
+Set CODE_RUNNER environment variable to "piston", "judge0", or "local"
 """
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 import asyncio
+import os
 
-from app.services.code_runner import (
-    code_runner, 
-    ExecutionStatus, 
-    validate_language, 
-    get_supported_languages,
-    ALLOWED_LANGUAGES
-)
+# Code execution engine: "piston" (default/free), "judge0", or "local"
+CODE_RUNNER = os.getenv("CODE_RUNNER", "piston").lower().strip()
+
+# Backwards compatibility
+if os.getenv("USE_JUDGE0", "").lower() == "true":
+    CODE_RUNNER = "judge0"
+
+if CODE_RUNNER == "judge0":
+    from app.services.judge0_runner import (
+        judge0_runner as code_runner,
+        ExecutionStatus,
+        validate_language,
+        get_supported_languages,
+        ALLOWED_LANGUAGES,
+        LANGUAGE_IDS
+    )
+elif CODE_RUNNER == "piston":
+    from app.services.piston_runner import (
+        piston_runner as code_runner,
+        ExecutionStatus,
+        validate_language,
+        get_supported_languages,
+        ALLOWED_LANGUAGES
+    )
+    LANGUAGE_IDS = None
+else:
+    from app.services.code_runner import (
+        code_runner,
+        ExecutionStatus,
+        validate_language,
+        get_supported_languages,
+        ALLOWED_LANGUAGES
+    )
+    LANGUAGE_IDS = None
 
 router = APIRouter(prefix="/code", tags=["code"])
 
@@ -197,9 +232,9 @@ async def validate_code(submission: CodeSubmission):
 async def get_languages():
     """
     Get list of supported programming languages.
-    
+
     GET /code/languages
-    
+
     Returns the whitelist of allowed languages with their templates.
     Only languages in this list can be executed.
     """
@@ -209,37 +244,186 @@ async def get_languages():
             "id": "python",
             "name": "Python 3",
             "extension": ".py",
+            "judge0_id": 71,
             "default_template": "def solution(nums):\n    # Your code here\n    pass"
         },
         "javascript": {
             "id": "javascript",
-            "name": "JavaScript",
+            "name": "JavaScript (Node.js)",
             "extension": ".js",
+            "judge0_id": 63,
             "default_template": "function solution(nums) {\n    // Your code here\n}"
         },
         "cpp": {
             "id": "cpp",
-            "name": "C++ 17",
+            "name": "C++ 17 (GCC)",
             "extension": ".cpp",
-            "default_template": "#include <string>\nusing namespace std;\n\nstring solution(string input) {\n    // Your code here\n    return \"\";\n}"
+            "judge0_id": 54,
+            "default_template": "class Solution {\npublic:\n    vector<int> solution(vector<int>& nums) {\n        // Your code here\n        return {};\n    }\n};"
         },
         "java": {
             "id": "java",
-            "name": "Java",
+            "name": "Java (OpenJDK)",
             "extension": ".java",
+            "judge0_id": 62,
             "default_template": "class Solution {\n    public int solution(int[] nums) {\n        // Your code here\n        return 0;\n    }\n}"
+        },
+        "typescript": {
+            "id": "typescript",
+            "name": "TypeScript",
+            "extension": ".ts",
+            "judge0_id": 74,
+            "default_template": "function solution(nums: number[]): number {\n    // Your code here\n    return 0;\n}"
+        },
+        "go": {
+            "id": "go",
+            "name": "Go",
+            "extension": ".go",
+            "judge0_id": 60,
+            "default_template": "func solution(nums []int) int {\n    // Your code here\n    return 0\n}"
+        },
+        "rust": {
+            "id": "rust",
+            "name": "Rust",
+            "extension": ".rs",
+            "judge0_id": 73,
+            "default_template": "impl Solution {\n    pub fn solution(nums: Vec<i32>) -> i32 {\n        // Your code here\n        0\n    }\n}"
+        },
+        "ruby": {
+            "id": "ruby",
+            "name": "Ruby",
+            "extension": ".rb",
+            "judge0_id": 72,
+            "default_template": "def solution(nums)\n    # Your code here\nend"
         }
     }
-    
-    # Return only languages that are in the whitelist
+
+    # Get supported languages (differs based on Judge0 vs local)
+    supported = get_supported_languages()
+
+    # Filter to only include configured languages
+    available_languages = []
+    for lang_id in supported:
+        if lang_id in language_configs:
+            available_languages.append(language_configs[lang_id])
+        elif LANGUAGE_IDS and lang_id in LANGUAGE_IDS:
+            # Include Judge0 languages even if we don't have a template
+            available_languages.append({
+                "id": lang_id,
+                "name": lang_id.title(),
+                "extension": f".{lang_id[:3]}",
+                "judge0_id": LANGUAGE_IDS[lang_id],
+                "default_template": f"// {lang_id} code here"
+            })
+
     return {
-        "languages": [
-            language_configs[lang] 
-            for lang in get_supported_languages() 
-            if lang in language_configs
-        ],
-        "allowed_languages": get_supported_languages()
+        "languages": available_languages,
+        "allowed_languages": supported,
+        "execution_engine": CODE_RUNNER,
+        "total_supported": len(LANGUAGE_IDS) if LANGUAGE_IDS else len(supported)
     }
+
+
+@router.get("/health")
+async def health_check():
+    """
+    Check code execution service health.
+
+    GET /code/health
+
+    Returns the status of the code execution backend (Piston, Judge0, or local).
+    """
+    if CODE_RUNNER in ("piston", "judge0"):
+        health = await code_runner.health_check()
+        return {
+            "status": health.get("status", "unknown"),
+            "execution_engine": CODE_RUNNER,
+            "api_url": code_runner.api_url,
+            "details": health
+        }
+    else:
+        return {
+            "status": "healthy",
+            "execution_engine": "local",
+            "warning": "Local execution is less secure than sandboxed runners"
+        }
+
+
+@router.post("/run/batch", response_model=CodeExecutionResponse)
+async def run_code_batch(submission: CodeSubmission):
+    """
+    Execute code against test cases using batch submission.
+
+    POST /code/run/batch
+
+    More efficient than /run when you have multiple test cases.
+    Uses Judge0 batch API to submit all tests simultaneously.
+    Falls back to sequential execution if batch is not available.
+    """
+    language = submission.language.lower().strip()
+    if not validate_language(language):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language: '{submission.language}'. Allowed: {', '.join(get_supported_languages())}"
+        )
+
+    try:
+        test_cases = [
+            {
+                "input": tc.input,
+                "expected_output": tc.expected_output,
+                "is_hidden": tc.is_hidden
+            }
+            for tc in submission.test_cases
+        ]
+
+        # Use batch method if available (Judge0), otherwise fall back to sequential
+        # Piston doesn't have batch API but run_code handles multiple test cases
+        if CODE_RUNNER == "judge0" and hasattr(code_runner, 'run_code_batch'):
+            result = await code_runner.run_code_batch(
+                code=submission.code,
+                language=submission.language,
+                test_cases=test_cases,
+                function_name=submission.function_name,
+                driver_code=submission.driver_code
+            )
+        else:
+            # Piston and local runners run tests sequentially in run_code
+            result = await code_runner.run_code(
+                code=submission.code,
+                language=submission.language,
+                test_cases=test_cases,
+                function_name=submission.function_name,
+                driver_code=submission.driver_code
+            )
+
+        test_results = [
+            TestCaseResultResponse(
+                test_case_index=tr.test_case_index,
+                input=tr.input,
+                expected_output=tr.expected_output,
+                actual_output=tr.actual_output,
+                status=tr.status.value,
+                execution_time_ms=tr.execution_time_ms,
+                error_message=tr.error_message,
+                is_hidden=tr.is_hidden
+            )
+            for tr in result.test_results
+        ]
+
+        return CodeExecutionResponse(
+            status=result.status.value,
+            passed_count=result.passed_count,
+            total_count=result.total_count,
+            test_results=test_results,
+            overall_time_ms=result.overall_time_ms,
+            error_message=result.error_message,
+            all_passed=result.passed_count == result.total_count,
+            score_percent=(result.passed_count / result.total_count * 100) if result.total_count > 0 else 0
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Batch execution failed: {str(e)}")
 
 
 @router.post("/generate-test-cases")

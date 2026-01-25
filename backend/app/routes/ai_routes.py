@@ -1038,21 +1038,29 @@ async def chat_generate(request: Request, data: ChatGenerateRequest):
     
     # Add attachments to prompt
     if data.attachments:
+        import base64
         for att in data.attachments:
-            if att.type == "image" and att.content.startswith("data:"):
-                # Handle base64 image
-                import base64
-                # Extract base64 data after the comma
-                base64_data = att.content.split(",")[1] if "," in att.content else att.content
-                image_bytes = base64.b64decode(base64_data)
-                
+            # Handle base64 content (extract after data: prefix)
+            content = att.content
+            if content.startswith("data:"):
+                content = content.split(",")[1] if "," in content else content
+
+            if att.type == "image":
                 # Create image part for Gemini
                 image_part = {
                     "mime_type": att.mime_type or "image/jpeg",
-                    "data": base64_data
+                    "data": content
                 }
                 prompt_parts.append(image_part)
-                prompt_parts.append(f"\n[Image: {att.name}]\n")
+                prompt_parts.append(f"\n[Image uploaded]\n")
+            elif att.type == "pdf":
+                # Create PDF part for Gemini (Gemini 2.0 supports PDFs directly)
+                pdf_part = {
+                    "mime_type": "application/pdf",
+                    "data": content
+                }
+                prompt_parts.append(pdf_part)
+                prompt_parts.append(f"\n[PDF document: {att.name}]\n")
             elif att.type == "file":
                 prompt_parts.append(f"\n--- File: {att.name} ---\n{att.content}\n--- End File ---\n")
             elif att.type == "text":

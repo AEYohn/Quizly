@@ -183,14 +183,25 @@ async def list_public_coding_problems(
 # AI-Powered Problem Generation
 # ==============================================================================
 
+class Attachment(BaseModel):
+    """Image or file attachment for multimodal input."""
+    type: str = "image"
+    content: str  # base64 encoded
+    mime_type: Optional[str] = "image/jpeg"
+
+
 class GenerateProblemRequest(BaseModel):
     """Request to generate a coding problem using AI."""
-    concept: str  # e.g., "binary search", "two pointers"
+    topic: Optional[str] = None  # Topic/description of the problem
+    concept: Optional[str] = None  # e.g., "binary search", "two pointers" (alias for topic)
     difficulty: str = "medium"
+    language: str = "python"
     problem_type: str = "algorithm"
     course_context: Optional[str] = None
     is_public: bool = True
     session_id: Optional[str] = None
+    num_test_cases: int = 5
+    attachments: Optional[List[Attachment]] = None  # Images for multimodal input
 
 
 @router.post("/generate")
@@ -201,75 +212,104 @@ async def generate_coding_problem(
 ):
     """
     Generate a new coding problem using AI and save to database.
-    
+
     POST /coding/generate
-    
-    Uses Gemini LLM to create a LeetCode-style problem with:
+
+    Supports multimodal input (text + images) using Gemini.
+    Creates a LeetCode-style problem with:
     - Problem description with examples
-    - Starter code for all languages
-    - Driver code for test execution
-    - Test cases
+    - Starter code for specified language
+    - Test cases with inputs/outputs
     """
+    import google.generativeai as genai
+    import os
+    import json
+    import base64
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="Gemini API key not configured")
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+
+    # Build the prompt
+    topic = data.topic or data.concept or "a coding problem"
+
+    prompt = f"""Generate a {data.difficulty} difficulty coding problem about: {topic}
+
+Language: {data.language}
+
+Return a JSON object with this exact structure:
+{{
+    "title": "Problem Title",
+    "description": "Full problem description with examples in markdown",
+    "constraints": "Constraints like 1 <= n <= 10^5",
+    "hints": ["hint 1", "hint 2"],
+    "tags": ["array", "algorithm"],
+    "starter_code": {{
+        "{data.language}": "def solution(...):\\n    # Your code here\\n    pass"
+    }},
+    "solution_code": {{
+        "{data.language}": "def solution(...):\\n    # Complete solution"
+    }},
+    "test_cases": [
+        {{"input": "input value", "expected_output": "output value", "explanation": "why"}}
+    ]
+}}
+
+Generate {data.num_test_cases} test cases. Make test inputs and outputs be simple strings that can be parsed.
+Return ONLY valid JSON, no markdown code blocks."""
+
+    # Build content parts for multimodal
+    content_parts = []
+
+    # Add files (images/PDFs) if present
+    if data.attachments:
+        file_types = []
+        for att in data.attachments:
+            if att.content:
+                # Handle base64 content
+                base64_data = att.content.split(",")[1] if "," in att.content else att.content
+                mime = att.mime_type or ("application/pdf" if att.type == "pdf" else "image/jpeg")
+                content_parts.append({
+                    "mime_type": mime,
+                    "data": base64_data
+                })
+                file_types.append("PDF" if att.type == "pdf" else "image")
+        if content_parts:
+            types_str = "/".join(set(file_types))
+            prompt = f"Based on the uploaded {types_str}(s), {prompt}"
+
+    content_parts.append(prompt)
+
     try:
-        from app.ai_agents.coding_problem_generator import CodingProblemGenerator
-    except ImportError:
-        raise HTTPException(status_code=503, detail="AI problem generator not available")
-    
-    generator = CodingProblemGenerator()
-    
-    # Generate the problem
-    generated = generator.generate_problem(
-        concept=data.concept,
-        difficulty=data.difficulty,
-        problem_type=data.problem_type,
-        course_context=data.course_context
-    )
-    
-    if generated.get("llm_required"):
-        raise HTTPException(status_code=503, detail="LLM not available. Please set GEMINI_API_KEY.")
-    
-    # Create the problem in database
-    problem = CodingProblem(
-        creator_id=current_user.id if current_user else None,
-        session_id=UUID(data.session_id) if data.session_id else None,
-        title=generated["title"],
-        description=generated["description"],
-        difficulty=data.difficulty,
-        subject=data.problem_type,
-        tags=generated.get("tags", []),
-        hints=generated.get("hints", []),
-        function_name=generated["function_name"],
-        starter_code=generated["starter_code"],
-        driver_code=generated["driver_code"],
-        points=generated["points"],
-        is_public=data.is_public,
-        solve_count=0,
-        attempt_count=0,
-    )
-    db.add(problem)
-    await db.flush()
-    
-    # Add test cases
-    for i, tc in enumerate(generated.get("formatted_test_cases", [])):
-        test_case = TestCase(
-            problem_id=problem.id,
-            input_data=tc["input"],
-            expected_output=tc["expected"],
-            explanation=tc.get("explanation"),
-            is_example=True,
-            order_index=i,
-            points=10,
-        )
-        db.add(test_case)
-    
-    await db.commit()
-    await db.refresh(problem)
-    
+        response = model.generate_content(content_parts)
+        text = response.text.strip()
+
+        # Clean up response
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+
+        generated = json.loads(text.strip())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate problem: {str(e)}")
+
+    # Return the generated data without saving to DB (let frontend handle that)
     return {
-        "id": str(problem.id),
-        "title": problem.title,
-        "message": "Problem generated and saved successfully",
-        "test_case_count": len(generated.get("formatted_test_cases", [])),
+        "title": generated.get("title", "Untitled Problem"),
+        "description": generated.get("description", ""),
+        "constraints": generated.get("constraints", ""),
+        "hints": generated.get("hints", []),
+        "tags": generated.get("tags", []),
+        "starter_code": generated.get("starter_code", {}),
+        "solution_code": generated.get("solution_code", {}),
+        "test_cases": generated.get("test_cases", []),
+        "difficulty": data.difficulty,
     }
 
 

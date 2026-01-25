@@ -243,7 +243,7 @@ interface InterventionAlertProps {
 }
 
 export function InterventionAlert({ data, className, onDismiss }: InterventionAlertProps) {
-    if (!data.intervention_needed) return null;
+    if (!data.needs_intervention) return null;
 
     const variant = data.severity === "high" ? "danger" : "warning";
 
