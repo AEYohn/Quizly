@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3, GraduationCap, Download, BookOpen } from "lucide-react";
+import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3, GraduationCap, Download, BookOpen, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useGameSocket } from "~/lib/useGameSocket";
 import ConfidenceSlider from "~/components/ConfidenceSlider";
 import PeerDiscussion from "~/components/PeerDiscussion";
@@ -74,15 +75,30 @@ export default function PlayGamePage() {
     // Learning Analytics state
     const [showAnalytics, setShowAnalytics] = useState(false);
 
-    // Exit Ticket state
+    // Exit Ticket state (using new student learning API)
     const [exitTicket, setExitTicket] = useState<{
-        strengths: string[];
-        areas_to_improve: string[];
+        id: string;
+        target_concept: string;
         micro_lesson: string;
-        follow_up_question: { prompt: string; options: string[]; correct_answer: string };
+        encouragement?: string;
+        question_prompt: string;
+        question_options: string[];
+        correct_answer: string;
+        hint?: string;
+        is_completed: boolean;
     } | null>(null);
     const [exitTicketLoading, setExitTicketLoading] = useState(false);
     const [showExitTicket, setShowExitTicket] = useState(false);
+    const [exitTicketAnswer, setExitTicketAnswer] = useState<string | null>(null);
+    const [exitTicketResult, setExitTicketResult] = useState<{is_correct: boolean; hint?: string} | null>(null);
+
+    // Track student responses for exit ticket generation
+    const [studentResponses, setStudentResponses] = useState<Array<{
+        concept: string;
+        is_correct: boolean;
+        confidence: number;
+        question_text: string;
+    }>>([]);
 
     const playerId = typeof window !== "undefined"
         ? sessionStorage.getItem("playerId")
@@ -357,6 +373,14 @@ export default function PlayGamePage() {
                 // Store correct answer for peer discussion
                 setLastCorrectAnswer(result.correct_answer);
 
+                // Track response for exit ticket generation
+                setStudentResponses(prev => [...prev, {
+                    concept: game.quiz_title || "general",
+                    is_correct: isCorrect,
+                    confidence: confidence,
+                    question_text: game.current_question?.question_text || "",
+                }]);
+
                 // Update streak
                 if (isCorrect) {
                     setStreak(prev => prev + 1);
@@ -399,20 +423,20 @@ export default function PlayGamePage() {
         selectAnswer(answer);
     };
 
-    // Fetch personalized exit ticket
+    // Fetch personalized exit ticket using new student learning API
     const fetchExitTicket = async () => {
         if (!playerId || !game) return;
 
         setExitTicketLoading(true);
         try {
-            const response = await fetch(`${API_URL}/ai/exit-ticket`, {
+            const response = await fetch(`${API_URL}/student-learning/exit-ticket`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     student_name: nickname || "Student",
-                    responses: [], // Would include actual responses in full implementation
-                    session_topic: game.quiz_title,
-                    concepts: []
+                    game_id: gameId,
+                    responses: studentResponses,
+                    concepts: [game.quiz_title || "general"]
                 })
             });
 
@@ -425,6 +449,31 @@ export default function PlayGamePage() {
             console.error("Failed to fetch exit ticket:", error);
         } finally {
             setExitTicketLoading(false);
+        }
+    };
+
+    // Submit answer to exit ticket follow-up question
+    const submitExitTicketAnswer = async (answer: string) => {
+        if (!exitTicket) return;
+
+        setExitTicketAnswer(answer);
+        try {
+            const response = await fetch(`${API_URL}/student-learning/exit-ticket/answer`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    ticket_id: exitTicket.id,
+                    student_answer: answer,
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                setExitTicketResult(result);
+                setExitTicket(prev => prev ? { ...prev, is_completed: true } : null);
+            }
+        } catch (error) {
+            console.error("Failed to submit exit ticket answer:", error);
         }
     };
 
@@ -531,66 +580,92 @@ export default function PlayGamePage() {
                             <div className="text-center mb-6">
                                 <GraduationCap className="h-12 w-12 text-yellow-400 mx-auto mb-2" />
                                 <h2 className="text-2xl font-bold text-white">Your Personalized Exit Ticket</h2>
+                                <p className="text-white/70 mt-1">Focus: {exitTicket.target_concept}</p>
                             </div>
 
-                            {/* Strengths */}
-                            {exitTicket.strengths.length > 0 && (
-                                <div className="bg-green-500/20 rounded-xl p-4 border border-green-500/30">
-                                    <h3 className="font-bold text-green-300 mb-2 flex items-center gap-2">
-                                        <Check className="h-5 w-5" /> Your Strengths
-                                    </h3>
-                                    <ul className="space-y-1">
-                                        {exitTicket.strengths.map((s, i) => (
-                                            <li key={i} className="text-white/90 text-sm">- {s}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Areas to Improve */}
-                            {exitTicket.areas_to_improve.length > 0 && (
-                                <div className="bg-orange-500/20 rounded-xl p-4 border border-orange-500/30">
-                                    <h3 className="font-bold text-orange-300 mb-2 flex items-center gap-2">
-                                        <BookOpen className="h-5 w-5" /> Areas to Review
-                                    </h3>
-                                    <ul className="space-y-1">
-                                        {exitTicket.areas_to_improve.map((a, i) => (
-                                            <li key={i} className="text-white/90 text-sm">- {a}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
                             {/* Micro Lesson */}
-                            {exitTicket.micro_lesson && (
-                                <div className="bg-blue-500/20 rounded-xl p-4 border border-blue-500/30">
-                                    <h3 className="font-bold text-blue-300 mb-2 flex items-center gap-2">
-                                        <Sparkles className="h-5 w-5" /> Quick Review
-                                    </h3>
-                                    <p className="text-white/90 text-sm">{exitTicket.micro_lesson}</p>
-                                </div>
-                            )}
+                            <div className="bg-blue-500/20 rounded-xl p-4 border border-blue-500/30">
+                                <h3 className="font-bold text-blue-300 mb-2 flex items-center gap-2">
+                                    <Sparkles className="h-5 w-5" /> Quick Review
+                                </h3>
+                                <p className="text-white/90 text-sm">{exitTicket.micro_lesson}</p>
+                                {exitTicket.encouragement && (
+                                    <p className="text-cyan-300 text-sm mt-2 italic">{exitTicket.encouragement}</p>
+                                )}
+                            </div>
 
                             {/* Follow-up Question */}
-                            {exitTicket.follow_up_question && (
-                                <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-500/30">
-                                    <h3 className="font-bold text-purple-300 mb-2">Check Your Understanding</h3>
-                                    <p className="text-white mb-3">{exitTicket.follow_up_question.prompt}</p>
-                                    <div className="space-y-2">
-                                        {exitTicket.follow_up_question.options.map((opt, i) => (
+                            <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-500/30">
+                                <h3 className="font-bold text-purple-300 mb-2">Check Your Understanding</h3>
+                                <p className="text-white mb-3">{exitTicket.question_prompt}</p>
+                                <div className="space-y-2">
+                                    {exitTicket.question_options.map((opt, i) => {
+                                        const optLetter = opt[0];
+                                        const isSelected = exitTicketAnswer === optLetter;
+                                        const showResult = exitTicketResult !== null;
+                                        const isCorrect = exitTicket.correct_answer === optLetter;
+
+                                        return (
                                             <button
                                                 key={i}
-                                                className="w-full text-left bg-white/10 hover:bg-white/20 rounded-lg px-4 py-2 text-white text-sm transition-colors"
+                                                onClick={() => !exitTicket.is_completed && submitExitTicketAnswer(optLetter)}
+                                                disabled={exitTicket.is_completed}
+                                                className={`w-full text-left rounded-lg px-4 py-2 text-white text-sm transition-colors ${
+                                                    showResult
+                                                        ? isCorrect
+                                                            ? "bg-green-500/30 border border-green-500"
+                                                            : isSelected && !exitTicketResult?.is_correct
+                                                            ? "bg-red-500/30 border border-red-500"
+                                                            : "bg-white/10"
+                                                        : isSelected
+                                                        ? "bg-white/30 border border-white"
+                                                        : "bg-white/10 hover:bg-white/20"
+                                                } ${exitTicket.is_completed ? "cursor-default" : "cursor-pointer"}`}
                                             >
-                                                {String.fromCharCode(65 + i)}. {opt}
+                                                {opt}
                                             </button>
-                                        ))}
-                                    </div>
+                                        );
+                                    })}
                                 </div>
-                            )}
+
+                                {/* Result feedback */}
+                                {exitTicketResult && (
+                                    <div className={`mt-3 p-3 rounded-lg ${
+                                        exitTicketResult.is_correct
+                                            ? "bg-green-500/20 border border-green-500/30"
+                                            : "bg-orange-500/20 border border-orange-500/30"
+                                    }`}>
+                                        {exitTicketResult.is_correct ? (
+                                            <p className="text-green-300 flex items-center gap-2">
+                                                <Check className="h-5 w-5" /> Excellent! You got it!
+                                            </p>
+                                        ) : (
+                                            <div>
+                                                <p className="text-orange-300">Not quite. The correct answer is {exitTicket.correct_answer}.</p>
+                                                {exitTicket.hint && (
+                                                    <p className="text-white/70 text-sm mt-2">
+                                                        <Sparkles className="inline h-4 w-4 mr-1" />
+                                                        {exitTicket.hint}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Link to learning dashboard */}
+                            <Link
+                                href="/student/learning"
+                                className="flex items-center justify-center gap-2 bg-white/10 rounded-xl p-4 border border-white/20 text-white hover:bg-white/20 transition-colors"
+                            >
+                                <BookOpen className="h-5 w-5" />
+                                View All Your Exit Tickets
+                                <ExternalLink className="h-4 w-4" />
+                            </Link>
                         </div>
 
-                        <div className="mt-6 flex justify-center">
+                        <div className="mt-6 flex flex-col gap-3 items-center">
                             <button
                                 onClick={() => router.push("/join")}
                                 className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
@@ -645,6 +720,13 @@ export default function PlayGamePage() {
                                 <Download className="h-5 w-5" />
                                 Download Results
                             </button>
+                            <Link
+                                href="/student/learning"
+                                className="rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                            >
+                                <BookOpen className="h-5 w-5" />
+                                My Learning Dashboard
+                            </Link>
                             <button
                                 onClick={() => router.push("/join")}
                                 className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"

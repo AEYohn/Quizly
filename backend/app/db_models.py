@@ -423,12 +423,12 @@ class CodeSubmission(Base):
 class Misconception(Base):
     """Track detected misconceptions from AI analysis."""
     __tablename__ = "misconceptions"
-    
+
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sessions.id"), nullable=True)
     question_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("questions.id"), nullable=True)
     creator_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)  # Teacher who owns this
-    
+
     topic: Mapped[str] = mapped_column(String(255), nullable=False)  # e.g., "Recursion"
     misconception: Mapped[str] = mapped_column(Text, nullable=False)  # The actual misconception
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Detailed explanation
@@ -439,9 +439,13 @@ class Misconception(Base):
     suggested_intervention: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # Still relevant?
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    
+
     # Relationships
     session: Mapped[Optional["Session"]] = relationship()
     question: Mapped[Optional["Question"]] = relationship()
     creator: Mapped[Optional["User"]] = relationship()
+
+
+# Import extended learning models to register them
+from . import db_models_learning  # noqa
 

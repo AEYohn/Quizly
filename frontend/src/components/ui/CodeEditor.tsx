@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Editor from "@monaco-editor/react";
-import { Play, RotateCcw, Check, X, Loader2, ChevronDown, Clock, Zap } from "lucide-react";
+import { Play, RotateCcw, Check, X, Loader2, ChevronDown, Clock, Zap, Plus, Trash2 } from "lucide-react";
 import { codeApi, type TestCaseInput, type CodeExecutionResult } from "~/lib/api";
 
 interface TestCase {
@@ -10,6 +10,19 @@ interface TestCase {
     input: string;
     expected_output: string;
     is_hidden?: boolean;
+}
+
+interface ParsedVariable {
+    name: string;
+    value: string;
+    type: "array" | "number" | "string" | "boolean" | "object";
+}
+
+interface EditableTestCase {
+    id: number;
+    variables: ParsedVariable[];
+    expected_output: string;
+    isCustom?: boolean;
 }
 
 interface CodeEditorProps {
@@ -35,6 +48,100 @@ const THEMES = [
     { id: "light", name: "Light" },
 ];
 
+// Parse JSON or key=value input to variable format
+function parseInputToVariables(input: string): ParsedVariable[] {
+    if (!input || input.trim() === "") return [];
+
+    const variables: ParsedVariable[] = [];
+
+    // Try parsing as JSON first
+    try {
+        const parsed = JSON.parse(input);
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+            for (const [key, value] of Object.entries(parsed)) {
+                variables.push({
+                    name: key,
+                    value: JSON.stringify(value),
+                    type: getValueType(value),
+                });
+            }
+            return variables;
+        }
+    } catch {
+        // Not JSON, try key=value format
+    }
+
+    // Try key=value format (LeetCode style: nums = [1,2,3]\ntarget = 5)
+    const lines = input.split(/[\n;]/).filter(l => l.trim());
+    for (const line of lines) {
+        const match = line.match(/^\s*(\w+)\s*=\s*(.+)\s*$/);
+        if (match) {
+            const [, name, rawValue] = match;
+            let value = rawValue.trim();
+            // Try to parse the value to determine type
+            try {
+                const parsed = JSON.parse(value);
+                variables.push({
+                    name,
+                    value: JSON.stringify(parsed),
+                    type: getValueType(parsed),
+                });
+            } catch {
+                // Treat as string if not valid JSON
+                variables.push({
+                    name,
+                    value: `"${value}"`,
+                    type: "string",
+                });
+            }
+        }
+    }
+
+    // If no variables found, treat the entire input as a single value
+    if (variables.length === 0 && input.trim()) {
+        variables.push({
+            name: "input",
+            value: input.trim(),
+            type: "string",
+        });
+    }
+
+    return variables;
+}
+
+function getValueType(value: unknown): ParsedVariable["type"] {
+    if (Array.isArray(value)) return "array";
+    if (typeof value === "number") return "number";
+    if (typeof value === "boolean") return "boolean";
+    if (typeof value === "object" && value !== null) return "object";
+    return "string";
+}
+
+// Convert variables back to JSON format for API
+function variablesToJson(variables: ParsedVariable[]): string {
+    if (variables.length === 0) return "{}";
+    if (variables.length === 1 && variables[0].name === "input") {
+        return variables[0].value;
+    }
+
+    const obj: Record<string, unknown> = {};
+    for (const v of variables) {
+        try {
+            obj[v.name] = JSON.parse(v.value);
+        } catch {
+            obj[v.name] = v.value;
+        }
+    }
+    return JSON.stringify(obj);
+}
+
+// Format variables for display (LeetCode style)
+function formatVariablesForDisplay(variables: ParsedVariable[]): string {
+    return variables
+        .map(v => `${v.name} = ${v.value}`)
+        .join("\n");
+}
+
 export function CodeEditor({
     problemId,
     initialCode,
@@ -53,12 +160,70 @@ export function CodeEditor({
     const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
     const [executionStats, setExecutionStats] = useState<{ time_ms: number; memory_kb?: number } | null>(null);
 
+    // LeetCode-style test case state
+    const [selectedTestCaseIndex, setSelectedTestCaseIndex] = useState(0);
+    const [editableTestCases, setEditableTestCases] = useState<EditableTestCase[]>([]);
+
     // Update code when initialCode changes (e.g., language switch)
     useEffect(() => {
         if (initialCode) {
             setCode(initialCode);
         }
     }, [initialCode]);
+
+    // Initialize editable test cases from props
+    useEffect(() => {
+        const visibleTestCases = testCases.filter(tc => !tc.is_hidden);
+        const editable: EditableTestCase[] = visibleTestCases.map((tc, i) => ({
+            id: tc.id || i,
+            variables: parseInputToVariables(tc.input),
+            expected_output: tc.expected_output,
+            isCustom: false,
+        }));
+        setEditableTestCases(editable);
+        setSelectedTestCaseIndex(0);
+    }, [testCases]);
+
+    // Handle variable value change
+    const handleVariableChange = useCallback((testCaseIndex: number, variableIndex: number, newValue: string) => {
+        setEditableTestCases(prev => {
+            const updated = [...prev];
+            if (updated[testCaseIndex] && updated[testCaseIndex].variables[variableIndex]) {
+                updated[testCaseIndex] = {
+                    ...updated[testCaseIndex],
+                    variables: updated[testCaseIndex].variables.map((v, i) =>
+                        i === variableIndex ? { ...v, value: newValue } : v
+                    ),
+                };
+            }
+            return updated;
+        });
+    }, []);
+
+    // Add custom test case
+    const handleAddTestCase = useCallback(() => {
+        const templateVariables = editableTestCases[0]?.variables.map(v => ({
+            ...v,
+            value: v.type === "array" ? "[]" : v.type === "number" ? "0" : '""',
+        })) || [{ name: "input", value: '""', type: "string" as const }];
+
+        setEditableTestCases(prev => [
+            ...prev,
+            {
+                id: Date.now(),
+                variables: templateVariables,
+                expected_output: "",
+                isCustom: true,
+            },
+        ]);
+        setSelectedTestCaseIndex(editableTestCases.length);
+    }, [editableTestCases]);
+
+    // Remove custom test case
+    const handleRemoveTestCase = useCallback((index: number) => {
+        setEditableTestCases(prev => prev.filter((_, i) => i !== index));
+        setSelectedTestCaseIndex(prev => Math.max(0, prev - 1));
+    }, []);
 
     const handleLanguageChange = (newLang: string) => {
         setLanguage(newLang);
@@ -74,14 +239,12 @@ export function CodeEditor({
         setActiveTab("results");
         setExecutionStats(null);
 
-        // Convert test cases to API format
-        const apiTestCases: TestCaseInput[] = testCases
-            .filter(tc => !tc.is_hidden)
-            .map(tc => ({
-                input: tc.input,
-                expected_output: tc.expected_output,
-                is_hidden: tc.is_hidden,
-            }));
+        // Convert editable test cases to API format
+        const apiTestCases: TestCaseInput[] = editableTestCases.map(tc => ({
+            input: variablesToJson(tc.variables),
+            expected_output: tc.expected_output,
+            is_hidden: false,
+        }));
 
         if (apiTestCases.length === 0) {
             // No test cases to run
@@ -109,12 +272,12 @@ export function CodeEditor({
                     memory_kb: data.test_results[0]?.memory_kb,
                 });
 
-                // Map results to frontend format
+                // Map results to frontend format with LeetCode-style display
                 const mappedResults = data.test_results.map((tr, i) => ({
                     passed: tr.status === "passed",
                     output: tr.actual_output || (tr.error_message ? `Error: ${tr.error_message}` : "No output"),
-                    expected: tr.expected_output || testCases[i]?.expected_output,
-                    input: tr.input || testCases[i]?.input,
+                    expected: tr.expected_output || editableTestCases[i]?.expected_output,
+                    input: formatVariablesForDisplay(editableTestCases[i]?.variables || []),
                     error: tr.error_message,
                     time_ms: tr.execution_time_ms,
                     status: tr.status,
@@ -158,7 +321,6 @@ export function CodeEditor({
     };
 
     const passedCount = results.filter(r => r.passed).length;
-    const totalVisible = testCases.filter(tc => !tc.is_hidden).length;
 
     // Helper to convert escaped newlines to actual newlines for display
     const formatForDisplay = (text: string | undefined): string => {
@@ -262,9 +424,9 @@ export function CodeEditor({
                 />
             </div>
 
-            {/* Test Cases / Results Panel */}
+            {/* Test Cases / Results Panel - LeetCode Style */}
             <div className="border-t border-gray-700 bg-gray-800">
-                {/* Tabs */}
+                {/* Main Tabs */}
                 <div className="flex border-b border-gray-700">
                     <button
                         onClick={() => setActiveTab("testcases")}
@@ -274,7 +436,7 @@ export function CodeEditor({
                                 : "text-gray-400 hover:text-white"
                         }`}
                     >
-                        Test Cases
+                        Testcase
                     </button>
                     <button
                         onClick={() => setActiveTab("results")}
@@ -284,140 +446,195 @@ export function CodeEditor({
                                 : "text-gray-400 hover:text-white"
                         }`}
                     >
-                        Results
+                        Test Result
                         {results.length > 0 && (
                             <span className={`rounded-full px-2 py-0.5 text-xs ${
-                                passedCount === totalVisible
+                                passedCount === editableTestCases.length
                                     ? "bg-emerald-500/20 text-emerald-400"
-                                    : "bg-amber-500/20 text-amber-400"
+                                    : "bg-red-500/20 text-red-400"
                             }`}>
-                                {passedCount}/{totalVisible}
+                                {passedCount}/{editableTestCases.length}
                             </span>
                         )}
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="max-h-48 overflow-y-auto p-4">
+                <div className="max-h-56 overflow-y-auto">
                     {activeTab === "testcases" ? (
-                        <div className="space-y-3">
-                            {testCases.filter(tc => !tc.is_hidden).map((tc, i) => (
-                                <div key={tc.id} className="rounded-lg bg-gray-900 p-3">
-                                    <p className="mb-2 text-xs font-medium text-gray-400">Test Case {i + 1}</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="mb-1 text-xs text-gray-500">Input</p>
-                                            <pre className="rounded bg-gray-950 p-2 text-sm text-gray-300 whitespace-pre-wrap">
-                                                {formatForDisplay(tc.input)}
-                                            </pre>
+                        <div className="p-4">
+                            {/* Test Case Tabs - LeetCode Style */}
+                            <div className="flex items-center gap-1 mb-4 flex-wrap">
+                                {editableTestCases.map((tc, i) => (
+                                    <button
+                                        key={tc.id}
+                                        onClick={() => setSelectedTestCaseIndex(i)}
+                                        className={`relative flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                            selectedTestCaseIndex === i
+                                                ? "bg-gray-700 text-white"
+                                                : "bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800"
+                                        }`}
+                                    >
+                                        Case {i + 1}
+                                        {tc.isCustom && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRemoveTestCase(i);
+                                                }}
+                                                className="ml-1 text-gray-500 hover:text-red-400"
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={handleAddTestCase}
+                                    className="flex items-center gap-1 px-2 py-1.5 text-sm text-gray-500 hover:text-white rounded-lg hover:bg-gray-700"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            {/* Selected Test Case Content - LeetCode Style */}
+                            {editableTestCases[selectedTestCaseIndex] && (
+                                <div className="space-y-3">
+                                    {editableTestCases[selectedTestCaseIndex].variables.map((variable, varIndex) => (
+                                        <div key={varIndex}>
+                                            <label className="block text-xs text-gray-500 mb-1">
+                                                {variable.name} =
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={variable.value}
+                                                onChange={(e) => handleVariableChange(selectedTestCaseIndex, varIndex, e.target.value)}
+                                                className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-white font-mono focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                                placeholder={`Enter ${variable.name}`}
+                                            />
                                         </div>
-                                        <div>
-                                            <p className="mb-1 text-xs text-gray-500">Expected Output</p>
-                                            <pre className="rounded bg-gray-950 p-2 text-sm text-gray-300 whitespace-pre-wrap">
-                                                {formatForDisplay(tc.expected_output)}
-                                            </pre>
-                                        </div>
-                                    </div>
+                                    ))}
+                                    {editableTestCases[selectedTestCaseIndex].variables.length === 0 && (
+                                        <p className="text-sm text-gray-500">No input variables</p>
+                                    )}
                                 </div>
-                            ))}
-                            {testCases.some(tc => tc.is_hidden) && (
-                                <p className="text-xs text-gray-500">
-                                    + {testCases.filter(tc => tc.is_hidden).length} hidden test cases
-                                </p>
                             )}
-                            {testCases.length === 0 && (
+
+                            {editableTestCases.length === 0 && (
                                 <p className="text-sm text-gray-500">No test cases available</p>
+                            )}
+
+                            {testCases.some(tc => tc.is_hidden) && (
+                                <p className="mt-4 text-xs text-gray-500">
+                                    + {testCases.filter(tc => tc.is_hidden).length} hidden test cases will be evaluated on submit
+                                </p>
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-2">
+                        <div className="p-4">
                             {isRunning ? (
                                 <div className="flex items-center gap-2 text-gray-400">
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Running tests with Judge0...</span>
+                                    <span>Running...</span>
                                 </div>
                             ) : results.length > 0 ? (
                                 <>
-                                    {/* Execution Stats */}
-                                    {executionStats && (
-                                        <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
-                                            <span className="flex items-center gap-1">
-                                                <Clock className="h-3 w-3" />
-                                                {executionStats.time_ms.toFixed(0)}ms total
-                                            </span>
-                                            {executionStats.memory_kb && (
-                                                <span className="flex items-center gap-1">
-                                                    <Zap className="h-3 w-3" />
-                                                    {(executionStats.memory_kb / 1024).toFixed(1)}MB
-                                                </span>
+                                    {/* LeetCode-Style Results Header */}
+                                    <div className={`mb-4 p-4 rounded-lg ${
+                                        passedCount === results.length
+                                            ? "bg-emerald-500/10"
+                                            : "bg-red-500/10"
+                                    }`}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className={`text-xl font-bold ${
+                                                    passedCount === results.length
+                                                        ? "text-emerald-400"
+                                                        : "text-red-400"
+                                                }`}>
+                                                    {passedCount === results.length ? "Accepted" : "Wrong Answer"}
+                                                </p>
+                                                {executionStats && (
+                                                    <p className="text-sm text-gray-400 mt-1">
+                                                        Runtime: {executionStats.time_ms.toFixed(0)} ms
+                                                        {executionStats.memory_kb && (
+                                                            <span className="ml-2">
+                                                                Memory: {(executionStats.memory_kb / 1024).toFixed(1)} MB
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-lg font-semibold text-white">
+                                                    {passedCount}/{results.length}
+                                                </p>
+                                                <p className="text-xs text-gray-500">testcases passed</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Test Case Tabs in Results */}
+                                    <div className="flex items-center gap-1 mb-4 flex-wrap">
+                                        {results.map((result, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => setSelectedTestCaseIndex(i)}
+                                                className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                                    selectedTestCaseIndex === i
+                                                        ? "bg-gray-700 text-white"
+                                                        : "bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800"
+                                                }`}
+                                            >
+                                                {result.passed ? (
+                                                    <Check className="h-3 w-3 text-emerald-500" />
+                                                ) : (
+                                                    <X className="h-3 w-3 text-red-500" />
+                                                )}
+                                                Case {i + 1}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Selected Result Details - LeetCode Style */}
+                                    {results[selectedTestCaseIndex] && (
+                                        <div className="space-y-3">
+                                            {/* Input */}
+                                            {results[selectedTestCaseIndex].input && (
+                                                <div>
+                                                    <p className="text-xs text-gray-500 mb-1">Input</p>
+                                                    <pre className="rounded-lg bg-gray-900 p-3 text-sm text-gray-300 font-mono whitespace-pre-wrap">
+                                                        {formatForDisplay(results[selectedTestCaseIndex].input)}
+                                                    </pre>
+                                                </div>
+                                            )}
+                                            {/* Output */}
+                                            <div>
+                                                <p className="text-xs text-gray-500 mb-1">Output</p>
+                                                <pre className={`rounded-lg bg-gray-900 p-3 text-sm font-mono whitespace-pre-wrap ${
+                                                    results[selectedTestCaseIndex].passed ? "text-gray-300" : "text-red-400"
+                                                }`}>
+                                                    {formatForDisplay(results[selectedTestCaseIndex].output)}
+                                                </pre>
+                                            </div>
+                                            {/* Expected */}
+                                            <div>
+                                                <p className="text-xs text-gray-500 mb-1">Expected</p>
+                                                <pre className="rounded-lg bg-gray-900 p-3 text-sm text-emerald-400 font-mono whitespace-pre-wrap">
+                                                    {formatForDisplay(results[selectedTestCaseIndex].expected)}
+                                                </pre>
+                                            </div>
+                                            {/* Error if any */}
+                                            {results[selectedTestCaseIndex].error && (
+                                                <div>
+                                                    <p className="text-xs text-gray-500 mb-1">Error</p>
+                                                    <pre className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-orange-400 font-mono whitespace-pre-wrap">
+                                                        {results[selectedTestCaseIndex].error}
+                                                    </pre>
+                                                </div>
                                             )}
                                         </div>
                                     )}
-                                    {results.map((result, i) => (
-                                        <div
-                                            key={i}
-                                            className={`rounded-lg p-3 ${
-                                                result.passed
-                                                    ? "bg-emerald-500/10"
-                                                    : result.status === "compilation_error"
-                                                    ? "bg-orange-500/10"
-                                                    : result.status === "timeout"
-                                                    ? "bg-yellow-500/10"
-                                                    : "bg-red-500/10"
-                                            }`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    {result.passed ? (
-                                                        <Check className="h-5 w-5 text-emerald-500" />
-                                                    ) : (
-                                                        <X className={`h-5 w-5 ${
-                                                            result.status === "compilation_error" ? "text-orange-500" :
-                                                            result.status === "timeout" ? "text-yellow-500" : "text-red-500"
-                                                        }`} />
-                                                    )}
-                                                    <p className={`text-sm font-medium ${
-                                                        result.passed ? "text-emerald-400" :
-                                                        result.status === "compilation_error" ? "text-orange-400" :
-                                                        result.status === "timeout" ? "text-yellow-400" : "text-red-400"
-                                                    }`}>
-                                                        Test Case {i + 1}: {
-                                                            result.passed ? "Passed" :
-                                                            result.status === "compilation_error" ? "Compilation Error" :
-                                                            result.status === "timeout" ? "Time Limit Exceeded" :
-                                                            result.status === "runtime_error" ? "Runtime Error" : "Failed"
-                                                        }
-                                                    </p>
-                                                </div>
-                                                {result.time_ms !== undefined && (
-                                                    <span className="text-xs text-gray-500">{result.time_ms.toFixed(0)}ms</span>
-                                                )}
-                                            </div>
-                                            {!result.passed && (
-                                                <div className="mt-2 ml-8 space-y-1 text-xs">
-                                                    {result.input && (
-                                                        <div className="flex gap-2">
-                                                            <span className="text-gray-500 w-16 shrink-0">Input:</span>
-                                                            <pre className="text-cyan-400 whitespace-pre-wrap">{formatForDisplay(result.input)}</pre>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex gap-2">
-                                                        <span className="text-gray-500 w-16 shrink-0">Expected:</span>
-                                                        <pre className="text-green-400 whitespace-pre-wrap">{formatForDisplay(result.expected)}</pre>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <span className="text-gray-500 w-16 shrink-0">Got:</span>
-                                                        <pre className="text-red-400 whitespace-pre-wrap">{formatForDisplay(result.output)}</pre>
-                                                    </div>
-                                                    {result.error && (
-                                                        <div className="mt-2 p-2 bg-black/30 rounded border border-orange-500/30">
-                                                            <code className="text-orange-400 whitespace-pre-wrap text-xs">{result.error}</code>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
                                 </>
                             ) : (
                                 <p className="text-sm text-gray-500">

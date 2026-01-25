@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
     Sparkles,
     Search,
@@ -177,13 +178,22 @@ export default function StudentDashboard() {
                                 <p className="text-xs text-gray-500">Welcome, {studentName}!</p>
                             </div>
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-                        >
-                            <LogOut className="h-4 w-4" />
-                            Switch User
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href="/student/learning"
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-medium"
+                            >
+                                <BookOpen className="h-4 w-4" />
+                                My Learning
+                            </Link>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                Switch User
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
