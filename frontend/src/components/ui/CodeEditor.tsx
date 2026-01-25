@@ -160,6 +160,13 @@ export function CodeEditor({
     const passedCount = results.filter(r => r.passed).length;
     const totalVisible = testCases.filter(tc => !tc.is_hidden).length;
 
+    // Helper to convert escaped newlines to actual newlines for display
+    const formatForDisplay = (text: string | undefined): string => {
+        if (!text) return "(none)";
+        // Replace literal \n with actual newlines
+        return text.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+    };
+
     return (
         <div className="flex h-full flex-col rounded-xl border border-gray-700 bg-gray-900 overflow-hidden">
             {/* Toolbar */}
@@ -300,14 +307,14 @@ export function CodeEditor({
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <p className="mb-1 text-xs text-gray-500">Input</p>
-                                            <pre className="rounded bg-gray-950 p-2 text-sm text-gray-300">
-                                                {tc.input || "(none)"}
+                                            <pre className="rounded bg-gray-950 p-2 text-sm text-gray-300 whitespace-pre-wrap">
+                                                {formatForDisplay(tc.input)}
                                             </pre>
                                         </div>
                                         <div>
                                             <p className="mb-1 text-xs text-gray-500">Expected Output</p>
-                                            <pre className="rounded bg-gray-950 p-2 text-sm text-gray-300">
-                                                {tc.expected_output}
+                                            <pre className="rounded bg-gray-950 p-2 text-sm text-gray-300 whitespace-pre-wrap">
+                                                {formatForDisplay(tc.expected_output)}
                                             </pre>
                                         </div>
                                     </div>
@@ -391,16 +398,16 @@ export function CodeEditor({
                                                     {result.input && (
                                                         <div className="flex gap-2">
                                                             <span className="text-gray-500 w-16 shrink-0">Input:</span>
-                                                            <code className="text-cyan-400 break-all">{result.input}</code>
+                                                            <pre className="text-cyan-400 whitespace-pre-wrap">{formatForDisplay(result.input)}</pre>
                                                         </div>
                                                     )}
                                                     <div className="flex gap-2">
                                                         <span className="text-gray-500 w-16 shrink-0">Expected:</span>
-                                                        <code className="text-green-400 break-all">{result.expected || "N/A"}</code>
+                                                        <pre className="text-green-400 whitespace-pre-wrap">{formatForDisplay(result.expected)}</pre>
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <span className="text-gray-500 w-16 shrink-0">Got:</span>
-                                                        <code className="text-red-400 break-all">{result.output || "No output"}</code>
+                                                        <pre className="text-red-400 whitespace-pre-wrap">{formatForDisplay(result.output)}</pre>
                                                     </div>
                                                     {result.error && (
                                                         <div className="mt-2 p-2 bg-black/30 rounded border border-orange-500/30">

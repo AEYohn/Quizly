@@ -175,6 +175,12 @@ export default function CodingProblemPage({ params }: { params: Promise<{ id: st
         is_hidden: false,
     }));
 
+    // Helper to convert escaped newlines to actual newlines for display
+    const formatForDisplay = (text: string | undefined): string => {
+        if (!text) return "(none)";
+        return text.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+    };
+
     return (
         <div className="flex h-screen bg-gray-950">
             {/* Left Panel: Problem Description */}
@@ -244,14 +250,14 @@ export default function CodingProblemPage({ params }: { params: Promise<{ id: st
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <p className="mb-1 text-xs text-gray-500">Input</p>
-                                            <pre className="rounded bg-gray-950 p-2 text-sm text-emerald-400">
-                                                {tc.input_data}
+                                            <pre className="rounded bg-gray-950 p-2 text-sm text-emerald-400 whitespace-pre-wrap">
+                                                {formatForDisplay(tc.input_data)}
                                             </pre>
                                         </div>
                                         <div>
                                             <p className="mb-1 text-xs text-gray-500">Output</p>
-                                            <pre className="rounded bg-gray-950 p-2 text-sm text-sky-400">
-                                                {tc.expected_output}
+                                            <pre className="rounded bg-gray-950 p-2 text-sm text-sky-400 whitespace-pre-wrap">
+                                                {formatForDisplay(tc.expected_output)}
                                             </pre>
                                         </div>
                                     </div>
