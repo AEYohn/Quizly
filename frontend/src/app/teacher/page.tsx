@@ -14,6 +14,9 @@ import {
     Gamepad2,
     Clock,
     Zap,
+    MoreVertical,
+    Pencil,
+    Trash2,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -41,10 +44,21 @@ export default function TeacherDashboard() {
     const [recentGames, setRecentGames] = useState<Game[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [startingGame, setStartingGame] = useState<string | null>(null);
+    const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+    const [deletingQuiz, setDeletingQuiz] = useState<string | null>(null);
 
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => setOpenDropdown(null);
+        if (openDropdown) {
+            document.addEventListener("click", handleClickOutside);
+            return () => document.removeEventListener("click", handleClickOutside);
+        }
+    }, [openDropdown]);
 
     async function fetchData() {
         const token = localStorage.getItem("token");
@@ -96,6 +110,28 @@ export default function TeacherDashboard() {
             console.error("Failed to start game:", error);
         }
         setStartingGame(null);
+    };
+
+    const deleteQuiz = async (quizId: string) => {
+        if (!confirm("Are you sure you want to delete this quiz?")) return;
+
+        setDeletingQuiz(quizId);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/quizzes/${quizId}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            if (response.ok) {
+                setQuizzes(quizzes.filter(q => q.id !== quizId));
+            }
+        } catch (error) {
+            console.error("Failed to delete quiz:", error);
+        }
+        setDeletingQuiz(null);
+        setOpenDropdown(null);
     };
 
     if (isLoading) {
@@ -203,9 +239,46 @@ export default function TeacherDashboard() {
                             {quizzes.map((quiz) => (
                                 <div
                                     key={quiz.id}
-                                    className="rounded-xl bg-white p-4 border border-gray-200 shadow-sm"
+                                    className="rounded-xl bg-white p-4 border border-gray-200 shadow-sm relative"
                                 >
-                                    <h3 className="font-semibold text-gray-900 truncate">{quiz.title}</h3>
+                                    {/* Dropdown Menu */}
+                                    <div className="absolute top-2 right-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDropdown(openDropdown === quiz.id ? null : quiz.id);
+                                            }}
+                                            className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                                        >
+                                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                                        </button>
+                                        {openDropdown === quiz.id && (
+                                            <div className="absolute right-0 mt-1 w-36 rounded-lg bg-white border border-gray-200 shadow-lg z-10">
+                                                <Link
+                                                    href={`/teacher/quizzes/${quiz.id}/edit`}
+                                                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
+                                                    onClick={() => setOpenDropdown(null)}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                    Edit
+                                                </Link>
+                                                <button
+                                                    onClick={() => deleteQuiz(quiz.id)}
+                                                    disabled={deletingQuiz === quiz.id}
+                                                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                                                >
+                                                    {deletingQuiz === quiz.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4" />
+                                                    )}
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <h3 className="font-semibold text-gray-900 truncate pr-6">{quiz.title}</h3>
                                     <p className="mt-1 text-sm text-gray-500">
                                         {quiz.question_count} questions
                                     </p>

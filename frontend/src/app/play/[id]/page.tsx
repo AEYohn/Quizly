@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star } from "lucide-react";
+import { useGameSocket } from "~/lib/useGameSocket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -12,6 +13,7 @@ interface GameState {
     current_question_index: number;
     total_questions: number;
     quiz_title: string;
+    sync_mode: boolean;
     current_question?: {
         question_text: string;
         question_type: string;
@@ -41,6 +43,15 @@ export default function PlayGamePage() {
     const [loading, setLoading] = useState(true);
     const [questionStartTime, setQuestionStartTime] = useState<number>(0);
 
+    // Async mode: track current question index independently
+    const [asyncQuestionIndex, setAsyncQuestionIndex] = useState<number>(() => {
+        if (typeof window !== "undefined") {
+            const saved = sessionStorage.getItem(`quiz_progress_${gameId}`);
+            return saved ? parseInt(saved, 10) : 0;
+        }
+        return 0;
+    });
+
     // AI Host state
     const [hostMessage, setHostMessage] = useState<string>("");
     const [hostLoading, setHostLoading] = useState(false);
@@ -54,7 +65,65 @@ export default function PlayGamePage() {
         ? sessionStorage.getItem("nickname")
         : null;
 
-    // Fetch AI host reaction
+    // WebSocket for real-time game updates (timer sync, question transitions)
+    const { isConnected, timeRemaining: wsTimeRemaining } = useGameSocket({
+        gameId,
+        playerId: playerId || undefined,
+        enabled: !!playerId,
+        onGameStarted: () => {
+            // Game started - fetch latest state
+            fetchGame();
+        },
+        onQuestionStart: (data) => {
+            // New question arrived via WebSocket - update state immediately
+            setGame(prev => prev ? {
+                ...prev,
+                status: "question",
+                current_question_index: data.question_index,
+                current_question: {
+                    question_text: data.question_text,
+                    question_type: data.question_type,
+                    options: data.options,
+                    time_limit: data.time_limit,
+                    points: data.points,
+                }
+            } : null);
+            setSelectedAnswer(null);
+            setHasAnswered(false);
+            setQuestionStartTime(Date.now());
+            setHostMessage("");
+            setShowExplanation(false);
+            setTimeLeft(data.time_limit);
+        },
+        onTimerTick: (data) => {
+            // Synchronized timer from server - use this for accurate countdown
+            if (!hasAnswered) {
+                setTimeLeft(data.time_remaining);
+            }
+        },
+        onQuestionEnd: () => {
+            // Time's up
+            setTimeLeft(0);
+        },
+        onResults: () => {
+            // Results are being shown - fetch player state
+            setGame(prev => prev ? { ...prev, status: "results" } : null);
+            fetchPlayerState();
+        },
+        onGameEnd: () => {
+            // Game finished
+            setGame(prev => prev ? { ...prev, status: "finished" } : null);
+            fetchPlayerState();
+        },
+        onHostDisconnected: () => {
+            console.log("Host disconnected from game");
+        },
+        onError: (error) => {
+            console.error("WebSocket error:", error);
+        },
+    });
+
+    // Fetch AI host reaction with timeout
     const fetchHostReaction = useCallback(async (
         isCorrect: boolean,
         questionText: string,
@@ -64,7 +133,17 @@ export default function PlayGamePage() {
         timeTaken: number
     ) => {
         setHostLoading(true);
+
+        // Set fallback message immediately for async mode or if AI fails
+        const fallbackMessage = isCorrect
+            ? "Correct! Well done! 🎯"
+            : "Not quite, but keep going! 💪";
+
         try {
+            // Add timeout to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
             const response = await fetch(`${API_URL}/host/react/answer`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -77,19 +156,26 @@ export default function PlayGamePage() {
                     is_correct: isCorrect,
                     time_taken: timeTaken,
                     options: options
-                })
+                }),
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
+
             if (response.ok) {
                 const data = await response.json();
-                setHostMessage(data.reaction);
+                setHostMessage(data.reaction || fallbackMessage);
                 if (!isCorrect) {
                     setShowExplanation(true);
                 }
+            } else {
+                // Non-OK response - use fallback
+                setHostMessage(fallbackMessage);
             }
         } catch (error) {
             console.error("Failed to get host reaction:", error);
-            // Fallback message
-            setHostMessage(isCorrect ? "Nice one! 🎯" : "Keep going! You've got this! 💪");
+            // Fallback message on error or timeout
+            setHostMessage(fallbackMessage);
         } finally {
             setHostLoading(false);
         }
@@ -114,11 +200,14 @@ export default function PlayGamePage() {
 
     const fetchGame = useCallback(async () => {
         try {
-            const response = await fetch(`${API_URL}/games/${gameId}/player`);
+            // Always pass question_index - backend will use it for async mode, ignore for sync mode
+            const url = `${API_URL}/games/${gameId}/player?question_index=${asyncQuestionIndex}`;
+
+            const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
 
-                // Check if question changed
+                // Check if question changed (for sync mode)
                 if (game && data.current_question_index !== game.current_question_index) {
                     setSelectedAnswer(null);
                     setHasAnswered(false);
@@ -137,7 +226,25 @@ export default function PlayGamePage() {
         } finally {
             setLoading(false);
         }
-    }, [gameId, game]);
+    }, [gameId, game, asyncQuestionIndex]);
+
+    // Move to next question in async mode
+    const nextQuestion = useCallback(() => {
+        if (!game) return;
+        const nextIndex = asyncQuestionIndex + 1;
+        if (nextIndex < game.total_questions) {
+            setAsyncQuestionIndex(nextIndex);
+            // Save progress to sessionStorage
+            if (typeof window !== "undefined") {
+                sessionStorage.setItem(`quiz_progress_${gameId}`, nextIndex.toString());
+            }
+            setSelectedAnswer(null);
+            setHasAnswered(false);
+            setHostMessage("");
+            setShowExplanation(false);
+            setQuestionStartTime(Date.now());
+        }
+    }, [game, asyncQuestionIndex, gameId]);
 
     useEffect(() => {
         if (!playerId) {
@@ -147,15 +254,19 @@ export default function PlayGamePage() {
 
         fetchGame();
 
+        // Use WebSocket for real-time updates when connected
+        // Fall back to polling at reduced frequency when not connected
+        const pollInterval = isConnected ? 5000 : 1000;  // 5s with WS, 1s without
+
         const interval = setInterval(() => {
             fetchGame();
             if (hasAnswered || game?.status === "results") {
                 fetchPlayerState();
             }
-        }, 1000);
+        }, pollInterval);
 
         return () => clearInterval(interval);
-    }, [fetchGame, fetchPlayerState, playerId, router, hasAnswered, game?.status]);
+    }, [fetchGame, fetchPlayerState, playerId, router, hasAnswered, game?.status, isConnected]);
 
     // Timer initialization
     useEffect(() => {
@@ -199,7 +310,8 @@ export default function PlayGamePage() {
 
             if (response.ok) {
                 const result = await response.json();
-                const isCorrect = result.correct;
+                // Backend returns points_earned > 0 for correct answers
+                const isCorrect = result.points_earned > 0;
 
                 // Update streak
                 if (isCorrect) {
@@ -217,6 +329,9 @@ export default function PlayGamePage() {
                     game.current_question.options,
                     timeTaken
                 );
+            } else {
+                // If answer submission failed, still show a message
+                setHostMessage("Answer submitted!");
             }
 
             // Fetch updated player state
@@ -365,11 +480,34 @@ export default function PlayGamePage() {
                     )}
                 </div>
 
-                {/* Waiting for next question */}
-                <div className="mt-8 flex items-center gap-2 text-white/60">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Waiting for next question...</span>
-                </div>
+                {/* FOR ASYNC MODE: Show Next Question Button */}
+                {game?.sync_mode === false && (
+                    <div className="mt-8">
+                        {asyncQuestionIndex + 1 < game.total_questions ? (
+                            <button
+                                onClick={nextQuestion}
+                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                            >
+                                Next Question →
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => router.push("/join")}
+                                className="rounded-full bg-green-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform"
+                            >
+                                Finish Quiz 🎉
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* FOR SYNC MODE: Keep existing waiting message */}
+                {game?.sync_mode !== false && (
+                    <div className="mt-8 flex items-center gap-2 text-white/60">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Waiting for next question...</span>
+                    </div>
+                )}
             </div>
         );
     }
