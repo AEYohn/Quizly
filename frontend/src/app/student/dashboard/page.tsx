@@ -101,25 +101,22 @@ export default function StudentDashboard() {
                     return;
                 }
 
-                // Join the game - use game_id explicitly
-                const gameId = game.game_id;
-                if (!gameId) {
-                    setJoinError("Invalid game response. Please try again.");
-                    setJoiningGame(false);
-                    return;
-                }
-                const joinRes = await fetch(`${API_URL}/games/${gameId}/join`, {
+                // Join the game using /games/join endpoint with game_code
+                const joinRes = await fetch(`${API_URL}/games/join`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nickname: studentName }),
+                    body: JSON.stringify({
+                        game_code: joinCode.toUpperCase(),
+                        nickname: studentName
+                    }),
                 });
 
                 if (joinRes.ok) {
                     const joinData = await joinRes.json();
                     sessionStorage.setItem("playerId", joinData.player_id);
                     sessionStorage.setItem("nickname", studentName);
-                    sessionStorage.setItem("gameId", gameId);
-                    router.push(`/play/${gameId}`);
+                    sessionStorage.setItem("gameId", joinData.game_id);
+                    router.push(`/play/${joinData.game_id}`);
                 } else {
                     const error = await joinRes.json();
                     setJoinError(error.detail || "Couldn't join the game");

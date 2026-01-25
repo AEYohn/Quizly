@@ -233,33 +233,33 @@ export default function TeacherDashboard() {
 
     if (isLoading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gray-50">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
+                <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-950">
             {/* Header */}
-            <div className="border-b bg-white">
+            <div className="border-b border-gray-800 bg-gray-900">
                 <div className="mx-auto max-w-5xl px-6 py-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                            <p className="text-gray-500">Create and share quizzes and coding challenges with your students</p>
+                            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+                            <p className="text-gray-400">Create and share quizzes and coding challenges with your students</p>
                         </div>
                         <div className="flex gap-3">
                             <Link
                                 href="/teacher/coding/new"
-                                className="flex items-center gap-2 rounded-lg border border-purple-200 bg-white px-5 py-2.5 font-medium text-purple-600 hover:bg-purple-50 transition-colors"
+                                className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-5 py-2.5 font-medium text-gray-200 hover:bg-gray-700 transition-colors"
                             >
                                 <Code className="h-4 w-4" />
                                 Create Coding Challenge
                             </Link>
                             <Link
                                 href="/teacher/quizzes/new"
-                                className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700 transition-colors"
+                                className="flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 font-medium text-white hover:bg-sky-500 transition-colors"
                             >
                                 <Sparkles className="h-4 w-4" />
                                 Create Quiz
@@ -272,20 +272,20 @@ export default function TeacherDashboard() {
             <div className="mx-auto max-w-5xl px-6 py-8 space-y-10">
                 {/* Quizzes Section */}
                 <section>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <Gamepad2 className="h-5 w-5 text-purple-600" />
+                    <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Gamepad2 className="h-5 w-5 text-sky-400" />
                         Quizzes
                     </h2>
                     {quizzes.length === 0 ? (
-                        <div className="rounded-2xl bg-white p-12 text-center border border-gray-200">
-                            <Gamepad2 className="mx-auto h-12 w-12 text-gray-300" />
-                            <h3 className="mt-4 text-lg font-semibold text-gray-900">No quizzes yet</h3>
-                            <p className="mt-2 text-gray-500 max-w-sm mx-auto">
+                        <div className="rounded-2xl bg-gray-900 p-12 text-center border border-gray-800">
+                            <Gamepad2 className="mx-auto h-12 w-12 text-gray-600" />
+                            <h3 className="mt-4 text-lg font-semibold text-white">No quizzes yet</h3>
+                            <p className="mt-2 text-gray-400 max-w-sm mx-auto">
                                 Create your first quiz with AI - just describe what you want
                             </p>
                             <Link
                                 href="/teacher/quizzes/new"
-                                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+                                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 font-medium text-white hover:bg-sky-500"
                             >
                                 <PlusCircle className="h-4 w-4" />
                                 Create Quiz
@@ -300,15 +300,15 @@ export default function TeacherDashboard() {
                             return (
                                 <div
                                     key={quiz.id}
-                                    className="rounded-xl bg-white border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                                    className="rounded-xl bg-gray-900 border border-gray-800 p-6 hover:border-gray-700 transition-colors"
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         {/* Quiz Info */}
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                            <h3 className="text-lg font-semibold text-white truncate">
                                                 {quiz.title}
                                             </h3>
-                                            <p className="mt-1 text-sm text-gray-500">
+                                            <p className="mt-1 text-sm text-gray-400">
                                                 {quiz.question_count} questions
                                             </p>
                                         </div>
@@ -318,14 +318,14 @@ export default function TeacherDashboard() {
                                             {game ? (
                                                 <>
                                                     {/* Code Display */}
-                                                    <div className="flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-4 py-2">
-                                                        <span className="text-sm text-purple-600 font-medium">Code:</span>
-                                                        <span className="font-mono text-lg font-bold text-purple-700">
+                                                    <div className="flex items-center gap-2 rounded-lg bg-sky-500/20 border border-sky-500/30 px-4 py-2">
+                                                        <span className="text-sm text-sky-400 font-medium">Code:</span>
+                                                        <span className="font-mono text-lg font-bold text-sky-300">
                                                             {game.game_code}
                                                         </span>
                                                         <button
                                                             onClick={() => copyCode(game.game_code)}
-                                                            className="p-1 rounded hover:bg-purple-100 text-purple-600"
+                                                            className="p-1 rounded hover:bg-sky-500/30 text-sky-400"
                                                             title="Copy code"
                                                         >
                                                             {copiedCode === game.game_code ? (
@@ -339,7 +339,7 @@ export default function TeacherDashboard() {
                                                     {/* Share Button */}
                                                     <button
                                                         onClick={() => shareQuiz(game.game_code, quiz.title)}
-                                                        className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
+                                                        className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-500 transition-colors"
                                                     >
                                                         <Share2 className="h-4 w-4" />
                                                         Share
@@ -348,12 +348,12 @@ export default function TeacherDashboard() {
                                                     {/* Results */}
                                                     <Link
                                                         href={`/teacher/game/${game.id}/results`}
-                                                        className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                                        className="flex items-center gap-2 rounded-lg border border-gray-700 px-4 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800 transition-colors"
                                                     >
                                                         <BarChart3 className="h-4 w-4" />
                                                         Results
                                                         {game.player_count > 0 && (
-                                                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                                            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
                                                                 {game.player_count}
                                                             </span>
                                                         )}
@@ -363,7 +363,7 @@ export default function TeacherDashboard() {
                                                 <button
                                                     onClick={() => createGame(quiz.id)}
                                                     disabled={isCreating}
-                                                    className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                                    className="flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-sky-500 transition-colors disabled:opacity-50"
                                                 >
                                                     {isCreating ? (
                                                         <>
@@ -380,10 +380,10 @@ export default function TeacherDashboard() {
                                             )}
 
                                             {/* Edit/Delete */}
-                                            <div className="flex items-center border-l border-gray-200 pl-3 ml-1">
+                                            <div className="flex items-center border-l border-gray-700 pl-3 ml-1">
                                                 <Link
                                                     href={`/teacher/quizzes/${quiz.id}/edit`}
-                                                    className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                                                    className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-gray-800"
                                                     title="Edit quiz"
                                                 >
                                                     <Pencil className="h-4 w-4" />
@@ -391,7 +391,7 @@ export default function TeacherDashboard() {
                                                 <button
                                                     onClick={() => deleteQuiz(quiz.id)}
                                                     disabled={deletingQuiz === quiz.id}
-                                                    className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                                    className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10"
                                                     title="Delete quiz"
                                                 >
                                                     {deletingQuiz === quiz.id ? (
@@ -406,10 +406,10 @@ export default function TeacherDashboard() {
 
                                     {/* Student count for active games */}
                                     {game && game.player_count > 0 && (
-                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 text-sm text-gray-500">
+                                        <div className="mt-4 pt-4 border-t border-gray-800 flex items-center gap-2 text-sm text-gray-400">
                                             <Users className="h-4 w-4" />
                                             <span>{game.player_count} students have joined</span>
-                                            <span className="text-green-500">● Active</span>
+                                            <span className="text-emerald-400">● Active</span>
                                         </div>
                                     )}
                                 </div>
@@ -421,20 +421,20 @@ export default function TeacherDashboard() {
 
                 {/* Coding Challenges Section */}
                 <section>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <Code className="h-5 w-5 text-purple-600" />
+                    <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Code className="h-5 w-5 text-sky-400" />
                         Coding Challenges
                     </h2>
                     {codingProblems.length === 0 ? (
-                        <div className="rounded-2xl bg-white p-12 text-center border border-gray-200">
-                            <Code className="mx-auto h-12 w-12 text-gray-300" />
-                            <h3 className="mt-4 text-lg font-semibold text-gray-900">No coding challenges yet</h3>
-                            <p className="mt-2 text-gray-500 max-w-sm mx-auto">
+                        <div className="rounded-2xl bg-gray-900 p-12 text-center border border-gray-800">
+                            <Code className="mx-auto h-12 w-12 text-gray-600" />
+                            <h3 className="mt-4 text-lg font-semibold text-white">No coding challenges yet</h3>
+                            <p className="mt-2 text-gray-400 max-w-sm mx-auto">
                                 Create LeetCode-style coding problems for your students
                             </p>
                             <Link
                                 href="/teacher/coding/new"
-                                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+                                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 font-medium text-white hover:bg-sky-500"
                             >
                                 <PlusCircle className="h-4 w-4" />
                                 Create Coding Challenge
@@ -445,20 +445,20 @@ export default function TeacherDashboard() {
                             {codingProblems.map((problem) => (
                                 <div
                                     key={problem.id}
-                                    className="rounded-xl bg-white border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                                    className="rounded-xl bg-gray-900 border border-gray-800 p-6 hover:border-gray-700 transition-colors"
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         {/* Problem Info */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3">
-                                                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                                <h3 className="text-lg font-semibold text-white truncate">
                                                     {problem.title}
                                                 </h3>
                                                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${getDifficultyColor(problem.difficulty)}`}>
                                                     {problem.difficulty}
                                                 </span>
                                             </div>
-                                            <p className="mt-1 text-sm text-gray-500">
+                                            <p className="mt-1 text-sm text-gray-400">
                                                 {problem.test_case_count} test cases • {problem.points} points
                                             </p>
                                         </div>
@@ -468,7 +468,7 @@ export default function TeacherDashboard() {
                                             {/* Share Link */}
                                             <button
                                                 onClick={() => copyCodingLink(problem.id)}
-                                                className="flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+                                                className="flex items-center gap-2 rounded-lg bg-sky-500/20 border border-sky-500/30 px-4 py-2 text-sm font-medium text-sky-400 hover:bg-sky-500/30 transition-colors"
                                             >
                                                 {copiedCode === problem.id ? (
                                                     <>
@@ -487,18 +487,18 @@ export default function TeacherDashboard() {
                                             <Link
                                                 href={`/play/coding/${problem.id}`}
                                                 target="_blank"
-                                                className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                                className="flex items-center gap-2 rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 transition-colors"
                                             >
                                                 <ExternalLink className="h-4 w-4" />
                                                 Open
                                             </Link>
 
                                             {/* Delete */}
-                                            <div className="flex items-center border-l border-gray-200 pl-3 ml-1">
+                                            <div className="flex items-center border-l border-gray-700 pl-3 ml-1">
                                                 <button
                                                     onClick={() => deleteCodingProblem(problem.id)}
                                                     disabled={deletingProblem === problem.id}
-                                                    className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                                    className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10"
                                                     title="Delete coding challenge"
                                                 >
                                                     {deletingProblem === problem.id ? (
@@ -513,7 +513,7 @@ export default function TeacherDashboard() {
 
                                     {/* Stats */}
                                     {(problem.solve_count > 0 || problem.attempt_count > 0) && (
-                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-4 text-sm text-gray-500">
+                                        <div className="mt-4 pt-4 border-t border-gray-800 flex items-center gap-4 text-sm text-gray-400">
                                             <span>{problem.attempt_count} attempts</span>
                                             <span>{problem.solve_count} solved</span>
                                         </div>

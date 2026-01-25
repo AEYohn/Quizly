@@ -77,25 +77,22 @@ export default function StudentHubPage() {
                     return;
                 }
 
-                // Join the game - use game_id explicitly
-                const gameId = game.game_id;
-                if (!gameId) {
-                    setJoinError("Invalid game response. Please try again.");
-                    setIsLoading(false);
-                    return;
-                }
-                const joinRes = await fetch(`${API_URL}/games/${gameId}/join`, {
+                // Join the game using /games/join endpoint with game_code
+                const joinRes = await fetch(`${API_URL}/games/join`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nickname: savedName }),
+                    body: JSON.stringify({
+                        game_code: joinCode.toUpperCase(),
+                        nickname: savedName
+                    }),
                 });
 
                 if (joinRes.ok) {
                     const joinData = await joinRes.json();
                     sessionStorage.setItem("playerId", joinData.player_id);
                     sessionStorage.setItem("nickname", savedName);
-                    sessionStorage.setItem("gameId", gameId);
-                    router.push(`/play/${gameId}`);
+                    sessionStorage.setItem("gameId", joinData.game_id);
+                    router.push(`/play/${joinData.game_id}`);
                 } else {
                     setJoinError("Couldn't join game. Try again!");
                 }

@@ -57,11 +57,12 @@ export default function JoinGamePage() {
         setError("");
 
         try {
-            // Use /games/{id}/join endpoint
-            const response = await fetch(`${API_URL}/games/${gameId}/join`, {
+            // Use /games/join endpoint with game_code
+            const response = await fetch(`${API_URL}/games/join`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    game_code: gameCode.toUpperCase(),
                     nickname: nickname.trim()
                 }),
             });
@@ -71,9 +72,9 @@ export default function JoinGamePage() {
                 // Store player info
                 sessionStorage.setItem("playerId", data.player_id);
                 sessionStorage.setItem("nickname", nickname.trim());
-                sessionStorage.setItem("gameId", gameId);
+                sessionStorage.setItem("gameId", data.game_id);
                 // Navigate to game
-                router.push(`/play/${gameId}`);
+                router.push(`/play/${data.game_id}`);
             } else {
                 const errorData = await response.json();
                 setError(errorData.detail || "Couldn't join. Try a different name!");

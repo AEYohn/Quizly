@@ -166,15 +166,15 @@ export default function GameLobbyPage() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-purple-800">
-                <Loader2 className="h-12 w-12 animate-spin text-white" />
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
+                <Loader2 className="h-12 w-12 animate-spin text-sky-400" />
             </div>
         );
     }
 
     if (!game) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-purple-800">
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
                 <div className="text-white">Game not found</div>
             </div>
         );
@@ -184,7 +184,7 @@ export default function GameLobbyPage() {
     const displayPlayerCount = isConnected ? (playerCount || players.length) : players.length;
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-purple-600 to-purple-800 p-8">
+        <div className="min-h-screen bg-gray-950 p-8">
             {/* Header */}
             <div className="mx-auto max-w-4xl">
                 <div className="mb-8 flex items-center justify-between">
@@ -219,15 +219,15 @@ export default function GameLobbyPage() {
                 </div>
 
                 {/* Join Code Display */}
-                <div className="mb-8 rounded-2xl bg-white p-8 text-center shadow-xl">
-                    <p className="mb-2 text-gray-500">Join at quizly.app or enter code:</p>
+                <div className="mb-8 rounded-2xl bg-gray-900 p-8 text-center border border-gray-800">
+                    <p className="mb-2 text-gray-400">Join at quizly.app or enter code:</p>
                     <div className="mb-4 flex items-center justify-center gap-4">
-                        <span className="text-6xl font-bold tracking-wider text-purple-600">
+                        <span className="text-6xl font-bold tracking-wider text-sky-400">
                             {game.game_code}
                         </span>
                         <button
                             onClick={copyCode}
-                            className="rounded-lg bg-purple-100 p-3 text-purple-600 hover:bg-purple-200"
+                            className="rounded-lg bg-sky-500/20 p-3 text-sky-400 hover:bg-sky-500/30"
                         >
                             {copied ? (
                                 <Check className="h-6 w-6" />
@@ -236,9 +236,9 @@ export default function GameLobbyPage() {
                             )}
                         </button>
                     </div>
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-gray-500">
                         Students can join at{" "}
-                        <span className="font-medium text-purple-600">
+                        <span className="font-medium text-sky-400">
                             {typeof window !== "undefined"
                                 ? `${window.location.origin}/join`
                                 : ""}
@@ -282,12 +282,12 @@ export default function GameLobbyPage() {
                 </div>
 
                 {/* Players Grid */}
-                <div className="rounded-2xl bg-white/10 p-6 backdrop-blur">
+                <div className="rounded-2xl bg-gray-900 p-6 border border-gray-800">
                     <div className="mb-4 flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-white">Players</h2>
                         <button
                             onClick={fetchPlayers}
-                            className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white"
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white"
                             title="Refresh player list"
                         >
                             <RefreshCw className="h-5 w-5" />
@@ -295,7 +295,7 @@ export default function GameLobbyPage() {
                     </div>
 
                     {players.length === 0 ? (
-                        <div className="py-12 text-center text-white/70">
+                        <div className="py-12 text-center text-gray-500">
                             <Users className="mx-auto mb-4 h-12 w-12 opacity-50" />
                             {game.sync_mode === false ? (
                                 <>
@@ -314,10 +314,10 @@ export default function GameLobbyPage() {
                             {players.map((player, index) => (
                                 <div
                                     key={player.id}
-                                    className="flex items-center gap-3 rounded-xl bg-white/10 p-3 animate-in fade-in slide-in-from-bottom-2"
+                                    className="flex items-center gap-3 rounded-xl bg-gray-800 p-3 animate-in fade-in slide-in-from-bottom-2"
                                     style={{ animationDelay: `${index * 50}ms` }}
                                 >
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-lg font-bold text-white">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 text-lg font-bold text-white">
                                         {player.avatar || player.nickname?.[0]?.toUpperCase() || "?"}
                                     </div>
                                     <span className="truncate font-medium text-white">
@@ -330,10 +330,10 @@ export default function GameLobbyPage() {
                 </div>
 
                 {/* Join Instructions */}
-                <div className="mt-8 text-center text-white/60 text-sm">
-                    <p>Players join using the code above at <strong>/join</strong></p>
+                <div className="mt-8 text-center text-gray-500 text-sm">
+                    <p>Players join using the code above at <strong className="text-gray-400">/join</strong></p>
                     {game.sync_mode === false ? (
-                        <p className="mt-1 text-green-300">
+                        <p className="mt-1 text-emerald-400">
                             <Zap className="inline h-4 w-4 mr-1" />
                             Async mode - students can start and progress at their own pace
                         </p>
