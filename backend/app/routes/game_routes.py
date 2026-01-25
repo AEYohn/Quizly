@@ -900,8 +900,42 @@ async def get_specific_question_results(
 
 
 # ==============================================================================
-# Teacher's Active Games
+# Teacher's Games
 # ==============================================================================
+
+@router.get("", response_model=List[GameResponse])
+@router.get("/", response_model=List[GameResponse], include_in_schema=False)
+async def get_my_games(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all games for the current teacher."""
+    result = await db.execute(
+        select(GameSession)
+        .options(
+            selectinload(GameSession.quiz),
+            selectinload(GameSession.players)
+        )
+        .where(GameSession.host_id == current_user.id)
+        .order_by(GameSession.created_at.desc())
+    )
+    games = result.scalars().all()
+
+    return [
+        GameResponse(
+            id=str(g.id),
+            quiz_id=str(g.quiz_id),
+            quiz_title=g.quiz.title,
+            game_code=g.game_code,
+            status=g.status,
+            sync_mode=g.sync_mode,
+            current_question_index=g.current_question_index,
+            player_count=len([p for p in g.players if p.is_active]),
+            created_at=g.created_at.isoformat()
+        )
+        for g in games
+    ]
+
 
 @router.get("/my/active", response_model=List[GameResponse])
 async def get_my_active_games(
@@ -930,6 +964,7 @@ async def get_my_active_games(
             quiz_title=g.quiz.title,
             game_code=g.game_code,
             status=g.status,
+            sync_mode=g.sync_mode,
             current_question_index=g.current_question_index,
             player_count=len([p for p in g.players if p.is_active]),
             created_at=g.created_at.isoformat()
