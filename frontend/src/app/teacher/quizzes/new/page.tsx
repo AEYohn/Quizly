@@ -397,30 +397,30 @@ export default function NewQuizPage() {
 
     return (
         <div
-            className="min-h-screen bg-gray-50 flex flex-col"
+            className="min-h-screen bg-gray-950 flex flex-col"
             onDragOver={(e) => { e.preventDefault(); if (mode === "ai") setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleFileDrop}
         >
             {/* Drop overlay */}
             {dragOver && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-purple-600/90 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-sky-600/90 backdrop-blur-sm">
                     <div className="text-center text-white">
                         <Upload className="mx-auto h-16 w-16 mb-4 animate-bounce" />
                         <p className="text-2xl font-bold">Drop to add files</p>
-                        <p className="text-purple-200 mt-2">Images, PDFs, screenshots</p>
+                        <p className="text-sky-200 mt-2">Images, PDFs, screenshots</p>
                     </div>
                 </div>
             )}
 
             {/* Header */}
-            <header className="sticky top-0 z-40 border-b bg-white">
+            <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm">
                 <div className="mx-auto max-w-4xl px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={() => router.back()}
-                                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                                className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white"
                             >
                                 <ArrowLeft className="h-5 w-5" />
                             </button>
@@ -429,16 +429,16 @@ export default function NewQuizPage() {
                                 placeholder="Quiz title..."
                                 value={quizData.title}
                                 onChange={(e) => setQuizData({ ...quizData, title: e.target.value })}
-                                className="text-xl font-bold text-gray-900 bg-transparent focus:outline-none placeholder-gray-400"
+                                className="text-xl font-bold text-white bg-transparent focus:outline-none placeholder-gray-500"
                             />
                         </div>
                         <div className="flex items-center gap-3">
                             {/* Mode Toggle */}
-                            <div className="flex rounded-lg border border-gray-200 p-1">
+                            <div className="flex rounded-lg border border-gray-700 p-1 bg-gray-800">
                                 <button
                                     onClick={() => setMode("ai")}
                                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                                        mode === "ai" ? "bg-purple-100 text-purple-700" : "text-gray-600 hover:bg-gray-100"
+                                        mode === "ai" ? "bg-sky-500/20 text-sky-400" : "text-gray-400 hover:bg-gray-700"
                                     }`}
                                 >
                                     <Sparkles className="h-4 w-4" />
@@ -447,7 +447,7 @@ export default function NewQuizPage() {
                                 <button
                                     onClick={() => setMode("manual")}
                                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                                        mode === "manual" ? "bg-gray-200 text-gray-800" : "text-gray-600 hover:bg-gray-100"
+                                        mode === "manual" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700"
                                     }`}
                                 >
                                     <PenLine className="h-4 w-4" />
@@ -475,13 +475,13 @@ export default function NewQuizPage() {
                         <div className="flex-1 py-6 space-y-4 overflow-y-auto">
                             {messages.length === 0 && (
                                 <div className="text-center py-12">
-                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500">
                                         <Sparkles className="h-8 w-8 text-white" />
                                     </div>
-                                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                                    <h2 className="text-xl font-semibold text-white mb-2">
                                         What would you like to quiz on?
                                     </h2>
-                                    <p className="text-gray-500 mb-6">
+                                    <p className="text-gray-400 mb-6">
                                         Type a topic, paste an image, or upload lecture slides
                                     </p>
                                     <div className="flex flex-wrap justify-center gap-2">
@@ -494,7 +494,7 @@ export default function NewQuizPage() {
                                             <button
                                                 key={suggestion}
                                                 onClick={() => setChatInput(suggestion)}
-                                                className="rounded-full bg-white px-4 py-2 text-sm text-gray-600 border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+                                                className="rounded-full bg-gray-800 px-4 py-2 text-sm text-gray-300 border border-gray-700 hover:border-sky-500 hover:bg-sky-500/10 transition-colors"
                                             >
                                                 {suggestion}
                                             </button>
@@ -509,13 +509,13 @@ export default function NewQuizPage() {
                                         {msg.files && msg.files.length > 0 && (
                                             <div className="flex gap-2 mb-2 justify-end">
                                                 {msg.files.map((file, i) => (
-                                                    <div key={i} className="rounded-lg overflow-hidden border border-gray-200">
+                                                    <div key={i} className="rounded-lg overflow-hidden border border-gray-700">
                                                         {file.type === "image" ? (
                                                             <img src={file.preview} alt="" className="h-20 w-auto object-cover" />
                                                         ) : (
-                                                            <div className="flex items-center gap-2 bg-gray-100 px-3 py-2">
-                                                                <FileText className="h-5 w-5 text-red-500" />
-                                                                <span className="text-sm text-gray-600">{file.name}</span>
+                                                            <div className="flex items-center gap-2 bg-gray-800 px-3 py-2">
+                                                                <FileText className="h-5 w-5 text-red-400" />
+                                                                <span className="text-sm text-gray-300">{file.name}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -524,8 +524,8 @@ export default function NewQuizPage() {
                                         )}
                                         <div className={`rounded-2xl px-4 py-3 ${
                                             msg.role === "user"
-                                                ? "bg-purple-600 text-white"
-                                                : "bg-white border border-gray-200 text-gray-800"
+                                                ? "bg-sky-600 text-white"
+                                                : "bg-gray-800 border border-gray-700 text-gray-200"
                                         }`}>
                                             {msg.content}
                                             {msg.role === "ai" && generating && msg === messages[messages.length - 1] && (
@@ -539,23 +539,23 @@ export default function NewQuizPage() {
                         </div>
 
                         {/* Chat Input */}
-                        <div className="sticky bottom-0 pb-6 pt-2 bg-gradient-to-t from-gray-50 via-gray-50">
+                        <div className="sticky bottom-0 pb-6 pt-2 bg-gradient-to-t from-gray-950 via-gray-950">
                             {/* Pending files preview */}
                             {pendingFiles.length > 0 && (
                                 <div className="flex gap-2 mb-3 px-1">
                                     {pendingFiles.map((file, i) => (
                                         <div key={i} className="relative">
                                             {file.type === "image" ? (
-                                                <img src={file.preview} alt="" className="h-16 w-16 rounded-lg object-cover border border-gray-200" />
+                                                <img src={file.preview} alt="" className="h-16 w-16 rounded-lg object-cover border border-gray-700" />
                                             ) : (
-                                                <div className="h-16 w-16 rounded-lg bg-red-50 border border-red-200 flex flex-col items-center justify-center">
-                                                    <FileText className="h-6 w-6 text-red-500" />
-                                                    <span className="text-[10px] text-red-600 mt-1">PDF</span>
+                                                <div className="h-16 w-16 rounded-lg bg-red-500/20 border border-red-500/30 flex flex-col items-center justify-center">
+                                                    <FileText className="h-6 w-6 text-red-400" />
+                                                    <span className="text-[10px] text-red-400 mt-1">PDF</span>
                                                 </div>
                                             )}
                                             <button
                                                 onClick={() => removePendingFile(i)}
-                                                className="absolute -top-1.5 -right-1.5 rounded-full bg-gray-800 p-0.5 text-white hover:bg-gray-900"
+                                                className="absolute -top-1.5 -right-1.5 rounded-full bg-gray-700 p-0.5 text-white hover:bg-gray-600"
                                             >
                                                 <X className="h-3 w-3" />
                                             </button>
@@ -564,10 +564,10 @@ export default function NewQuizPage() {
                                 </div>
                             )}
 
-                            <div className="flex gap-3 items-end bg-white rounded-2xl border border-gray-200 shadow-lg p-3">
+                            <div className="flex gap-3 items-end bg-gray-800 rounded-2xl border border-gray-700 shadow-lg p-3">
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
                                     title="Attach files"
                                 >
                                     <Paperclip className="h-5 w-5" />
@@ -591,18 +591,18 @@ export default function NewQuizPage() {
                                             handleSubmit();
                                         }
                                     }}
-                                    className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none"
+                                    className="flex-1 resize-none bg-transparent text-white placeholder-gray-500 focus:outline-none"
                                     rows={1}
                                 />
                                 <button
                                     onClick={handleSubmit}
                                     disabled={generating || (!chatInput.trim() && pendingFiles.length === 0)}
-                                    className="rounded-xl bg-purple-600 p-2.5 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    className="rounded-xl bg-sky-600 p-2.5 text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     <Send className="h-5 w-5" />
                                 </button>
                             </div>
-                            <p className="text-center text-xs text-gray-400 mt-2">
+                            <p className="text-center text-xs text-gray-500 mt-2">
                                 Tip: Paste images with Cmd+V or drag files anywhere
                             </p>
                         </div>
@@ -613,19 +613,19 @@ export default function NewQuizPage() {
                 {mode === "manual" && questions.length === 0 && (
                     <div className="flex-1 flex items-center justify-center px-6">
                         <div className="text-center">
-                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-200">
-                                <PenLine className="h-8 w-8 text-gray-500" />
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-800">
+                                <PenLine className="h-8 w-8 text-gray-400" />
                             </div>
-                            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                            <h2 className="text-xl font-semibold text-white mb-2">
                                 Create questions manually
                             </h2>
-                            <p className="text-gray-500 mb-6">
+                            <p className="text-gray-400 mb-6">
                                 Choose a question type to get started
                             </p>
                             <div className="flex justify-center gap-3">
                                 <button
                                     onClick={() => addQuestion("multiple_choice")}
-                                    className="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-700 transition-colors"
+                                    className="flex items-center gap-2 rounded-xl bg-sky-600 px-6 py-3 font-medium text-white hover:bg-sky-700 transition-colors"
                                 >
                                     <ListChecks className="h-5 w-5" />
                                     Multiple Choice
@@ -644,23 +644,23 @@ export default function NewQuizPage() {
 
                 {/* Questions List */}
                 {questions.length > 0 && (
-                    <div className="border-t bg-white">
+                    <div className="border-t border-gray-800 bg-gray-900">
                         <div className="max-w-4xl mx-auto px-6 py-6">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                                <h3 className="text-lg font-semibold text-white">
                                     Questions ({questions.length})
                                 </h3>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => addQuestion("multiple_choice")}
-                                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                                        className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
                                     >
                                         <Plus className="h-4 w-4" />
                                         MCQ
                                     </button>
                                     <button
                                         onClick={() => addQuestion("coding")}
-                                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                                        className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
                                     >
                                         <Plus className="h-4 w-4" />
                                         Coding
@@ -676,8 +676,8 @@ export default function NewQuizPage() {
                                         onDragStart={() => handleDragStart(index)}
                                         onDragOver={(e) => handleDragOver(e, index)}
                                         onDragEnd={handleDragEnd}
-                                        className={`rounded-xl bg-gray-50 border transition-all ${
-                                            draggedIndex === index ? "opacity-50 border-purple-400" : "border-gray-200"
+                                        className={`rounded-xl bg-gray-800 border transition-all ${
+                                            draggedIndex === index ? "opacity-50 border-sky-500" : "border-gray-700"
                                         }`}
                                     >
                                         {/* Question Header */}
@@ -685,26 +685,26 @@ export default function NewQuizPage() {
                                             className="flex items-center gap-3 p-3 cursor-pointer"
                                             onClick={() => toggleCollapse(question.id)}
                                         >
-                                            <div className="cursor-grab text-gray-400 hover:text-gray-600" onClick={(e) => e.stopPropagation()}>
+                                            <div className="cursor-grab text-gray-500 hover:text-gray-300" onClick={(e) => e.stopPropagation()}>
                                                 <GripVertical className="h-4 w-4" />
                                             </div>
                                             <span className={`rounded px-2 py-0.5 text-xs font-medium ${
                                                 question.question_type === "coding"
-                                                    ? "bg-blue-100 text-blue-700"
-                                                    : "bg-purple-100 text-purple-700"
+                                                    ? "bg-blue-500/20 text-blue-400"
+                                                    : "bg-sky-500/20 text-sky-400"
                                             }`}>
                                                 {question.question_type === "coding" ? "Coding" : "MCQ"}
                                             </span>
-                                            <span className="flex-1 text-sm text-gray-700 truncate">
+                                            <span className="flex-1 text-sm text-gray-300 truncate">
                                                 {question.question_text || "New question..."}
                                             </span>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); deleteQuestion(question.id); }}
-                                                className="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50"
+                                                className="p-1 text-gray-500 hover:text-red-400 rounded hover:bg-red-500/20"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </button>
-                                            {question.collapsed ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronUp className="h-4 w-4 text-gray-400" />}
+                                            {question.collapsed ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronUp className="h-4 w-4 text-gray-500" />}
                                         </div>
 
                                         {/* Question Content */}
@@ -714,7 +714,7 @@ export default function NewQuizPage() {
                                                     placeholder="Enter your question..."
                                                     value={question.question_text}
                                                     onChange={(e) => updateQuestion(question.id, { question_text: e.target.value })}
-                                                    className="w-full rounded-lg border border-gray-200 bg-white p-3 text-gray-900 focus:border-purple-400 focus:outline-none resize-none"
+                                                    className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none resize-none"
                                                     rows={2}
                                                 />
 
@@ -725,11 +725,11 @@ export default function NewQuizPage() {
                                                             return (
                                                                 <div
                                                                     key={opt}
-                                                                    className={`relative flex items-center rounded-lg border bg-white p-2.5 transition-all ${
-                                                                        isCorrect ? "border-green-400 ring-1 ring-green-400" : "border-gray-200"
+                                                                    className={`relative flex items-center rounded-lg border bg-gray-900 p-2.5 transition-all ${
+                                                                        isCorrect ? "border-green-500 ring-1 ring-green-500" : "border-gray-700"
                                                                     }`}
                                                                 >
-                                                                    <span className="mr-2 text-xs font-bold text-gray-400">{opt}</span>
+                                                                    <span className="mr-2 text-xs font-bold text-gray-500">{opt}</span>
                                                                     <input
                                                                         type="text"
                                                                         placeholder={`Option ${opt}`}
@@ -737,12 +737,12 @@ export default function NewQuizPage() {
                                                                         onChange={(e) => updateQuestion(question.id, {
                                                                             options: { ...question.options, [opt]: e.target.value }
                                                                         })}
-                                                                        className="flex-1 bg-transparent text-sm text-gray-800 focus:outline-none"
+                                                                        className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none"
                                                                     />
                                                                     <button
                                                                         onClick={() => updateQuestion(question.id, { correct_answer: opt })}
                                                                         className={`rounded-full p-1 transition-colors ${
-                                                                            isCorrect ? "bg-green-500 text-white" : "text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+                                                                            isCorrect ? "bg-green-500 text-white" : "text-gray-500 hover:bg-gray-700 hover:text-gray-300"
                                                                         }`}
                                                                     >
                                                                         <Check className="h-3 w-3" />
@@ -754,8 +754,8 @@ export default function NewQuizPage() {
                                                 ) : (
                                                     <div className="space-y-3">
                                                         <div>
-                                                            <label className="text-xs font-medium text-gray-500 mb-1 block">Starter Code</label>
-                                                            <div className="rounded-lg overflow-hidden border border-gray-200">
+                                                            <label className="text-xs font-medium text-gray-400 mb-1 block">Starter Code</label>
+                                                            <div className="rounded-lg overflow-hidden border border-gray-700">
                                                                 <Editor
                                                                     height="100px"
                                                                     language={question.language || "python"}
@@ -767,7 +767,7 @@ export default function NewQuizPage() {
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <label className="text-xs font-medium text-gray-500 mb-1 block">Test Cases</label>
+                                                            <label className="text-xs font-medium text-gray-400 mb-1 block">Test Cases</label>
                                                             <div className="space-y-1.5">
                                                                 {(question.test_cases || []).map((tc, tcIndex) => (
                                                                     <div key={tcIndex} className="flex gap-2">
@@ -779,7 +779,7 @@ export default function NewQuizPage() {
                                                                                 newCases[tcIndex] = { ...tc, input: e.target.value };
                                                                                 updateQuestion(question.id, { test_cases: newCases });
                                                                             }}
-                                                                            className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-white focus:border-blue-400 focus:outline-none"
+                                                                            className="flex-1 rounded border border-gray-700 px-2 py-1.5 text-xs bg-gray-900 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
                                                                         />
                                                                         <input
                                                                             placeholder="Expected"
@@ -789,14 +789,14 @@ export default function NewQuizPage() {
                                                                                 newCases[tcIndex] = { ...tc, expected_output: e.target.value };
                                                                                 updateQuestion(question.id, { test_cases: newCases });
                                                                             }}
-                                                                            className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-white focus:border-blue-400 focus:outline-none"
+                                                                            className="flex-1 rounded border border-gray-700 px-2 py-1.5 text-xs bg-gray-900 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
                                                                         />
                                                                         <button
                                                                             onClick={() => {
                                                                                 const newCases = (question.test_cases || []).filter((_, i) => i !== tcIndex);
                                                                                 updateQuestion(question.id, { test_cases: newCases });
                                                                             }}
-                                                                            className="text-gray-400 hover:text-red-500"
+                                                                            className="text-gray-500 hover:text-red-400"
                                                                         >
                                                                             <X className="h-4 w-4" />
                                                                         </button>
@@ -806,7 +806,7 @@ export default function NewQuizPage() {
                                                                     onClick={() => updateQuestion(question.id, {
                                                                         test_cases: [...(question.test_cases || []), { input: "", expected_output: "" }]
                                                                     })}
-                                                                    className="text-xs text-blue-600 hover:text-blue-700"
+                                                                    className="text-xs text-sky-400 hover:text-sky-300"
                                                                 >
                                                                     + Add test case
                                                                 </button>
@@ -816,8 +816,8 @@ export default function NewQuizPage() {
                                                 )}
 
                                                 {question.explanation && (
-                                                    <div className="rounded-lg bg-amber-50 p-2.5 border border-amber-200">
-                                                        <p className="text-xs text-amber-800">{question.explanation}</p>
+                                                    <div className="rounded-lg bg-amber-500/10 p-2.5 border border-amber-500/30">
+                                                        <p className="text-xs text-amber-300">{question.explanation}</p>
                                                     </div>
                                                 )}
                                             </div>

@@ -447,15 +447,15 @@ export default function GameHostPage() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-purple-800">
-                <Loader2 className="h-12 w-12 animate-spin text-white" />
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
+                <Loader2 className="h-12 w-12 animate-spin text-sky-400" />
             </div>
         );
     }
 
     if (!game) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-purple-800">
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
                 <div className="text-white">Game not found</div>
             </div>
         );
@@ -464,23 +464,23 @@ export default function GameHostPage() {
     // Game finished
     if (game.status === "finished") {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-purple-600 to-purple-800 p-8">
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-8">
                 <Trophy className="mb-6 h-24 w-24 text-yellow-400" />
                 <h1 className="mb-4 text-4xl font-bold text-white">Game Complete!</h1>
-                <p className="mb-8 text-xl text-white/80">
+                <p className="mb-8 text-xl text-gray-400">
                     {game.player_count} players participated
                 </p>
                 <div className="flex gap-4">
                     <button
                         onClick={() => router.push(`/teacher/game/${gameId}/results`)}
-                        className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold text-purple-600 hover:bg-white/90"
+                        className="flex items-center gap-2 rounded-xl bg-sky-600 px-8 py-4 text-lg font-bold text-white hover:bg-sky-700"
                     >
                         <BarChart2 className="h-6 w-6" />
                         View Results & AI Insights
                     </button>
                     <button
                         onClick={() => router.push("/teacher/quizzes")}
-                        className="flex items-center gap-2 rounded-xl bg-white/20 px-8 py-4 text-lg font-bold text-white hover:bg-white/30"
+                        className="flex items-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-8 py-4 text-lg font-bold text-white hover:bg-gray-700"
                     >
                         <Home className="h-6 w-6" />
                         Back to Quizzes
@@ -493,7 +493,7 @@ export default function GameHostPage() {
     const colors = ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"];
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-purple-600 to-purple-800 p-4 lg:p-8">
+        <div className="min-h-screen bg-gray-950 p-4 lg:p-8">
             <div className="mx-auto max-w-7xl">
                 <div className="flex gap-6">
                     {/* Main Content */}
@@ -502,11 +502,11 @@ export default function GameHostPage() {
                         <div className="mb-6 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="text-white">
-                                    <span className="text-white/70">Question</span>{" "}
+                                    <span className="text-gray-400">Question</span>{" "}
                                     <span className="text-2xl font-bold">
                                         {game.current_question_index + 1}
                                     </span>{" "}
-                                    <span className="text-white/70">of {game.total_questions}</span>
+                                    <span className="text-gray-400">of {game.total_questions}</span>
                                 </div>
 
                                 {useSyncMode && (
@@ -525,11 +525,11 @@ export default function GameHostPage() {
                                 </div>
                                 {timeLeft !== null && !showResults && (
                                     <div className={`flex items-center gap-2 rounded-xl px-4 py-2 ${
-                                        timeLeft <= 5 ? "bg-red-500" : "bg-white"
+                                        timeLeft <= 5 ? "bg-red-500" : "bg-gray-800 border border-gray-700"
                                     }`}>
-                                        <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-purple-600"}`} />
+                                        <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-sky-400"}`} />
                                         <span className={`text-2xl font-bold ${
-                                            timeLeft <= 5 ? "text-white animate-pulse" : "text-purple-600"
+                                            timeLeft <= 5 ? "text-white animate-pulse" : "text-white"
                                         }`}>
                                             {timeLeft}
                                         </span>
@@ -538,7 +538,7 @@ export default function GameHostPage() {
                                 <button
                                     onClick={() => setShowAiPanel(!showAiPanel)}
                                     className={`rounded-lg p-2 transition-colors ${
-                                        showAiPanel ? "bg-white/20 text-white" : "bg-white/10 text-white/60"
+                                        showAiPanel ? "bg-sky-500/20 text-sky-400" : "bg-gray-800 text-gray-500"
                                     }`}
                                     title="Toggle AI Commentary"
                                 >
@@ -549,8 +549,8 @@ export default function GameHostPage() {
 
                         {/* Question Display */}
                         {game.current_question && (
-                            <div className="mb-8 rounded-2xl bg-white p-8 text-center shadow-xl">
-                                <h2 className="text-3xl font-bold text-gray-900">
+                            <div className="mb-8 rounded-2xl bg-gray-900 border border-gray-800 p-8 text-center">
+                                <h2 className="text-3xl font-bold text-white">
                                     {game.current_question.question_text}
                                 </h2>
                             </div>
@@ -581,7 +581,7 @@ export default function GameHostPage() {
                                                 key={key}
                                                 className={`relative overflow-hidden rounded-xl ${colors[index]} p-6 ${
                                                     isCorrect && showResults
-                                                        ? "ring-4 ring-white ring-offset-2 ring-offset-purple-700"
+                                                        ? "ring-4 ring-white ring-offset-2 ring-offset-gray-950"
                                                         : ""
                                                 }`}
                                             >
@@ -616,7 +616,7 @@ export default function GameHostPage() {
                             {!showResults ? (
                                 <button
                                     onClick={showQuestionResults}
-                                    className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold text-purple-600 hover:bg-white/90"
+                                    className="flex items-center gap-2 rounded-xl bg-sky-600 px-8 py-4 text-lg font-bold text-white hover:bg-sky-700"
                                 >
                                     <BarChart2 className="h-6 w-6" />
                                     Show Results
@@ -647,7 +647,7 @@ export default function GameHostPage() {
 
                         {/* Leaderboard Preview */}
                         {showResults && game.leaderboard && game.leaderboard.length > 0 && (
-                            <div className="mt-8 rounded-2xl bg-white/10 p-6 backdrop-blur">
+                            <div className="mt-8 rounded-2xl bg-gray-900 border border-gray-800 p-6">
                                 <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-white">
                                     <Trophy className="h-5 w-5 text-yellow-400" />
                                     Top Players
@@ -656,7 +656,7 @@ export default function GameHostPage() {
                                     {game.leaderboard.slice(0, 5).map((player, index) => (
                                         <div
                                             key={player.player_id}
-                                            className="flex items-center gap-4 rounded-xl bg-white/10 p-3"
+                                            className="flex items-center gap-4 rounded-xl bg-gray-800 p-3"
                                         >
                                             <span
                                                 className={`flex h-8 w-8 items-center justify-center rounded-full font-bold ${
@@ -666,7 +666,7 @@ export default function GameHostPage() {
                                                         ? "bg-gray-300 text-gray-700"
                                                         : index === 2
                                                         ? "bg-orange-400 text-orange-900"
-                                                        : "bg-white/20 text-white"
+                                                        : "bg-gray-700 text-gray-300"
                                                 }`}
                                             >
                                                 {index + 1}
@@ -687,18 +687,18 @@ export default function GameHostPage() {
                     {/* AI Commentary Panel */}
                     {showAiPanel && (
                         <div className="w-80 flex-shrink-0">
-                            <div className="sticky top-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 overflow-hidden">
-                                <div className="flex items-center gap-2 px-4 py-3 bg-white/10 border-b border-white/10">
+                            <div className="sticky top-4 rounded-2xl bg-gray-900 border border-gray-800 overflow-hidden">
+                                <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 border-b border-gray-700">
                                     <Sparkles className="h-5 w-5 text-yellow-400" />
                                     <span className="font-semibold text-white">AI Host Assistant</span>
-                                    {aiLoading && <Loader2 className="h-4 w-4 animate-spin text-white/60 ml-auto" />}
+                                    {aiLoading && <Loader2 className="h-4 w-4 animate-spin text-gray-400 ml-auto" />}
                                 </div>
                                 <div
                                     ref={commentaryRef}
                                     className="p-4 space-y-3 max-h-[500px] overflow-y-auto"
                                 >
                                     {aiCommentary.length === 0 ? (
-                                        <div className="text-center text-white/50 py-8">
+                                        <div className="text-center text-gray-500 py-8">
                                             <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
                                             <p className="text-sm">AI insights will appear here</p>
                                         </div>
@@ -706,11 +706,11 @@ export default function GameHostPage() {
                                         aiCommentary.map((comment, idx) => (
                                             <div
                                                 key={idx}
-                                                className="rounded-xl bg-white/10 p-3 animate-in fade-in slide-in-from-bottom-2"
+                                                className="rounded-xl bg-gray-800 p-3 animate-in fade-in slide-in-from-bottom-2"
                                             >
                                                 <div className="flex items-start gap-2">
                                                     {getCommentaryIcon(comment.type)}
-                                                    <p className="text-sm text-white/90 leading-relaxed">
+                                                    <p className="text-sm text-gray-300 leading-relaxed">
                                                         {comment.message}
                                                     </p>
                                                 </div>
@@ -718,8 +718,8 @@ export default function GameHostPage() {
                                         ))
                                     )}
                                 </div>
-                                <div className="px-4 py-3 bg-white/5 border-t border-white/10">
-                                    <p className="text-xs text-white/40 text-center">
+                                <div className="px-4 py-3 bg-gray-800/50 border-t border-gray-700">
+                                    <p className="text-xs text-gray-500 text-center">
                                         Powered by Gemini AI
                                     </p>
                                 </div>
