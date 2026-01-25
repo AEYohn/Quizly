@@ -20,10 +20,10 @@ export default function Home() {
                     </div>
                     <div className="flex items-center gap-3">
                         <Link
-                            href="/join"
+                            href="/student"
                             className="text-sm font-medium text-white/80 hover:text-white"
                         >
-                            Join Game
+                            I'm a Student
                         </Link>
                         <Link
                             href="/login"
@@ -63,11 +63,11 @@ export default function Home() {
                             I'm a Teacher
                         </Link>
                         <Link
-                            href="/join"
+                            href="/student"
                             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/20 backdrop-blur border-2 border-white/30 px-8 py-4 text-lg font-bold text-white hover:bg-white/30 transition-all"
                         >
                             <Gamepad2 className="h-5 w-5" />
-                            Join a Game
+                            I'm a Student
                         </Link>
                     </div>
 
@@ -262,10 +262,10 @@ export default function Home() {
                             <ArrowRight className="h-5 w-5" />
                         </Link>
                         <Link
-                            href="/join"
+                            href="/student"
                             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/20 backdrop-blur border-2 border-white/30 px-8 py-4 text-lg font-bold text-white hover:bg-white/30 transition-all"
                         >
-                            Join a Game
+                            I'm a Student
                         </Link>
                     </div>
                 </div>

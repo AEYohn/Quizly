@@ -69,7 +69,9 @@ async def init_db():
     # Import all models so they're registered with Base
     from .db_models import User, Course, Session, Question, Response  # noqa
     from .models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer  # noqa
-    
+    # Import learning models for exit tickets, misconceptions, etc.
+    from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession  # noqa
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

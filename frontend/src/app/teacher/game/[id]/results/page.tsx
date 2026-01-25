@@ -63,6 +63,7 @@ export default function GameResultsPage() {
     const [loading, setLoading] = useState(true);
     const [insightsLoading, setInsightsLoading] = useState(false);
     const [showInsights, setShowInsights] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchResults = useCallback(async () => {
         try {
@@ -73,9 +74,13 @@ export default function GameResultsPage() {
             if (response.ok) {
                 const data = await response.json();
                 setResults(data);
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                setError(errorData.detail || `Error ${response.status}: Unable to load results`);
             }
         } catch (error) {
             console.error("Failed to fetch results:", error);
+            setError("Network error: Unable to connect to server");
         } finally {
             setLoading(false);
         }
@@ -132,16 +137,36 @@ export default function GameResultsPage() {
         );
     }
 
-    if (!results) {
+    if (error || !results) {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-8">
-                <div className="text-xl text-white">Results not found</div>
-                <button
-                    onClick={() => router.push("/teacher")}
-                    className="mt-4 rounded-full bg-white px-6 py-3 font-bold text-purple-600"
-                >
-                    Go Home
-                </button>
+                <AlertTriangle className="mb-4 h-16 w-16 text-yellow-400" />
+                <div className="text-xl text-white text-center max-w-md">
+                    {error || "Results not found"}
+                </div>
+                {error?.includes("not available") && (
+                    <p className="mt-2 text-white/70 text-center">
+                        The game may still be in progress. Wait for it to finish or end it from the host screen.
+                    </p>
+                )}
+                <div className="mt-6 flex gap-4">
+                    <button
+                        onClick={() => router.push("/teacher")}
+                        className="rounded-full bg-white px-6 py-3 font-bold text-purple-600"
+                    >
+                        Go Home
+                    </button>
+                    <button
+                        onClick={() => {
+                            setError(null);
+                            setLoading(true);
+                            fetchResults();
+                        }}
+                        className="rounded-full bg-white/20 px-6 py-3 font-bold text-white border-2 border-white/30"
+                    >
+                        Try Again
+                    </button>
+                </div>
             </div>
         );
     }

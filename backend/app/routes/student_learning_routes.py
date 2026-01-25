@@ -147,24 +147,63 @@ async def generate_exit_ticket(
     """
     Generate a personalized exit ticket for a student based on their session performance.
     Uses AI to identify the student's weakest concept and generate a targeted micro-lesson.
+    Falls back to a simple exit ticket if AI agents aren't available.
     """
-    if not AI_AGENTS_AVAILABLE:
-        raise HTTPException(status_code=503, detail="AI agents not available")
+    # Calculate session accuracy
+    total_responses = len(request.responses)
+    correct_responses = sum(1 for r in request.responses if r.get("is_correct", False))
+    session_accuracy = correct_responses / total_responses if total_responses > 0 else 0.0
 
-    # Generate exit ticket using AI agent
-    ticket_data = EXIT_TICKET_AGENT.generate_exit_ticket(
-        student_id=hash(request.student_name) % 100000,  # Use name hash as ID for anonymous students
-        session_responses=request.responses,
-        concepts=request.concepts
-    )
+    # Determine target concept (the one with lowest accuracy)
+    concept_stats: Dict[str, Dict[str, int]] = {}
+    for r in request.responses:
+        concept = r.get("concept", request.concepts[0] if request.concepts else "General")
+        if concept not in concept_stats:
+            concept_stats[concept] = {"correct": 0, "total": 0}
+        concept_stats[concept]["total"] += 1
+        if r.get("is_correct", False):
+            concept_stats[concept]["correct"] += 1
 
-    # Calculate session accuracy for the target concept
-    session_accuracy = 0.0
-    concept = ticket_data.get("target_concept", "")
-    concept_responses = [r for r in request.responses if r.get("concept") == concept]
-    if concept_responses:
-        correct = sum(1 for r in concept_responses if r.get("is_correct", False))
-        session_accuracy = correct / len(concept_responses)
+    # Find weakest concept
+    target_concept = request.concepts[0] if request.concepts else "General"
+    lowest_accuracy = 1.0
+    for concept, stats in concept_stats.items():
+        acc = stats["correct"] / stats["total"] if stats["total"] > 0 else 0
+        if acc < lowest_accuracy:
+            lowest_accuracy = acc
+            target_concept = concept
+
+    # Try AI agent first, fall back to simple generation
+    ticket_data = None
+    if AI_AGENTS_AVAILABLE:
+        try:
+            ticket_data = EXIT_TICKET_AGENT.generate_exit_ticket(
+                student_id=hash(request.student_name) % 100000,
+                session_responses=request.responses,
+                concepts=request.concepts
+            )
+        except Exception as e:
+            print(f"AI agent error: {e}")
+
+    # Fallback if AI not available or failed
+    if not ticket_data:
+        encouragement = "Great effort!" if session_accuracy >= 0.7 else "Keep practicing, you're improving!"
+        ticket_data = {
+            "target_concept": target_concept,
+            "micro_lesson": f"Review the key concepts of {target_concept}. Focus on understanding the fundamentals and practice with similar problems.",
+            "encouragement": encouragement,
+            "question": {
+                "prompt": f"Which of the following best describes a key concept in {target_concept}?",
+                "options": [
+                    "A) Understanding the core principles",
+                    "B) Memorizing formulas without understanding",
+                    "C) Skipping foundational concepts",
+                    "D) Avoiding practice problems"
+                ],
+                "correct_answer": "A",
+                "hint": "Focus on building a strong foundation by understanding the underlying principles."
+            }
+        }
 
     # Store in database
     question_data = ticket_data.get("question", {})
@@ -172,7 +211,7 @@ async def generate_exit_ticket(
         student_name=request.student_name,
         game_id=uuid.UUID(request.game_id) if request.game_id else None,
         session_id=uuid.UUID(request.session_id) if request.session_id else None,
-        target_concept=ticket_data.get("target_concept", "unknown"),
+        target_concept=ticket_data.get("target_concept", target_concept),
         session_accuracy=session_accuracy,
         micro_lesson=ticket_data.get("micro_lesson", ""),
         encouragement=ticket_data.get("encouragement"),
@@ -324,19 +363,41 @@ async def tag_misconception(
     """
     Tag a wrong answer with misconception analysis using AI.
     Identifies the type of misconception, its severity, and suggested remediation.
+    Falls back to simple classification if AI agents aren't available.
     """
-    if not AI_AGENTS_AVAILABLE:
-        raise HTTPException(status_code=503, detail="AI agents not available")
+    misconception_type = "unknown"
+    category = "conceptual"
+    severity = "moderate"
+    description = f"Incorrect answer on question about {request.question.get('concept', 'this topic')}"
+    root_cause = "Review needed"
+    suggested_remediation = "Practice more problems on this topic and review the fundamentals."
+    evidence: List[str] = []
+    related_concepts: List[str] = []
+    confidence = 0.5
 
-    # Use AI to analyze misconception
-    result: MisconceptionResult = MISCONCEPTION_TAGGER.tag_response(
-        student_id=hash(request.student_name) % 100000,
-        question=request.question,
-        student_answer=request.student_answer,
-        student_reasoning=request.student_reasoning or "",
-        correct_answer=request.correct_answer,
-        correct_explanation=request.correct_explanation,
-    )
+    # Try AI agent first
+    if AI_AGENTS_AVAILABLE:
+        try:
+            result = MISCONCEPTION_TAGGER.tag_response(
+                student_id=hash(request.student_name) % 100000,
+                question=request.question,
+                student_answer=request.student_answer,
+                student_reasoning=request.student_reasoning or "",
+                correct_answer=request.correct_answer,
+                correct_explanation=request.correct_explanation,
+            )
+            misconception_type = result.misconception_type
+            category = result.category.value if hasattr(result.category, 'value') else str(result.category)
+            severity = result.severity.value if hasattr(result.severity, 'value') else str(result.severity)
+            description = result.description
+            root_cause = result.root_cause
+            suggested_remediation = result.suggested_remediation
+            evidence = result.evidence
+            related_concepts = result.related_concepts
+            confidence = result.confidence
+        except Exception as e:
+            print(f"AI misconception tagger error: {e}")
+            # Use fallback values set above
 
     # Store in database
     misconception = DetailedMisconception(
@@ -344,18 +405,18 @@ async def tag_misconception(
         game_id=uuid.UUID(request.game_id) if request.game_id else None,
         session_id=uuid.UUID(request.session_id) if request.session_id else None,
         question_id=uuid.UUID(request.question.get("id")) if request.question.get("id") else None,
-        misconception_type=result.misconception_type,
-        category=result.category.value,
-        severity=result.severity.value,
-        description=result.description,
-        root_cause=result.root_cause,
-        evidence=result.evidence,
+        misconception_type=misconception_type,
+        category=category,
+        severity=severity,
+        description=description,
+        root_cause=root_cause,
+        evidence=evidence,
         student_answer=request.student_answer,
         correct_answer=request.correct_answer,
         student_reasoning=request.student_reasoning,
-        suggested_remediation=result.suggested_remediation,
-        related_concepts=result.related_concepts,
-        confidence=result.confidence,
+        suggested_remediation=suggested_remediation,
+        related_concepts=related_concepts,
+        confidence=confidence,
     )
 
     db.add(misconception)
