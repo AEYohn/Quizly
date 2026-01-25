@@ -377,11 +377,16 @@ export default function TeacherDashboard() {
                                                                     <BarChart3 className="h-4 w-4" />
                                                                 </Link>
                                                             </div>
+                                                        ) : startingGame === quiz.id ? (
+                                                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                                Creating...
+                                                            </div>
                                                         ) : (
                                                             <button
                                                                 onClick={() => getOrCreateAsyncGame(quiz.id)}
                                                                 disabled={startingGame === quiz.id}
-                                                                className="text-sm text-purple-600 hover:text-purple-800 hover:underline"
+                                                                className="text-sm text-purple-600 hover:text-purple-800 hover:underline disabled:opacity-50"
                                                             >
                                                                 + Create homework link
                                                             </button>

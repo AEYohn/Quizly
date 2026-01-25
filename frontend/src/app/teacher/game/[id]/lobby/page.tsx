@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Users, Play, Copy, Check, Loader2, X, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { Users, Play, Copy, Check, Loader2, X, RefreshCw, Wifi, WifiOff, Zap, CheckCircle } from "lucide-react";
 import { useGameSocket } from "~/lib/useGameSocket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -39,7 +39,7 @@ export default function GameLobbyPage() {
     const { isConnected, playerCount } = useGameSocket({
         gameId,
         isHost: true,
-        enabled: !loading && !!game,
+        enabled: !!gameId,  // Connect immediately, before game data loads
         onConnected: (data) => {
             console.log("Host connected to lobby WebSocket", data);
         },
@@ -207,13 +207,15 @@ export default function GameLobbyPage() {
                             )}
                         </div>
                     </div>
-                    <button
-                        onClick={cancelGame}
-                        className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-white hover:bg-white/20"
-                    >
-                        <X className="h-5 w-5" />
-                        Cancel
-                    </button>
+                    {game?.sync_mode !== false && (
+                        <button
+                            onClick={cancelGame}
+                            className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-white hover:bg-white/20"
+                        >
+                            <X className="h-5 w-5" />
+                            Cancel
+                        </button>
+                    )}
                 </div>
 
                 {/* Join Code Display */}
@@ -253,18 +255,30 @@ export default function GameLobbyPage() {
                             {displayPlayerCount === 1 ? "player" : "players"} joined
                         </span>
                     </div>
-                    <button
-                        onClick={startGame}
-                        disabled={displayPlayerCount === 0 || starting}
-                        className="flex items-center gap-2 rounded-xl bg-green-500 px-8 py-4 text-xl font-bold text-white transition-all hover:bg-green-600 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-                    >
-                        {starting ? (
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                        ) : (
-                            <Play className="h-6 w-6" />
-                        )}
-                        Start Game
-                    </button>
+                    {game.sync_mode === false ? (
+                        /* Async mode - game is already live, no start needed */
+                        <div className="flex items-center gap-3 rounded-xl bg-green-500/20 border border-green-500 px-6 py-4">
+                            <CheckCircle className="h-6 w-6 text-green-400" />
+                            <div className="text-left">
+                                <p className="text-lg font-bold text-green-400">Game is Live!</p>
+                                <p className="text-sm text-green-300">Students can start immediately</p>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Sync mode - need to start game */
+                        <button
+                            onClick={startGame}
+                            disabled={displayPlayerCount === 0 || starting}
+                            className="flex items-center gap-2 rounded-xl bg-green-500 px-8 py-4 text-xl font-bold text-white transition-all hover:bg-green-600 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                        >
+                            {starting ? (
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                            ) : (
+                                <Play className="h-6 w-6" />
+                            )}
+                            Start Game
+                        </button>
+                    )}
                 </div>
 
                 {/* Players Grid */}
@@ -283,8 +297,17 @@ export default function GameLobbyPage() {
                     {players.length === 0 ? (
                         <div className="py-12 text-center text-white/70">
                             <Users className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                            <p>Waiting for players to join...</p>
-                            <p className="mt-2 text-sm">Share the game code above</p>
+                            {game.sync_mode === false ? (
+                                <>
+                                    <p>No players yet</p>
+                                    <p className="mt-2 text-sm">Share the game code - students can start anytime!</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p>Waiting for players to join...</p>
+                                    <p className="mt-2 text-sm">Share the game code above</p>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -309,8 +332,13 @@ export default function GameLobbyPage() {
                 {/* Join Instructions */}
                 <div className="mt-8 text-center text-white/60 text-sm">
                     <p>Players join using the code above at <strong>/join</strong></p>
-                    {game.sync_mode && (
-                        <p className="mt-1">Sync mode enabled - all players will see questions at the same time</p>
+                    {game.sync_mode === false ? (
+                        <p className="mt-1 text-green-300">
+                            <Zap className="inline h-4 w-4 mr-1" />
+                            Async mode - students can start and progress at their own pace
+                        </p>
+                    ) : (
+                        <p className="mt-1">Sync mode - all players will see questions at the same time</p>
                     )}
                 </div>
             </div>

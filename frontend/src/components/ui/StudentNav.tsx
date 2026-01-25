@@ -20,10 +20,8 @@ export function StudentNav() {
     }, []);
 
     const navItems = [
-        { href: "/student/dashboard", label: "Dashboard", icon: Home },
-        { href: "/student/browse", label: "Browse", icon: Search },
-        { href: "/play/coding", label: "Coding", icon: Code2 },
-        { href: "/join", label: "Compete", icon: Trophy },
+        { href: "/play/coding", label: "Challenges", icon: Code2 },
+        { href: "/join", label: "Join Game", icon: Trophy },
     ];
 
     const isActive = (href: string) => {
@@ -100,20 +98,20 @@ export function StudentNav() {
                                             <p className="text-xs text-gray-400">Student Account</p>
                                         </div>
                                         <Link
-                                            href="/student/dashboard"
+                                            href="/play/coding"
                                             className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
                                             onClick={() => setIsProfileOpen(false)}
                                         >
-                                            <User className="h-4 w-4" />
-                                            Profile
+                                            <Code2 className="h-4 w-4" />
+                                            Challenges
                                         </Link>
                                         <Link
-                                            href="/student/settings"
+                                            href="/join"
                                             className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
                                             onClick={() => setIsProfileOpen(false)}
                                         >
-                                            <Settings className="h-4 w-4" />
-                                            Settings
+                                            <Trophy className="h-4 w-4" />
+                                            Join Game
                                         </Link>
                                         <button
                                             onClick={handleSignOut}

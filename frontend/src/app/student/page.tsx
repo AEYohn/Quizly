@@ -12,10 +12,10 @@ export default function StudentJoinPage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // If student already has a name, redirect to dashboard
+        // If student already has a name, redirect to join page
         const savedName = localStorage.getItem("quizly_student_name");
         if (savedName) {
-            router.push("/student/dashboard");
+            router.push("/join");
         }
     }, [router]);
 
@@ -26,10 +26,10 @@ export default function StudentJoinPage() {
         setIsLoading(true);
         setError(null);
 
-        // Save student name and go to dashboard
+        // Save student name and go to join page
         localStorage.setItem("quizly_student_name", name);
         sessionStorage.setItem("quizly_student_name", name);
-        router.push("/student/dashboard");
+        router.push("/join");
     };
 
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     Play,
@@ -13,6 +13,14 @@ import {
     Home,
     Wifi,
     WifiOff,
+    Sparkles,
+    Brain,
+    MessageSquare,
+    AlertTriangle,
+    TrendingUp,
+    Lightbulb,
+    Volume2,
+    VolumeX,
 } from "lucide-react";
 import { useGameSocket } from "~/lib/useGameSocket";
 import type {
@@ -58,6 +66,12 @@ interface GameState {
     question_results?: QuestionResult;
 }
 
+interface AICommentary {
+    message: string;
+    type: "insight" | "encouragement" | "tip" | "warning";
+    timestamp: Date;
+}
+
 export default function GameHostPage() {
     const params = useParams();
     const router = useRouter();
@@ -70,6 +84,12 @@ export default function GameHostPage() {
     const [answersReceived, setAnswersReceived] = useState(0);
     const [useSyncMode, setUseSyncMode] = useState(false);
     const [advancing, setAdvancing] = useState(false);
+
+    // AI Commentary state
+    const [aiCommentary, setAiCommentary] = useState<AICommentary[]>([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [showAiPanel, setShowAiPanel] = useState(true);
+    const commentaryRef = useRef<HTMLDivElement>(null);
 
     // WebSocket connection for host
     const { isConnected, timeRemaining, playerCount } = useGameSocket({
@@ -84,7 +104,6 @@ export default function GameHostPage() {
         },
         onQuestionStart: (data: QuestionStartMessage) => {
             console.log("Question started via WebSocket:", data);
-            // Update game state with new question
             setGame(prev => prev ? {
                 ...prev,
                 status: "question",
@@ -100,6 +119,8 @@ export default function GameHostPage() {
             setShowResults(false);
             setTimeLeft(data.time_limit);
             setAnswersReceived(0);
+            // Get AI commentary for new question
+            fetchQuestionStartCommentary(data.question_text, data.question_index);
         },
         onQuestionEnd: () => {
             console.log("Question ended via WebSocket");
@@ -108,12 +129,12 @@ export default function GameHostPage() {
         onResults: (data: ResultsMessage) => {
             console.log("Results received via WebSocket:", data);
             setShowResults(true);
-            // Fetch full results from API
             fetchQuestionResults();
         },
         onGameEnd: (data: GameEndMessage) => {
             console.log("Game ended via WebSocket:", data);
             setGame(prev => prev ? { ...prev, status: "finished" } : prev);
+            fetchGameEndCommentary();
         },
         onPlayerConnected: (data: PlayerConnectedMessage) => {
             console.log("Player connected:", data);
@@ -130,6 +151,111 @@ export default function GameHostPage() {
             console.error("WebSocket error:", error);
         },
     });
+
+    // Fetch AI commentary for question start
+    const fetchQuestionStartCommentary = async (questionText: string, questionIndex: number) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/host/react/question-start`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    question_text: questionText,
+                    question_num: questionIndex + 1,
+                    total: game?.total_questions || 0,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                addCommentary(data.reaction || data.message || data.commentary, "tip");
+            }
+        } catch (error) {
+            console.error("Failed to fetch question commentary:", error);
+        }
+    };
+
+    // Generate AI commentary for answer results
+    const fetchAnswerCommentary = async (results: QuestionResult) => {
+        if (aiLoading) return;
+        setAiLoading(true);
+
+        const correctPct = results.total_answers > 0
+            ? Math.round((results.correct_count / results.total_answers) * 100)
+            : 0;
+
+        // Generate contextual commentary based on results
+        let commentary = "";
+        let type: AICommentary["type"] = "insight";
+
+        if (correctPct >= 80) {
+            commentary = `Excellent! ${correctPct}% got it right! 🎉 The class has a strong grasp of this concept.`;
+            type = "encouragement";
+        } else if (correctPct >= 60) {
+            commentary = `Good progress! ${correctPct}% correct. Most students understand this, but a quick review might help.`;
+            type = "encouragement";
+        } else if (correctPct >= 40) {
+            commentary = `${correctPct}% correct. This topic might need more discussion. Consider explaining the key concept.`;
+            type = "insight";
+        } else {
+            commentary = `Only ${correctPct}% got this right. This is a challenging topic - consider a mini-lesson or peer discussion.`;
+            type = "warning";
+        }
+
+        // Add distribution insight
+        const entries = Object.entries(results.answer_distribution).sort((a, b) => b[1] - a[1]);
+        const topAnswer = entries[0];
+        if (entries.length > 1 && topAnswer && topAnswer[0] !== results.correct_answer) {
+            commentary += ` Many chose option ${topAnswer[0]} - there might be a common misconception to address.`;
+        }
+
+        addCommentary(commentary, type);
+        setAiLoading(false);
+    };
+
+    // Fetch AI commentary for game end
+    const fetchGameEndCommentary = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const winner = game?.leaderboard?.[0];
+            const avgScore = game?.leaderboard?.length
+                ? game.leaderboard.reduce((sum, p) => sum + p.score, 0) / game.leaderboard.length
+                : 0;
+
+            const response = await fetch(`${API_URL}/host/react/game-end`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    winner_name: winner?.nickname || "Everyone",
+                    winner_score: winner?.score || 0,
+                    player_count: game?.player_count || 0,
+                    avg_score: avgScore,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                addCommentary(data.reaction || data.message || data.commentary, "encouragement");
+            }
+        } catch (error) {
+            console.error("Failed to fetch game end commentary:", error);
+        }
+    };
+
+    const addCommentary = (message: string, type: AICommentary["type"]) => {
+        if (!message) return;
+        setAiCommentary(prev => [...prev.slice(-4), { message, type, timestamp: new Date() }]);
+        // Scroll to bottom
+        setTimeout(() => {
+            commentaryRef.current?.scrollTo({ top: commentaryRef.current.scrollHeight, behavior: "smooth" });
+        }, 100);
+    };
 
     // Use WebSocket timer when in sync mode
     useEffect(() => {
@@ -157,7 +283,6 @@ export default function GameHostPage() {
                 const data = await response.json();
                 setGame(data);
 
-                // Check if game uses sync mode
                 if (data.sync_mode !== undefined) {
                     setUseSyncMode(data.sync_mode);
                 }
@@ -191,6 +316,8 @@ export default function GameHostPage() {
                 setAnswersReceived(data.total_answers);
                 if (showResults) {
                     setGame(prev => prev ? { ...prev, question_results: data } : prev);
+                    // Get AI commentary for results
+                    fetchAnswerCommentary(data);
                 }
             }
         } catch (error) {
@@ -203,7 +330,14 @@ export default function GameHostPage() {
         fetchGame();
     }, [fetchGame]);
 
-    // Polling for game state - only if WebSocket is not connected
+    // Initial AI greeting
+    useEffect(() => {
+        if (game && aiCommentary.length === 0) {
+            addCommentary(`Welcome to "${game.quiz_title}"! ${game.player_count} students are ready. Let's make learning fun! 🎉`, "encouragement");
+        }
+    }, [game]);
+
+    // Polling for game state
     useEffect(() => {
         if (!isConnected && !loading) {
             const interval = setInterval(fetchGame, 3000);
@@ -220,16 +354,16 @@ export default function GameHostPage() {
         }
     }, [game?.status, showResults, fetchQuestionResults]);
 
-    // Local timer initialization (for non-sync mode)
+    // Local timer initialization
     useEffect(() => {
         if (!useSyncMode && game?.status === "question" && game.current_question && !showResults) {
             setTimeLeft(game.current_question.time_limit);
         }
     }, [game?.current_question_index, game?.status, showResults, useSyncMode, game?.current_question]);
 
-    // Local timer countdown (only for non-sync mode)
+    // Local timer countdown
     useEffect(() => {
-        if (useSyncMode) return; // WebSocket handles timer in sync mode
+        if (useSyncMode) return;
         if (timeLeft === null || timeLeft <= 0 || showResults) return;
 
         const timer = setTimeout(() => {
@@ -253,9 +387,8 @@ export default function GameHostPage() {
             );
             if (response.ok) {
                 const data = await response.json();
-                setGame((prev) =>
-                    prev ? { ...prev, question_results: data } : prev
-                );
+                setGame(prev => prev ? { ...prev, question_results: data } : prev);
+                fetchAnswerCommentary(data);
             }
         } catch (error) {
             console.error("Failed to fetch results:", error);
@@ -277,7 +410,6 @@ export default function GameHostPage() {
             });
             if (response.ok) {
                 const data = await response.json();
-                // Update game state directly from response
                 if (data.current_question) {
                     setGame(prev => prev ? {
                         ...prev,
@@ -286,10 +418,10 @@ export default function GameHostPage() {
                         current_question: data.current_question,
                     } : prev);
                     setTimeLeft(data.current_question.time_limit);
+                    fetchQuestionStartCommentary(data.current_question.question_text, data.current_question_index);
                 } else if (data.status === "finished") {
                     setGame(prev => prev ? { ...prev, status: "finished" } : prev);
                 } else {
-                    // Fallback: refresh from server
                     await fetchGame();
                 }
             }
@@ -302,6 +434,15 @@ export default function GameHostPage() {
 
     const endGame = async () => {
         router.push(`/teacher/game/${gameId}/results`);
+    };
+
+    const getCommentaryIcon = (type: AICommentary["type"]) => {
+        switch (type) {
+            case "encouragement": return <TrendingUp className="h-4 w-4 text-green-500" />;
+            case "warning": return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+            case "tip": return <Lightbulb className="h-4 w-4 text-yellow-500" />;
+            default: return <Brain className="h-4 w-4 text-purple-500" />;
+        }
     };
 
     if (loading) {
@@ -335,7 +476,7 @@ export default function GameHostPage() {
                         className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold text-purple-600 hover:bg-white/90"
                     >
                         <BarChart2 className="h-6 w-6" />
-                        View Results
+                        View Results & AI Insights
                     </button>
                     <button
                         onClick={() => router.push("/teacher/quizzes")}
@@ -352,184 +493,240 @@ export default function GameHostPage() {
     const colors = ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"];
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-purple-600 to-purple-800 p-8">
-            <div className="mx-auto max-w-6xl">
-                {/* Header */}
-                <div className="mb-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="text-white">
-                            <span className="text-white/70">Question</span>{" "}
-                            <span className="text-2xl font-bold">
-                                {game.current_question_index + 1}
-                            </span>{" "}
-                            <span className="text-white/70">of {game.total_questions}</span>
-                        </div>
+        <div className="min-h-screen bg-gradient-to-b from-purple-600 to-purple-800 p-4 lg:p-8">
+            <div className="mx-auto max-w-7xl">
+                <div className="flex gap-6">
+                    {/* Main Content */}
+                    <div className="flex-1">
+                        {/* Header */}
+                        <div className="mb-6 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="text-white">
+                                    <span className="text-white/70">Question</span>{" "}
+                                    <span className="text-2xl font-bold">
+                                        {game.current_question_index + 1}
+                                    </span>{" "}
+                                    <span className="text-white/70">of {game.total_questions}</span>
+                                </div>
 
-                        {/* Sync mode indicator */}
-                        {useSyncMode && (
-                            <div className={`flex items-center gap-2 rounded-full px-3 py-1 ${
-                                isConnected ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
-                            }`}>
-                                {isConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-                                <span className="text-sm">{isConnected ? "Live Sync" : "Connecting..."}</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 text-white">
-                            <Users className="h-5 w-5" />
-                            <span>{answersReceived} / {game.player_count} answered</span>
-                        </div>
-                        {timeLeft !== null && !showResults && (
-                            <div className={`flex items-center gap-2 rounded-xl px-4 py-2 ${
-                                timeLeft <= 5 ? "bg-red-500" : "bg-white"
-                            }`}>
-                                <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-purple-600"}`} />
-                                <span className={`text-2xl font-bold ${
-                                    timeLeft <= 5 ? "text-white animate-pulse" : "text-purple-600"
-                                }`}>
-                                    {timeLeft}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Question Display */}
-                {game.current_question && (
-                    <div className="mb-8 rounded-2xl bg-white p-8 text-center shadow-xl">
-                        <h2 className="text-3xl font-bold text-gray-900">
-                            {game.current_question.question_text}
-                        </h2>
-                    </div>
-                )}
-
-                {/* Answer Options with Results */}
-                {game.current_question && (
-                    <div className="mb-8 grid grid-cols-2 gap-4">
-                        {Object.entries(game.current_question.options).map(
-                            ([key, value], index) => {
-                                const resultCount =
-                                    showResults && game.question_results
-                                        ? game.question_results.answer_distribution[key] || 0
-                                        : 0;
-                                const totalAnswers =
-                                    showResults && game.question_results
-                                        ? game.question_results.total_answers
-                                        : 1;
-                                const percentage = totalAnswers > 0
-                                    ? Math.round((resultCount / totalAnswers) * 100)
-                                    : 0;
-                                const isCorrect =
-                                    showResults &&
-                                    game.question_results?.correct_answer === key;
-
-                                return (
-                                    <div
-                                        key={key}
-                                        className={`relative overflow-hidden rounded-xl ${colors[index]} p-6 ${
-                                            isCorrect && showResults
-                                                ? "ring-4 ring-white ring-offset-2 ring-offset-purple-700"
-                                                : ""
-                                        }`}
-                                    >
-                                        {showResults && (
-                                            <div
-                                                className="absolute inset-0 bg-black/20"
-                                                style={{
-                                                    width: `${percentage}%`,
-                                                    transition: "width 0.5s ease-out",
-                                                }}
-                                            />
-                                        )}
-                                        <div className="relative flex items-center justify-between">
-                                            <span className="text-xl font-bold text-white">
-                                                {value}
-                                            </span>
-                                            {showResults && (
-                                                <span className="text-lg font-bold text-white">
-                                                    {resultCount} ({percentage}%)
-                                                </span>
-                                            )}
-                                        </div>
+                                {useSyncMode && (
+                                    <div className={`flex items-center gap-2 rounded-full px-3 py-1 ${
+                                        isConnected ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
+                                    }`}>
+                                        {isConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+                                        <span className="text-sm">{isConnected ? "Live" : "..."}</span>
                                     </div>
-                                );
-                            }
+                                )}
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2 text-white">
+                                    <Users className="h-5 w-5" />
+                                    <span>{answersReceived} / {game.player_count}</span>
+                                </div>
+                                {timeLeft !== null && !showResults && (
+                                    <div className={`flex items-center gap-2 rounded-xl px-4 py-2 ${
+                                        timeLeft <= 5 ? "bg-red-500" : "bg-white"
+                                    }`}>
+                                        <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-purple-600"}`} />
+                                        <span className={`text-2xl font-bold ${
+                                            timeLeft <= 5 ? "text-white animate-pulse" : "text-purple-600"
+                                        }`}>
+                                            {timeLeft}
+                                        </span>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setShowAiPanel(!showAiPanel)}
+                                    className={`rounded-lg p-2 transition-colors ${
+                                        showAiPanel ? "bg-white/20 text-white" : "bg-white/10 text-white/60"
+                                    }`}
+                                    title="Toggle AI Commentary"
+                                >
+                                    <Sparkles className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Question Display */}
+                        {game.current_question && (
+                            <div className="mb-8 rounded-2xl bg-white p-8 text-center shadow-xl">
+                                <h2 className="text-3xl font-bold text-gray-900">
+                                    {game.current_question.question_text}
+                                </h2>
+                            </div>
+                        )}
+
+                        {/* Answer Options with Results */}
+                        {game.current_question && (
+                            <div className="mb-8 grid grid-cols-2 gap-4">
+                                {Object.entries(game.current_question.options).map(
+                                    ([key, value], index) => {
+                                        const resultCount =
+                                            showResults && game.question_results
+                                                ? game.question_results.answer_distribution[key] || 0
+                                                : 0;
+                                        const totalAnswers =
+                                            showResults && game.question_results
+                                                ? game.question_results.total_answers
+                                                : 1;
+                                        const percentage = totalAnswers > 0
+                                            ? Math.round((resultCount / totalAnswers) * 100)
+                                            : 0;
+                                        const isCorrect =
+                                            showResults &&
+                                            game.question_results?.correct_answer === key;
+
+                                        return (
+                                            <div
+                                                key={key}
+                                                className={`relative overflow-hidden rounded-xl ${colors[index]} p-6 ${
+                                                    isCorrect && showResults
+                                                        ? "ring-4 ring-white ring-offset-2 ring-offset-purple-700"
+                                                        : ""
+                                                }`}
+                                            >
+                                                {showResults && (
+                                                    <div
+                                                        className="absolute inset-0 bg-black/20"
+                                                        style={{
+                                                            width: `${percentage}%`,
+                                                            transition: "width 0.5s ease-out",
+                                                        }}
+                                                    />
+                                                )}
+                                                <div className="relative flex items-center justify-between">
+                                                    <span className="text-xl font-bold text-white">
+                                                        {value}
+                                                    </span>
+                                                    {showResults && (
+                                                        <span className="text-lg font-bold text-white">
+                                                            {resultCount} ({percentage}%)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                )}
+                            </div>
+                        )}
+
+                        {/* Control Buttons */}
+                        <div className="flex justify-center gap-4">
+                            {!showResults ? (
+                                <button
+                                    onClick={showQuestionResults}
+                                    className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold text-purple-600 hover:bg-white/90"
+                                >
+                                    <BarChart2 className="h-6 w-6" />
+                                    Show Results
+                                </button>
+                            ) : game.current_question_index < game.total_questions - 1 ? (
+                                <button
+                                    onClick={nextQuestion}
+                                    disabled={advancing}
+                                    className="flex items-center gap-2 rounded-xl bg-green-500 px-8 py-4 text-lg font-bold text-white hover:bg-green-600 disabled:opacity-50"
+                                >
+                                    {advancing ? (
+                                        <Loader2 className="h-6 w-6 animate-spin" />
+                                    ) : (
+                                        <SkipForward className="h-6 w-6" />
+                                    )}
+                                    Next Question
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={endGame}
+                                    className="flex items-center gap-2 rounded-xl bg-yellow-500 px-8 py-4 text-lg font-bold text-white hover:bg-yellow-600"
+                                >
+                                    <Trophy className="h-6 w-6" />
+                                    Show Final Results
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Leaderboard Preview */}
+                        {showResults && game.leaderboard && game.leaderboard.length > 0 && (
+                            <div className="mt-8 rounded-2xl bg-white/10 p-6 backdrop-blur">
+                                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-white">
+                                    <Trophy className="h-5 w-5 text-yellow-400" />
+                                    Top Players
+                                </h3>
+                                <div className="space-y-2">
+                                    {game.leaderboard.slice(0, 5).map((player, index) => (
+                                        <div
+                                            key={player.player_id}
+                                            className="flex items-center gap-4 rounded-xl bg-white/10 p-3"
+                                        >
+                                            <span
+                                                className={`flex h-8 w-8 items-center justify-center rounded-full font-bold ${
+                                                    index === 0
+                                                        ? "bg-yellow-400 text-yellow-900"
+                                                        : index === 1
+                                                        ? "bg-gray-300 text-gray-700"
+                                                        : index === 2
+                                                        ? "bg-orange-400 text-orange-900"
+                                                        : "bg-white/20 text-white"
+                                                }`}
+                                            >
+                                                {index + 1}
+                                            </span>
+                                            <span className="flex-1 font-medium text-white">
+                                                {player.nickname}
+                                            </span>
+                                            <span className="font-bold text-yellow-400">
+                                                {player.score.toLocaleString()}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                     </div>
-                )}
 
-                {/* Control Buttons */}
-                <div className="flex justify-center gap-4">
-                    {!showResults ? (
-                        <button
-                            onClick={showQuestionResults}
-                            className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold text-purple-600 hover:bg-white/90"
-                        >
-                            <BarChart2 className="h-6 w-6" />
-                            Show Results
-                        </button>
-                    ) : game.current_question_index < game.total_questions - 1 ? (
-                        <button
-                            onClick={nextQuestion}
-                            disabled={advancing}
-                            className="flex items-center gap-2 rounded-xl bg-green-500 px-8 py-4 text-lg font-bold text-white hover:bg-green-600 disabled:opacity-50"
-                        >
-                            {advancing ? (
-                                <Loader2 className="h-6 w-6 animate-spin" />
-                            ) : (
-                                <SkipForward className="h-6 w-6" />
-                            )}
-                            Next Question
-                        </button>
-                    ) : (
-                        <button
-                            onClick={endGame}
-                            className="flex items-center gap-2 rounded-xl bg-yellow-500 px-8 py-4 text-lg font-bold text-white hover:bg-yellow-600"
-                        >
-                            <Trophy className="h-6 w-6" />
-                            Show Final Results
-                        </button>
+                    {/* AI Commentary Panel */}
+                    {showAiPanel && (
+                        <div className="w-80 flex-shrink-0">
+                            <div className="sticky top-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 overflow-hidden">
+                                <div className="flex items-center gap-2 px-4 py-3 bg-white/10 border-b border-white/10">
+                                    <Sparkles className="h-5 w-5 text-yellow-400" />
+                                    <span className="font-semibold text-white">AI Host Assistant</span>
+                                    {aiLoading && <Loader2 className="h-4 w-4 animate-spin text-white/60 ml-auto" />}
+                                </div>
+                                <div
+                                    ref={commentaryRef}
+                                    className="p-4 space-y-3 max-h-[500px] overflow-y-auto"
+                                >
+                                    {aiCommentary.length === 0 ? (
+                                        <div className="text-center text-white/50 py-8">
+                                            <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                            <p className="text-sm">AI insights will appear here</p>
+                                        </div>
+                                    ) : (
+                                        aiCommentary.map((comment, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="rounded-xl bg-white/10 p-3 animate-in fade-in slide-in-from-bottom-2"
+                                            >
+                                                <div className="flex items-start gap-2">
+                                                    {getCommentaryIcon(comment.type)}
+                                                    <p className="text-sm text-white/90 leading-relaxed">
+                                                        {comment.message}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="px-4 py-3 bg-white/5 border-t border-white/10">
+                                    <p className="text-xs text-white/40 text-center">
+                                        Powered by Gemini AI
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
-
-                {/* Leaderboard Preview */}
-                {showResults && game.leaderboard && game.leaderboard.length > 0 && (
-                    <div className="mt-8 rounded-2xl bg-white/10 p-6 backdrop-blur">
-                        <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-white">
-                            <Trophy className="h-5 w-5 text-yellow-400" />
-                            Top Players
-                        </h3>
-                        <div className="space-y-2">
-                            {game.leaderboard.slice(0, 5).map((player, index) => (
-                                <div
-                                    key={player.player_id}
-                                    className="flex items-center gap-4 rounded-xl bg-white/10 p-3"
-                                >
-                                    <span
-                                        className={`flex h-8 w-8 items-center justify-center rounded-full font-bold ${
-                                            index === 0
-                                                ? "bg-yellow-400 text-yellow-900"
-                                                : index === 1
-                                                ? "bg-gray-300 text-gray-700"
-                                                : index === 2
-                                                ? "bg-orange-400 text-orange-900"
-                                                : "bg-white/20 text-white"
-                                        }`}
-                                    >
-                                        {index + 1}
-                                    </span>
-                                    <span className="flex-1 font-medium text-white">
-                                        {player.nickname}
-                                    </span>
-                                    <span className="font-bold text-yellow-400">
-                                        {player.score.toLocaleString()}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

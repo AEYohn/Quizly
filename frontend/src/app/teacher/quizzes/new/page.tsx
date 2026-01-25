@@ -11,23 +11,29 @@ import {
     Check,
     Sparkles,
     Loader2,
-    Wand2,
+    Send,
     X,
     Upload,
     FileText,
     Code2,
     ListChecks,
+    GripVertical,
+    ChevronDown,
+    ChevronUp,
+    Image,
+    Paperclip,
+    PenLine,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// Monaco editor for coding questions
 const Editor = dynamic(
     () => import("@monaco-editor/react").then((mod) => mod.default),
     { ssr: false, loading: () => <div className="h-32 bg-gray-800 animate-pulse rounded-lg" /> }
 );
 
 interface QuestionData {
+    id: string;
     question_text: string;
     question_type: "multiple_choice" | "coding";
     options: { [key: string]: string };
@@ -36,11 +42,11 @@ interface QuestionData {
     points: number;
     explanation?: string;
     order_index: number;
-    // Coding-specific fields
     starter_code?: string;
     solution_code?: string;
     test_cases?: { input: string; expected_output: string }[];
     language?: string;
+    collapsed?: boolean;
 }
 
 interface UploadedFile {
@@ -51,39 +57,67 @@ interface UploadedFile {
     type: "image" | "pdf";
 }
 
+interface ChatMessage {
+    id: string;
+    role: "user" | "ai";
+    content: string;
+    files?: UploadedFile[];
+    timestamp: Date;
+}
+
 export default function NewQuizPage() {
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [step, setStep] = useState<"generate" | "edit">("generate");
-    const [generating, setGenerating] = useState(false);
-    const [saving, setSaving] = useState(false);
+    const chatInputRef = useRef<HTMLTextAreaElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const questionsEndRef = useRef<HTMLDivElement>(null);
 
-    // AI Generation state
-    const [topic, setTopic] = useState("");
-    const [numQuestions, setNumQuestions] = useState(5);
-    const [difficulty, setDifficulty] = useState("medium");
-    const [files, setFiles] = useState<UploadedFile[]>([]);
+    const [saving, setSaving] = useState(false);
+    const [generating, setGenerating] = useState(false);
+    const [chatInput, setChatInput] = useState("");
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [pendingFiles, setPendingFiles] = useState<UploadedFile[]>([]);
     const [dragOver, setDragOver] = useState(false);
+    const [mode, setMode] = useState<"ai" | "manual">("ai");
+
+    const [quizData, setQuizData] = useState({
+        title: "",
+        description: "",
+        subject: "",
+    });
+    const [questions, setQuestions] = useState<QuestionData[]>([]);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+
+    // Auto-resize textarea
+    useEffect(() => {
+        if (chatInputRef.current) {
+            chatInputRef.current.style.height = "auto";
+            chatInputRef.current.style.height = Math.min(chatInputRef.current.scrollHeight, 150) + "px";
+        }
+    }, [chatInput]);
+
+    // Scroll to bottom of messages
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     const processFile = useCallback((file: File) => {
         const isImage = file.type.startsWith("image/");
         const isPdf = file.type === "application/pdf";
-
         if (!isImage && !isPdf) return;
 
         const reader = new FileReader();
         reader.onload = (e) => {
             const base64 = e.target?.result as string;
-            setFiles((prev) => [
-                ...prev,
-                {
-                    preview: isImage ? base64 : "",
-                    base64: base64,
-                    mimeType: file.type,
-                    name: file.name,
-                    type: isPdf ? "pdf" : "image",
-                },
-            ]);
+            setPendingFiles((prev) => [...prev, {
+                preview: isImage ? base64 : "",
+                base64: base64,
+                mimeType: file.type,
+                name: file.name,
+                type: isPdf ? "pdf" : "image",
+            }]);
         };
         reader.readAsDataURL(file);
     }, []);
@@ -91,7 +125,7 @@ export default function NewQuizPage() {
     // Clipboard paste support
     useEffect(() => {
         const handlePaste = (e: ClipboardEvent) => {
-            if (step !== "generate") return;
+            if (mode !== "ai") return;
             const items = e.clipboardData?.items;
             if (!items) return;
 
@@ -106,57 +140,57 @@ export default function NewQuizPage() {
 
         window.addEventListener("paste", handlePaste);
         return () => window.removeEventListener("paste", handlePaste);
-    }, [step, processFile]);
+    }, [processFile, mode]);
 
-    // Quiz data
-    const [quizData, setQuizData] = useState({
-        title: "",
-        description: "",
-        subject: "",
-    });
-    const [questions, setQuestions] = useState<QuestionData[]>([]);
-    const [activeQuestion, setActiveQuestion] = useState(0);
+    const handleSubmit = async () => {
+        if (!chatInput.trim() && pendingFiles.length === 0) return;
 
-    const handleFileUpload = (fileList: FileList | null) => {
-        if (!fileList) return;
-        Array.from(fileList).forEach(processFile);
-    };
+        const userMessage: ChatMessage = {
+            id: generateId(),
+            role: "user",
+            content: chatInput.trim() || "Generate questions from these files",
+            files: pendingFiles.length > 0 ? [...pendingFiles] : undefined,
+            timestamp: new Date(),
+        };
 
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setDragOver(false);
-        handleFileUpload(e.dataTransfer.files);
-    };
-
-    const removeFile = (index: number) => {
-        setFiles((prev) => prev.filter((_, i) => i !== index));
-    };
-
-    const generateQuestions = async () => {
-        if (!topic.trim() && files.length === 0) {
-            alert("Please enter a topic or upload an image/PDF");
-            return;
-        }
-
+        setMessages(prev => [...prev, userMessage]);
+        const currentInput = chatInput;
+        const currentFiles = [...pendingFiles];
+        setChatInput("");
+        setPendingFiles([]);
         setGenerating(true);
+
+        // Add thinking message
+        const thinkingId = generateId();
+        setMessages(prev => [...prev, {
+            id: thinkingId,
+            role: "ai",
+            content: currentFiles.length > 0 ? "Analyzing your content..." : "Thinking...",
+            timestamp: new Date(),
+        }]);
+
         try {
             const token = localStorage.getItem("token");
-
-            // Use the chat endpoint for multimodal support
-            const attachments = files.map((f) => ({
+            const attachments = currentFiles.map((f, i) => ({
                 type: f.type,
+                name: f.name || `file_${i}.${f.type === "pdf" ? "pdf" : "jpg"}`,
                 content: f.base64,
                 mime_type: f.mimeType,
             }));
 
-            const hasFiles = files.length > 0;
-            const fileTypes = files.map(f => f.type === "pdf" ? "PDF" : "image").join("/");
+            const hasFiles = currentFiles.length > 0;
+            const fileTypes = currentFiles.map(f => f.type === "pdf" ? "PDF" : "image").join(" and ");
 
-            const prompt = topic.trim()
-                ? `Generate ${numQuestions} ${difficulty} difficulty multiple choice quiz questions about: ${topic}. Each question should have 4 options (A, B, C, D) and include an explanation for the correct answer.`
-                : `Analyze the uploaded ${fileTypes}(s) and generate ${numQuestions} ${difficulty} difficulty multiple choice quiz questions based on the content. Each question should have 4 options (A, B, C, D) and include an explanation for the correct answer.`;
+            let prompt = currentInput;
+            if (hasFiles && !currentInput) {
+                prompt = `Analyze the uploaded ${fileTypes} and generate quiz questions based on the content. Generate 5 questions.`;
+            } else if (hasFiles) {
+                prompt = `${currentInput}. Use the uploaded ${fileTypes} as reference material.`;
+            } else {
+                prompt = `${currentInput}. Generate 5 educational questions on this topic.`;
+            }
 
-            const response = await fetch(`${API_URL}/ai/chat`, {
+            const response = await fetch(`${API_URL}/ai/chat-generate`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -164,120 +198,159 @@ export default function NewQuizPage() {
                 },
                 body: JSON.stringify({
                     message: prompt,
-                    attachments: attachments,
-                    context: {
-                        num_questions: numQuestions,
-                        difficulty: difficulty,
-                    },
+                    question_type: "mcq",
+                    attachments: hasFiles ? attachments : undefined,
                 }),
             });
 
             if (response.ok) {
                 const data = await response.json();
-                const generatedQuestions = (data.questions || []).map(
-                    (q: any, i: number) => ({
-                        question_text: q.question_text || q.question || q.text || "",
-                        question_type: "multiple_choice",
-                        options: q.options || {
-                            A: q.option_a || q.options?.A || "",
-                            B: q.option_b || q.options?.B || "",
-                            C: q.option_c || q.options?.C || "",
-                            D: q.option_d || q.options?.D || "",
-                        },
-                        correct_answer: q.correct_answer || q.answer || "A",
-                        time_limit: 20,
-                        points: 1000,
-                        explanation: q.explanation || "",
-                        order_index: i,
-                    })
-                );
+                const newQuestions = parseGeneratedQuestions(data);
 
-                if (generatedQuestions.length === 0) {
-                    alert("No questions were generated. Try a different topic or image.");
-                    return;
+                if (newQuestions.length > 0) {
+                    setQuestions(prev => [...prev, ...newQuestions]);
+                    if (!quizData.title && data.title) {
+                        setQuizData(prev => ({
+                            ...prev,
+                            title: data.title,
+                            subject: data.subject || "General",
+                        }));
+                    }
+
+                    // Replace thinking message with success
+                    setMessages(prev => prev.map(m => m.id === thinkingId ? {
+                        ...m,
+                        content: `Added ${newQuestions.length} question${newQuestions.length > 1 ? 's' : ''}! ${
+                            newQuestions.filter(q => q.question_type === 'coding').length > 0
+                                ? `(${newQuestions.filter(q => q.question_type === 'multiple_choice').length} MCQ, ${newQuestions.filter(q => q.question_type === 'coding').length} coding)`
+                                : ''
+                        } You can edit them below or ask me to generate more.`
+                    } : m));
+                } else {
+                    setMessages(prev => prev.map(m => m.id === thinkingId ? {
+                        ...m,
+                        content: data.response || "I couldn't generate questions from that. Try being more specific about the topic, or upload a clearer image."
+                    } : m));
                 }
-
-                setQuestions(generatedQuestions);
-                setQuizData({
-                    title: topic ? `${topic} Quiz` : "Image-Based Quiz",
-                    description: `A ${difficulty} quiz${topic ? ` about ${topic}` : " based on uploaded content"}`,
-                    subject: topic || "General",
-                });
-                setStep("edit");
             } else {
-                const error = await response.json();
-                alert(error.detail || "Failed to generate questions");
+                throw new Error("API request failed");
             }
         } catch (error) {
-            console.error("Failed to generate:", error);
-            alert("Failed to generate questions. Please try again.");
+            console.error("Generation failed:", error);
+            setMessages(prev => prev.map(m => m.id === thinkingId ? {
+                ...m,
+                content: "Something went wrong. Please try again."
+            } : m));
         } finally {
             setGenerating(false);
         }
     };
 
-    const addQuestion = () => {
+    const parseGeneratedQuestions = (data: any): QuestionData[] => {
+        const qs = data.questions || [];
+        return qs.map((q: any, i: number) => {
+            // API returns options as array, we need object {A, B, C, D}
+            let optionsObj: { [key: string]: string } = { A: "", B: "", C: "", D: "" };
+            if (Array.isArray(q.options)) {
+                optionsObj = {
+                    A: q.options[0] || "",
+                    B: q.options[1] || "",
+                    C: q.options[2] || "",
+                    D: q.options[3] || "",
+                };
+            } else if (q.options) {
+                optionsObj = q.options;
+            }
+
+            // API returns correct_answer as index (0-3), we need letter (A-D)
+            let correctAnswer = "A";
+            if (typeof q.correct_answer === "number") {
+                correctAnswer = ["A", "B", "C", "D"][q.correct_answer] || "A";
+            } else if (typeof q.correct_answer === "string") {
+                correctAnswer = q.correct_answer;
+            }
+
+            return {
+                id: generateId(),
+                question_text: q.question || q.question_text || q.text || "",
+                question_type: q.question_type || (q.starter_code ? "coding" : "multiple_choice") as "multiple_choice" | "coding",
+                options: optionsObj,
+                correct_answer: correctAnswer,
+                time_limit: q.question_type === "coding" ? 300 : 20,
+                points: q.question_type === "coding" ? 2000 : 1000,
+                explanation: q.explanation || "",
+                order_index: questions.length + i,
+                starter_code: q.starter_code || "",
+                solution_code: q.solution_code || "",
+                test_cases: q.test_cases || [],
+                language: q.language || "python",
+                collapsed: false,
+            };
+        });
+    };
+
+    const addQuestion = (type: "multiple_choice" | "coding") => {
         const newQuestion: QuestionData = {
+            id: generateId(),
             question_text: "",
-            question_type: "multiple_choice",
-            options: { A: "", B: "", C: "", D: "" },
+            question_type: type,
+            options: type === "multiple_choice" ? { A: "", B: "", C: "", D: "" } : {},
             correct_answer: "A",
-            time_limit: 20,
-            points: 1000,
+            time_limit: type === "coding" ? 300 : 20,
+            points: type === "coding" ? 2000 : 1000,
             order_index: questions.length,
+            starter_code: type === "coding" ? "def solution():\n    # Write your code here\n    pass" : "",
+            solution_code: "",
+            test_cases: type === "coding" ? [{ input: "", expected_output: "" }] : [],
+            language: "python",
+            collapsed: false,
         };
         setQuestions([...questions, newQuestion]);
-        setActiveQuestion(questions.length);
+        setTimeout(() => questionsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     };
 
-    const deleteQuestion = (index: number) => {
-        if (questions.length === 1) {
-            alert("Quiz must have at least one question");
-            return;
-        }
-        const newQuestions = questions.filter((_, i) => i !== index);
-        newQuestions.forEach((q, i) => (q.order_index = i));
-        setQuestions(newQuestions);
-        if (activeQuestion >= newQuestions.length) {
-            setActiveQuestion(newQuestions.length - 1);
-        }
+    const deleteQuestion = (id: string) => {
+        setQuestions(questions.filter(q => q.id !== id));
     };
 
-    const updateQuestion = (index: number, field: string, value: any) => {
+    const updateQuestion = (id: string, updates: Partial<QuestionData>) => {
+        setQuestions(questions.map(q => q.id === id ? { ...q, ...updates } : q));
+    };
+
+    const toggleCollapse = (id: string) => {
+        updateQuestion(id, { collapsed: !questions.find(q => q.id === id)?.collapsed });
+    };
+
+    const handleDragStart = (index: number) => setDraggedIndex(index);
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === index) return;
+
         const newQuestions = [...questions];
-        if (!newQuestions[index]) return;
-        if (field.startsWith("options.")) {
-            const optionKey = field.split(".")[1];
-            if (!optionKey) return;
-            newQuestions[index].options = {
-                ...newQuestions[index].options,
-                [optionKey]: value,
-            };
-        } else {
-            (newQuestions[index] as any)[field] = value;
-        }
+        const removed = newQuestions.splice(draggedIndex, 1)[0];
+        if (!removed) return;
+        newQuestions.splice(index, 0, removed);
+        newQuestions.forEach((q, i) => q.order_index = i);
         setQuestions(newQuestions);
+        setDraggedIndex(index);
     };
+
+    const handleDragEnd = () => setDraggedIndex(null);
 
     const saveQuiz = async () => {
-        if (!quizData.title.trim()) {
-            alert("Please enter a quiz title");
-            return;
-        }
-
-        const invalidQuestions = questions.filter(
-            (q) =>
-                !q.question_text.trim() ||
-                Object.values(q.options).some((o) => !o.trim())
-        );
-        if (invalidQuestions.length > 0) {
-            alert("Please fill in all question texts and options");
+        if (questions.length === 0) {
+            alert("Add at least one question");
             return;
         }
 
         setSaving(true);
         try {
             const token = localStorage.getItem("token");
+            const finalQuizData = {
+                ...quizData,
+                title: quizData.title || "Untitled Quiz",
+            };
 
             const quizResponse = await fetch(`${API_URL}/quizzes/`, {
                 method: "POST",
@@ -285,11 +358,10 @@ export default function NewQuizPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(quizData),
+                body: JSON.stringify(finalQuizData),
             });
 
             if (!quizResponse.ok) throw new Error("Failed to create quiz");
-
             const quiz = await quizResponse.json();
 
             for (const question of questions) {
@@ -305,441 +377,458 @@ export default function NewQuizPage() {
 
             router.push("/teacher/quizzes");
         } catch (error) {
-            console.error("Failed to save quiz:", error);
-            alert("Failed to save quiz. Please try again.");
+            console.error("Failed to save:", error);
+            alert("Failed to save. Please try again.");
         } finally {
             setSaving(false);
         }
     };
 
-    // Step 1: AI Generation
-    if (step === "generate") {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600 p-8">
-                <div className="mx-auto max-w-2xl">
-                    <button
-                        onClick={() => router.back()}
-                        className="mb-8 flex items-center gap-2 text-white/80 hover:text-white"
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                        Back
-                    </button>
+    const handleFileDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragOver(false);
+        if (mode !== "ai") return;
+        Array.from(e.dataTransfer.files).forEach(processFile);
+    };
 
-                    <div className="rounded-3xl bg-white p-8 shadow-2xl">
-                        <div className="mb-8 text-center">
-                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
-                                <Sparkles className="h-8 w-8 text-white" />
-                            </div>
-                            <h1 className="text-3xl font-bold text-gray-900">
-                                Create Quiz with AI
-                            </h1>
-                            <p className="mt-2 text-gray-500">
-                                Type a topic or drop an image - AI does the rest
-                            </p>
+    const removePendingFile = (index: number) => {
+        setPendingFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    return (
+        <div
+            className="min-h-screen bg-gray-50 flex flex-col"
+            onDragOver={(e) => { e.preventDefault(); if (mode === "ai") setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleFileDrop}
+        >
+            {/* Drop overlay */}
+            {dragOver && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-purple-600/90 backdrop-blur-sm">
+                    <div className="text-center text-white">
+                        <Upload className="mx-auto h-16 w-16 mb-4 animate-bounce" />
+                        <p className="text-2xl font-bold">Drop to add files</p>
+                        <p className="text-purple-200 mt-2">Images, PDFs, screenshots</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Header */}
+            <header className="sticky top-0 z-40 border-b bg-white">
+                <div className="mx-auto max-w-4xl px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => router.back()}
+                                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </button>
+                            <input
+                                type="text"
+                                placeholder="Quiz title..."
+                                value={quizData.title}
+                                onChange={(e) => setQuizData({ ...quizData, title: e.target.value })}
+                                className="text-xl font-bold text-gray-900 bg-transparent focus:outline-none placeholder-gray-400"
+                            />
                         </div>
-
-                        <div className="space-y-6">
-                            {/* Topic Input */}
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-gray-700">
-                                    What topic should the quiz cover?
-                                </label>
-                                <input
-                                    type="text"
-                                    value={topic}
-                                    onChange={(e) => setTopic(e.target.value)}
-                                    placeholder="e.g., Photosynthesis, World War II, Python basics..."
-                                    className="w-full rounded-xl border-2 border-gray-200 p-4 text-lg focus:border-purple-500 focus:outline-none"
-                                    autoFocus
-                                />
-                            </div>
-
-                            {/* File Upload */}
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-gray-700">
-                                    Or upload files (images, PDFs, textbook pages)
-                                </label>
-                                <div
-                                    onDragOver={(e) => {
-                                        e.preventDefault();
-                                        setDragOver(true);
-                                    }}
-                                    onDragLeave={() => setDragOver(false)}
-                                    onDrop={handleDrop}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className={`cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-                                        dragOver
-                                            ? "border-purple-500 bg-purple-50"
-                                            : "border-gray-300 hover:border-purple-400"
+                        <div className="flex items-center gap-3">
+                            {/* Mode Toggle */}
+                            <div className="flex rounded-lg border border-gray-200 p-1">
+                                <button
+                                    onClick={() => setMode("ai")}
+                                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                                        mode === "ai" ? "bg-purple-100 text-purple-700" : "text-gray-600 hover:bg-gray-100"
                                     }`}
                                 >
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*,application/pdf"
-                                        multiple
-                                        onChange={(e) => handleFileUpload(e.target.files)}
-                                        className="hidden"
-                                    />
-                                    <Upload className="mx-auto h-8 w-8 text-gray-400" />
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        Drag & drop, click to browse, or paste (Cmd/Ctrl+V)
-                                    </p>
-                                    <p className="mt-1 text-xs text-gray-400">
-                                        Supports images and PDFs
-                                    </p>
-                                </div>
+                                    <Sparkles className="h-4 w-4" />
+                                    AI
+                                </button>
+                                <button
+                                    onClick={() => setMode("manual")}
+                                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                                        mode === "manual" ? "bg-gray-200 text-gray-800" : "text-gray-600 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    <PenLine className="h-4 w-4" />
+                                    Manual
+                                </button>
+                            </div>
+                            <button
+                                onClick={saveQuiz}
+                                disabled={saving || questions.length === 0}
+                                className="flex items-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 font-medium text-white transition-all hover:bg-green-700 disabled:opacity-50"
+                            >
+                                <Save className="h-4 w-4" />
+                                {saving ? "Saving..." : "Save"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
 
-                                {/* File Previews */}
-                                {files.length > 0 && (
-                                    <div className="mt-4 flex flex-wrap gap-3">
-                                        {files.map((file, index) => (
-                                            <div key={index} className="relative">
-                                                {file.type === "image" ? (
-                                                    <img
-                                                        src={file.preview}
-                                                        alt={`Upload ${index + 1}`}
-                                                        className="h-20 w-20 rounded-lg object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex h-20 w-20 flex-col items-center justify-center rounded-lg bg-red-50 border border-red-200">
-                                                        <FileText className="h-8 w-8 text-red-500" />
-                                                        <span className="mt-1 text-xs text-red-600 truncate w-16 text-center">
-                                                            {file.name?.slice(0, 8)}...
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        removeFile(index);
-                                                    }}
-                                                    className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </button>
-                                            </div>
+            <div className="flex-1 flex flex-col">
+                {/* AI Chat Mode */}
+                {mode === "ai" && (
+                    <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-6">
+                        {/* Chat Messages */}
+                        <div className="flex-1 py-6 space-y-4 overflow-y-auto">
+                            {messages.length === 0 && (
+                                <div className="text-center py-12">
+                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+                                        <Sparkles className="h-8 w-8 text-white" />
+                                    </div>
+                                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                                        What would you like to quiz on?
+                                    </h2>
+                                    <p className="text-gray-500 mb-6">
+                                        Type a topic, paste an image, or upload lecture slides
+                                    </p>
+                                    <div className="flex flex-wrap justify-center gap-2">
+                                        {[
+                                            "Python basics for beginners",
+                                            "Machine learning concepts",
+                                            "Data structures and algorithms",
+                                            "JavaScript fundamentals",
+                                        ].map((suggestion) => (
+                                            <button
+                                                key={suggestion}
+                                                onClick={() => setChatInput(suggestion)}
+                                                className="rounded-full bg-white px-4 py-2 text-sm text-gray-600 border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+                                            >
+                                                {suggestion}
+                                            </button>
                                         ))}
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Options */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                                        Number of questions
-                                    </label>
-                                    <select
-                                        value={numQuestions}
-                                        onChange={(e) => setNumQuestions(parseInt(e.target.value))}
-                                        className="w-full rounded-xl border-2 border-gray-200 p-3 focus:border-purple-500 focus:outline-none"
-                                    >
-                                        <option value={3}>3 questions</option>
-                                        <option value={5}>5 questions</option>
-                                        <option value={10}>10 questions</option>
-                                        <option value={15}>15 questions</option>
-                                    </select>
                                 </div>
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                                        Difficulty
-                                    </label>
-                                    <select
-                                        value={difficulty}
-                                        onChange={(e) => setDifficulty(e.target.value)}
-                                        className="w-full rounded-xl border-2 border-gray-200 p-3 focus:border-purple-500 focus:outline-none"
-                                    >
-                                        <option value="easy">Easy</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="hard">Hard</option>
-                                    </select>
+                            )}
+
+                            {messages.map((msg) => (
+                                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                    <div className={`max-w-[80%] ${msg.role === "user" ? "" : ""}`}>
+                                        {msg.files && msg.files.length > 0 && (
+                                            <div className="flex gap-2 mb-2 justify-end">
+                                                {msg.files.map((file, i) => (
+                                                    <div key={i} className="rounded-lg overflow-hidden border border-gray-200">
+                                                        {file.type === "image" ? (
+                                                            <img src={file.preview} alt="" className="h-20 w-auto object-cover" />
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 bg-gray-100 px-3 py-2">
+                                                                <FileText className="h-5 w-5 text-red-500" />
+                                                                <span className="text-sm text-gray-600">{file.name}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className={`rounded-2xl px-4 py-3 ${
+                                            msg.role === "user"
+                                                ? "bg-purple-600 text-white"
+                                                : "bg-white border border-gray-200 text-gray-800"
+                                        }`}>
+                                            {msg.content}
+                                            {msg.role === "ai" && generating && msg === messages[messages.length - 1] && (
+                                                <Loader2 className="inline ml-2 h-4 w-4 animate-spin" />
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
 
-                            {/* Generate Button */}
-                            <button
-                                onClick={generateQuestions}
-                                disabled={generating || (!topic.trim() && files.length === 0)}
-                                className="flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
-                            >
-                                {generating ? (
-                                    <>
-                                        <Loader2 className="h-6 w-6 animate-spin" />
-                                        {files.length > 0
-                                            ? `Analyzing ${files.some(f => f.type === "pdf") ? "documents" : "images"}...`
-                                            : "Generating with Gemini..."}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Wand2 className="h-6 w-6" />
-                                        Generate Quiz
-                                    </>
-                                )}
-                            </button>
+                        {/* Chat Input */}
+                        <div className="sticky bottom-0 pb-6 pt-2 bg-gradient-to-t from-gray-50 via-gray-50">
+                            {/* Pending files preview */}
+                            {pendingFiles.length > 0 && (
+                                <div className="flex gap-2 mb-3 px-1">
+                                    {pendingFiles.map((file, i) => (
+                                        <div key={i} className="relative">
+                                            {file.type === "image" ? (
+                                                <img src={file.preview} alt="" className="h-16 w-16 rounded-lg object-cover border border-gray-200" />
+                                            ) : (
+                                                <div className="h-16 w-16 rounded-lg bg-red-50 border border-red-200 flex flex-col items-center justify-center">
+                                                    <FileText className="h-6 w-6 text-red-500" />
+                                                    <span className="text-[10px] text-red-600 mt-1">PDF</span>
+                                                </div>
+                                            )}
+                                            <button
+                                                onClick={() => removePendingFile(i)}
+                                                className="absolute -top-1.5 -right-1.5 rounded-full bg-gray-800 p-0.5 text-white hover:bg-gray-900"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
-                            {/* Manual option */}
-                            <div className="text-center">
+                            <div className="flex gap-3 items-end bg-white rounded-2xl border border-gray-200 shadow-lg p-3">
                                 <button
-                                    onClick={() => {
-                                        setQuestions([
-                                            {
-                                                question_text: "",
-                                                question_type: "multiple_choice",
-                                                options: { A: "", B: "", C: "", D: "" },
-                                                correct_answer: "A",
-                                                time_limit: 20,
-                                                points: 1000,
-                                                order_index: 0,
-                                            },
-                                        ]);
-                                        setStep("edit");
-                                    }}
-                                    className="text-sm text-gray-500 hover:text-purple-600"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                                    title="Attach files"
                                 >
-                                    or create manually →
+                                    <Paperclip className="h-5 w-5" />
+                                </button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    multiple
+                                    onChange={(e) => e.target.files && Array.from(e.target.files).forEach(processFile)}
+                                    className="hidden"
+                                />
+                                <textarea
+                                    ref={chatInputRef}
+                                    placeholder="Describe what you want to quiz on... (or paste an image)"
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSubmit();
+                                        }
+                                    }}
+                                    className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none"
+                                    rows={1}
+                                />
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={generating || (!chatInput.trim() && pendingFiles.length === 0)}
+                                    className="rounded-xl bg-purple-600 p-2.5 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <Send className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <p className="text-center text-xs text-gray-400 mt-2">
+                                Tip: Paste images with Cmd+V or drag files anywhere
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Manual Mode */}
+                {mode === "manual" && questions.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center px-6">
+                        <div className="text-center">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-200">
+                                <PenLine className="h-8 w-8 text-gray-500" />
+                            </div>
+                            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                                Create questions manually
+                            </h2>
+                            <p className="text-gray-500 mb-6">
+                                Choose a question type to get started
+                            </p>
+                            <div className="flex justify-center gap-3">
+                                <button
+                                    onClick={() => addQuestion("multiple_choice")}
+                                    className="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-700 transition-colors"
+                                >
+                                    <ListChecks className="h-5 w-5" />
+                                    Multiple Choice
+                                </button>
+                                <button
+                                    onClick={() => addQuestion("coding")}
+                                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 transition-colors"
+                                >
+                                    <Code2 className="h-5 w-5" />
+                                    Coding Challenge
                                 </button>
                             </div>
                         </div>
                     </div>
+                )}
 
-                    {/* Powered by */}
-                    <div className="mt-6 flex items-center justify-center gap-2 text-white/60">
-                        <Sparkles className="h-4 w-4" />
-                        <span className="text-sm">Powered by Gemini AI (Multimodal)</span>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // Step 2: Edit Questions
-    const currentQuestion = questions[activeQuestion] ?? questions[0];
-    if (!currentQuestion) return null;
-
-    return (
-        <div className="flex h-screen flex-col bg-gray-50">
-            {/* Header */}
-            <header className="flex items-center justify-between border-b bg-white px-6 py-4">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => setStep("generate")}
-                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                    </button>
-                    <input
-                        type="text"
-                        placeholder="Quiz Title"
-                        value={quizData.title}
-                        onChange={(e) =>
-                            setQuizData({ ...quizData, title: e.target.value })
-                        }
-                        className="text-xl font-bold text-gray-900 focus:outline-none"
-                    />
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setStep("generate")}
-                        className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100"
-                    >
-                        <Sparkles className="h-4 w-4" />
-                        Regenerate
-                    </button>
-                    <button
-                        onClick={saveQuiz}
-                        disabled={saving}
-                        className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
-                    >
-                        <Save className="h-5 w-5" />
-                        {saving ? "Saving..." : "Save Quiz"}
-                    </button>
-                </div>
-            </header>
-
-            <div className="flex flex-1 overflow-hidden">
-                {/* Question Sidebar */}
-                <div className="w-64 overflow-y-auto border-r bg-white p-4">
-                    <div className="mb-4 flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-500">
-                            Questions ({questions.length})
-                        </span>
-                        <button
-                            onClick={addQuestion}
-                            className="rounded-lg p-1 text-purple-600 hover:bg-purple-50"
-                        >
-                            <Plus className="h-5 w-5" />
-                        </button>
-                    </div>
-
-                    <div className="space-y-2">
-                        {questions.map((q, index) => (
-                            <button
-                                key={index}
-                                onClick={() => setActiveQuestion(index)}
-                                className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
-                                    activeQuestion === index
-                                        ? "border-purple-500 bg-purple-50"
-                                        : "border-gray-200 hover:border-gray-300"
-                                }`}
-                            >
-                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-medium text-gray-600">
-                                    {index + 1}
-                                </span>
-                                <span className="flex-1 truncate text-sm text-gray-700">
-                                    {q.question_text || "New question"}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Question Editor */}
-                <div className="flex-1 overflow-y-auto p-8">
-                    <div className="mx-auto max-w-3xl">
-                        {/* Settings row */}
-                        <div className="mb-6 flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm text-gray-500">Time:</label>
-                                <select
-                                    value={currentQuestion.time_limit}
-                                    onChange={(e) =>
-                                        updateQuestion(
-                                            activeQuestion,
-                                            "time_limit",
-                                            parseInt(e.target.value)
-                                        )
-                                    }
-                                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                                >
-                                    <option value={10}>10 sec</option>
-                                    <option value={20}>20 sec</option>
-                                    <option value={30}>30 sec</option>
-                                    <option value={60}>60 sec</option>
-                                </select>
+                {/* Questions List */}
+                {questions.length > 0 && (
+                    <div className="border-t bg-white">
+                        <div className="max-w-4xl mx-auto px-6 py-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Questions ({questions.length})
+                                </h3>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => addQuestion("multiple_choice")}
+                                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        MCQ
+                                    </button>
+                                    <button
+                                        onClick={() => addQuestion("coding")}
+                                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Coding
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm text-gray-500">Points:</label>
-                                <select
-                                    value={currentQuestion.points}
-                                    onChange={(e) =>
-                                        updateQuestion(
-                                            activeQuestion,
-                                            "points",
-                                            parseInt(e.target.value)
-                                        )
-                                    }
-                                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                                >
-                                    <option value={500}>500</option>
-                                    <option value={1000}>1000</option>
-                                    <option value={1500}>1500</option>
-                                    <option value={2000}>2000</option>
-                                </select>
-                            </div>
-
-                            <button
-                                onClick={() => deleteQuestion(activeQuestion)}
-                                className="ml-auto rounded-lg p-2 text-red-500 hover:bg-red-50"
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        {/* Question Text */}
-                        <div className="mb-6">
-                            <textarea
-                                placeholder="Type your question here..."
-                                value={currentQuestion.question_text}
-                                onChange={(e) =>
-                                    updateQuestion(
-                                        activeQuestion,
-                                        "question_text",
-                                        e.target.value
-                                    )
-                                }
-                                className="w-full rounded-xl border border-gray-200 bg-white p-6 text-xl font-medium focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                rows={3}
-                            />
-                        </div>
-
-                        {/* Answer Options */}
-                        <div className="grid grid-cols-2 gap-4">
-                            {["A", "B", "C", "D"].map((option, index) => {
-                                const colors = [
-                                    "bg-red-500",
-                                    "bg-blue-500",
-                                    "bg-yellow-500",
-                                    "bg-green-500",
-                                ];
-                                const isCorrect = currentQuestion.correct_answer === option;
-
-                                return (
+                            <div className="space-y-3">
+                                {questions.map((question, index) => (
                                     <div
-                                        key={option}
-                                        className={`relative rounded-xl ${colors[index]} p-4 ${
-                                            isCorrect
-                                                ? "ring-4 ring-white ring-offset-2 ring-offset-gray-50"
-                                                : ""
+                                        key={question.id}
+                                        draggable
+                                        onDragStart={() => handleDragStart(index)}
+                                        onDragOver={(e) => handleDragOver(e, index)}
+                                        onDragEnd={handleDragEnd}
+                                        className={`rounded-xl bg-gray-50 border transition-all ${
+                                            draggedIndex === index ? "opacity-50 border-purple-400" : "border-gray-200"
                                         }`}
                                     >
-                                        <input
-                                            type="text"
-                                            placeholder={`Answer ${option}`}
-                                            value={currentQuestion.options[option] || ""}
-                                            onChange={(e) =>
-                                                updateQuestion(
-                                                    activeQuestion,
-                                                    `options.${option}`,
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="w-full bg-transparent text-lg font-medium text-white placeholder-white/70 focus:outline-none"
-                                        />
-                                        <button
-                                            onClick={() =>
-                                                updateQuestion(
-                                                    activeQuestion,
-                                                    "correct_answer",
-                                                    option
-                                                )
-                                            }
-                                            className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 transition-colors ${
-                                                isCorrect
-                                                    ? "bg-white text-green-600"
-                                                    : "bg-white/20 text-white hover:bg-white/30"
-                                            }`}
+                                        {/* Question Header */}
+                                        <div
+                                            className="flex items-center gap-3 p-3 cursor-pointer"
+                                            onClick={() => toggleCollapse(question.id)}
                                         >
-                                            <Check className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                            <div className="cursor-grab text-gray-400 hover:text-gray-600" onClick={(e) => e.stopPropagation()}>
+                                                <GripVertical className="h-4 w-4" />
+                                            </div>
+                                            <span className={`rounded px-2 py-0.5 text-xs font-medium ${
+                                                question.question_type === "coding"
+                                                    ? "bg-blue-100 text-blue-700"
+                                                    : "bg-purple-100 text-purple-700"
+                                            }`}>
+                                                {question.question_type === "coding" ? "Coding" : "MCQ"}
+                                            </span>
+                                            <span className="flex-1 text-sm text-gray-700 truncate">
+                                                {question.question_text || "New question..."}
+                                            </span>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteQuestion(question.id); }}
+                                                className="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                            {question.collapsed ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronUp className="h-4 w-4 text-gray-400" />}
+                                        </div>
 
-                        {/* Explanation */}
-                        {currentQuestion.explanation && (
-                            <div className="mt-6">
-                                <label className="mb-2 block text-sm font-medium text-gray-700">
-                                    AI Explanation
-                                </label>
-                                <textarea
-                                    value={currentQuestion.explanation}
-                                    onChange={(e) =>
-                                        updateQuestion(
-                                            activeQuestion,
-                                            "explanation",
-                                            e.target.value
-                                        )
-                                    }
-                                    className="w-full rounded-lg border border-gray-200 p-4 text-sm focus:border-purple-500 focus:outline-none"
-                                    rows={2}
-                                />
+                                        {/* Question Content */}
+                                        {!question.collapsed && (
+                                            <div className="px-3 pb-3 space-y-3">
+                                                <textarea
+                                                    placeholder="Enter your question..."
+                                                    value={question.question_text}
+                                                    onChange={(e) => updateQuestion(question.id, { question_text: e.target.value })}
+                                                    className="w-full rounded-lg border border-gray-200 bg-white p-3 text-gray-900 focus:border-purple-400 focus:outline-none resize-none"
+                                                    rows={2}
+                                                />
+
+                                                {question.question_type === "multiple_choice" ? (
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {["A", "B", "C", "D"].map((opt) => {
+                                                            const isCorrect = question.correct_answer === opt;
+                                                            return (
+                                                                <div
+                                                                    key={opt}
+                                                                    className={`relative flex items-center rounded-lg border bg-white p-2.5 transition-all ${
+                                                                        isCorrect ? "border-green-400 ring-1 ring-green-400" : "border-gray-200"
+                                                                    }`}
+                                                                >
+                                                                    <span className="mr-2 text-xs font-bold text-gray-400">{opt}</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder={`Option ${opt}`}
+                                                                        value={question.options[opt] || ""}
+                                                                        onChange={(e) => updateQuestion(question.id, {
+                                                                            options: { ...question.options, [opt]: e.target.value }
+                                                                        })}
+                                                                        className="flex-1 bg-transparent text-sm text-gray-800 focus:outline-none"
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => updateQuestion(question.id, { correct_answer: opt })}
+                                                                        className={`rounded-full p-1 transition-colors ${
+                                                                            isCorrect ? "bg-green-500 text-white" : "text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+                                                                        }`}
+                                                                    >
+                                                                        <Check className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-500 mb-1 block">Starter Code</label>
+                                                            <div className="rounded-lg overflow-hidden border border-gray-200">
+                                                                <Editor
+                                                                    height="100px"
+                                                                    language={question.language || "python"}
+                                                                    value={question.starter_code}
+                                                                    onChange={(v) => updateQuestion(question.id, { starter_code: v || "" })}
+                                                                    theme="vs-dark"
+                                                                    options={{ minimap: { enabled: false }, fontSize: 12, lineNumbers: "off", scrollBeyondLastLine: false }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-500 mb-1 block">Test Cases</label>
+                                                            <div className="space-y-1.5">
+                                                                {(question.test_cases || []).map((tc, tcIndex) => (
+                                                                    <div key={tcIndex} className="flex gap-2">
+                                                                        <input
+                                                                            placeholder="Input"
+                                                                            value={tc.input}
+                                                                            onChange={(e) => {
+                                                                                const newCases = [...(question.test_cases || [])];
+                                                                                newCases[tcIndex] = { ...tc, input: e.target.value };
+                                                                                updateQuestion(question.id, { test_cases: newCases });
+                                                                            }}
+                                                                            className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-white focus:border-blue-400 focus:outline-none"
+                                                                        />
+                                                                        <input
+                                                                            placeholder="Expected"
+                                                                            value={tc.expected_output}
+                                                                            onChange={(e) => {
+                                                                                const newCases = [...(question.test_cases || [])];
+                                                                                newCases[tcIndex] = { ...tc, expected_output: e.target.value };
+                                                                                updateQuestion(question.id, { test_cases: newCases });
+                                                                            }}
+                                                                            className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs bg-white focus:border-blue-400 focus:outline-none"
+                                                                        />
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const newCases = (question.test_cases || []).filter((_, i) => i !== tcIndex);
+                                                                                updateQuestion(question.id, { test_cases: newCases });
+                                                                            }}
+                                                                            className="text-gray-400 hover:text-red-500"
+                                                                        >
+                                                                            <X className="h-4 w-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                                <button
+                                                                    onClick={() => updateQuestion(question.id, {
+                                                                        test_cases: [...(question.test_cases || []), { input: "", expected_output: "" }]
+                                                                    })}
+                                                                    className="text-xs text-blue-600 hover:text-blue-700"
+                                                                >
+                                                                    + Add test case
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {question.explanation && (
+                                                    <div className="rounded-lg bg-amber-50 p-2.5 border border-amber-200">
+                                                        <p className="text-xs text-amber-800">{question.explanation}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                                <div ref={questionsEndRef} />
                             </div>
-                        )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
