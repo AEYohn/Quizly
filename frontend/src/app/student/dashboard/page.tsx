@@ -101,8 +101,14 @@ export default function StudentDashboard() {
                     return;
                 }
 
-                // Join the game
-                const joinRes = await fetch(`${API_URL}/games/${game.id}/join`, {
+                // Join the game - use game_id explicitly
+                const gameId = game.game_id;
+                if (!gameId) {
+                    setJoinError("Invalid game response. Please try again.");
+                    setJoiningGame(false);
+                    return;
+                }
+                const joinRes = await fetch(`${API_URL}/games/${gameId}/join`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ nickname: studentName }),
@@ -112,8 +118,8 @@ export default function StudentDashboard() {
                     const joinData = await joinRes.json();
                     sessionStorage.setItem("playerId", joinData.player_id);
                     sessionStorage.setItem("nickname", studentName);
-                    sessionStorage.setItem("gameId", game.id);
-                    router.push(`/play/${game.id}`);
+                    sessionStorage.setItem("gameId", gameId);
+                    router.push(`/play/${gameId}`);
                 } else {
                     const error = await joinRes.json();
                     setJoinError(error.detail || "Couldn't join the game");
@@ -164,31 +170,31 @@ export default function StudentDashboard() {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="min-h-screen bg-gray-950">
             {/* Header */}
-            <header className="sticky top-0 z-40 border-b bg-white/80 backdrop-blur-sm">
+            <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm">
                 <div className="mx-auto max-w-6xl px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-xl">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600 text-xl">
                                 <Sparkles className="h-5 w-5 text-white" />
                             </div>
                             <div>
-                                <h1 className="font-bold text-gray-900">Quizly</h1>
-                                <p className="text-xs text-gray-500">Welcome, {studentName}!</p>
+                                <h1 className="font-bold text-white">Quizly</h1>
+                                <p className="text-xs text-gray-400">Welcome, {studentName}!</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
                             <Link
                                 href="/student/learning"
-                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-medium"
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-sky-400 hover:bg-gray-800 font-medium"
                             >
                                 <BookOpen className="h-4 w-4" />
                                 My Learning
                             </Link>
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-white"
                             >
                                 <LogOut className="h-4 w-4" />
                                 Switch User
@@ -200,11 +206,11 @@ export default function StudentDashboard() {
 
             <main className="mx-auto max-w-6xl px-6 py-8">
                 {/* Join with Code */}
-                <div className="mb-8 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white shadow-xl">
+                <div className="mb-8 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 p-6 text-white shadow-xl">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h2 className="text-xl font-bold mb-1">Join a Live Game</h2>
-                            <p className="text-indigo-200">Enter the game code from your teacher</p>
+                            <p className="text-sky-200">Enter the game code from your teacher</p>
                         </div>
                         <form onSubmit={handleJoinWithCode} className="flex gap-3">
                             <input
@@ -218,7 +224,7 @@ export default function StudentDashboard() {
                             <button
                                 type="submit"
                                 disabled={joiningGame || joinCode.length < 4}
-                                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-indigo-600 transition-all hover:bg-indigo-50 disabled:opacity-50"
+                                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-sky-600 transition-all hover:bg-sky-50 disabled:opacity-50"
                             >
                                 {joiningGame ? (
                                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -239,33 +245,33 @@ export default function StudentDashboard() {
                 {/* Active Games */}
                 {activeGames.length > 0 && (
                     <section className="mb-8">
-                        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
-                            <Gamepad2 className="h-5 w-5 text-green-600" />
+                        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+                            <Gamepad2 className="h-5 w-5 text-emerald-400" />
                             Live Games
                         </h2>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {activeGames.map((game) => (
                                 <div
                                     key={game.id}
-                                    className="rounded-xl border border-green-200 bg-green-50 p-4 transition-all hover:shadow-md"
+                                    className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 transition-all hover:bg-emerald-500/20"
                                 >
                                     <div className="mb-3 flex items-center justify-between">
-                                        <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-bold text-white animate-pulse">
+                                        <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white animate-pulse">
                                             LIVE
                                         </span>
-                                        <span className="font-mono text-lg font-bold text-green-700">
+                                        <span className="font-mono text-lg font-bold text-emerald-400">
                                             {game.game_code}
                                         </span>
                                     </div>
-                                    <h3 className="font-semibold text-gray-900 mb-2">{game.quiz_title}</h3>
+                                    <h3 className="font-semibold text-white mb-2">{game.quiz_title}</h3>
                                     <div className="flex items-center justify-between">
-                                        <span className="flex items-center gap-1 text-sm text-gray-600">
+                                        <span className="flex items-center gap-1 text-sm text-gray-400">
                                             <Users className="h-4 w-4" />
                                             {game.player_count} players
                                         </span>
                                         <button
                                             onClick={() => joinActiveGame(game.id)}
-                                            className="flex items-center gap-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                                            className="flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
                                         >
                                             <Play className="h-4 w-4" />
                                             Join
@@ -280,47 +286,47 @@ export default function StudentDashboard() {
                 {/* Browse Quizzes */}
                 <section>
                     <div className="mb-4 flex items-center justify-between">
-                        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-                            <BookOpen className="h-5 w-5 text-indigo-600" />
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+                            <BookOpen className="h-5 w-5 text-sky-400" />
                             Browse Quizzes
                         </h2>
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                             <input
                                 type="text"
                                 placeholder="Search..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none"
+                                className="rounded-lg border border-gray-700 bg-gray-800 py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none"
                             />
                         </div>
                     </div>
 
                     {loading ? (
                         <div className="flex h-48 items-center justify-center">
-                            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                            <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
                         </div>
                     ) : filteredQuizzes.length === 0 ? (
-                        <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-12 text-center">
-                            <BookOpen className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">No quizzes available</h3>
-                            <p className="text-gray-500">Ask your teacher to share a game code!</p>
+                        <div className="rounded-xl border-2 border-dashed border-gray-700 bg-gray-900 p-12 text-center">
+                            <BookOpen className="mx-auto h-12 w-12 text-gray-600 mb-4" />
+                            <h3 className="text-lg font-medium text-white mb-2">No quizzes available</h3>
+                            <p className="text-gray-400">Ask your teacher to share a game code!</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {filteredQuizzes.map((quiz) => (
                                 <div
                                     key={quiz.id}
-                                    className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md"
+                                    className="rounded-xl border border-gray-800 bg-gray-900 p-5 transition-all hover:border-gray-700"
                                 >
                                     <div className="mb-3">
-                                        <span className="inline-block rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+                                        <span className="inline-block rounded-full bg-sky-500/20 px-3 py-1 text-xs font-medium text-sky-400">
                                             {quiz.subject || "General"}
                                         </span>
                                     </div>
-                                    <h3 className="font-semibold text-gray-900 mb-2">{quiz.title}</h3>
+                                    <h3 className="font-semibold text-white mb-2">{quiz.title}</h3>
                                     {quiz.description && (
-                                        <p className="text-sm text-gray-500 line-clamp-2 mb-3">{quiz.description}</p>
+                                        <p className="text-sm text-gray-400 line-clamp-2 mb-3">{quiz.description}</p>
                                     )}
                                     <div className="flex items-center gap-4 text-xs text-gray-500">
                                         <span className="flex items-center gap-1">

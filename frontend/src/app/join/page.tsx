@@ -31,7 +31,13 @@ export default function JoinGamePage() {
                     setLoading(false);
                     return;
                 }
-                setGameId(game.game_id || game.id);
+                const gameId = game.game_id;
+                if (!gameId) {
+                    setError("Invalid game. Please try again.");
+                    setLoading(false);
+                    return;
+                }
+                setGameId(gameId);
                 setStep("nickname");
             } else {
                 setError("Game not found. Check your code!");
@@ -51,12 +57,11 @@ export default function JoinGamePage() {
         setError("");
 
         try {
-            // Use /games/join endpoint with game_code and nickname
-            const response = await fetch(`${API_URL}/games/join`, {
+            // Use /games/{id}/join endpoint
+            const response = await fetch(`${API_URL}/games/${gameId}/join`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    game_code: gameCode.toUpperCase(),
                     nickname: nickname.trim()
                 }),
             });
@@ -66,9 +71,9 @@ export default function JoinGamePage() {
                 // Store player info
                 sessionStorage.setItem("playerId", data.player_id);
                 sessionStorage.setItem("nickname", nickname.trim());
-                sessionStorage.setItem("gameId", data.game_id || gameId);
+                sessionStorage.setItem("gameId", gameId);
                 // Navigate to game
-                router.push(`/play/${data.game_id || gameId}`);
+                router.push(`/play/${gameId}`);
             } else {
                 const errorData = await response.json();
                 setError(errorData.detail || "Couldn't join. Try a different name!");
@@ -81,23 +86,23 @@ export default function JoinGamePage() {
     };
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-6">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-6">
             {/* Logo */}
             <div className="mb-8 text-center">
                 <div className="mb-4 flex items-center justify-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-xl">
-                        <Sparkles className="h-9 w-9 text-purple-600" />
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-600 shadow-xl shadow-sky-600/20">
+                        <Sparkles className="h-9 w-9 text-white" />
                     </div>
                 </div>
                 <h1 className="text-4xl font-bold text-white">Quizly</h1>
-                <p className="mt-2 text-white/80">Play, Learn, Win!</p>
+                <p className="mt-2 text-gray-400">Play, Learn, Win!</p>
             </div>
 
             {/* Card */}
-            <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="w-full max-w-sm rounded-3xl bg-gray-900 p-8 shadow-2xl border border-gray-800">
                 {step === "code" ? (
                     <form onSubmit={handleCodeSubmit}>
-                        <h2 className="mb-6 text-center text-2xl font-bold text-gray-900">
+                        <h2 className="mb-6 text-center text-2xl font-bold text-white">
                             Enter Game Code
                         </h2>
                         <input
@@ -106,16 +111,16 @@ export default function JoinGamePage() {
                             onChange={(e) => setGameCode(e.target.value.toUpperCase())}
                             placeholder="ABC123"
                             maxLength={6}
-                            className="mb-4 w-full rounded-2xl border-2 border-gray-200 p-4 text-center text-3xl font-bold tracking-widest text-gray-900 focus:border-purple-500 focus:outline-none transition-colors"
+                            className="mb-4 w-full rounded-2xl border-2 border-gray-700 bg-gray-800 p-4 text-center text-3xl font-bold tracking-widest text-white focus:border-sky-500 focus:outline-none transition-colors"
                             autoFocus
                         />
                         {error && (
-                            <p className="mb-4 text-center text-red-500 font-medium">{error}</p>
+                            <p className="mb-4 text-center text-red-400 font-medium">{error}</p>
                         )}
                         <button
                             type="submit"
                             disabled={loading || gameCode.length < 4}
-                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 p-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                         >
                             {loading ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -129,8 +134,8 @@ export default function JoinGamePage() {
                     </form>
                 ) : (
                     <form onSubmit={handleJoin}>
-                        <h2 className="mb-6 text-center text-2xl font-bold text-gray-900">
-                            What's your name?
+                        <h2 className="mb-6 text-center text-2xl font-bold text-white">
+                            What&apos;s your name?
                         </h2>
                         <input
                             type="text"
@@ -138,22 +143,22 @@ export default function JoinGamePage() {
                             onChange={(e) => setNickname(e.target.value)}
                             placeholder="Your nickname"
                             maxLength={20}
-                            className="mb-4 w-full rounded-2xl border-2 border-gray-200 p-4 text-center text-xl font-bold text-gray-900 focus:border-purple-500 focus:outline-none transition-colors"
+                            className="mb-4 w-full rounded-2xl border-2 border-gray-700 bg-gray-800 p-4 text-center text-xl font-bold text-white focus:border-sky-500 focus:outline-none transition-colors"
                             autoFocus
                         />
                         {error && (
-                            <p className="mb-4 text-center text-red-500 font-medium">{error}</p>
+                            <p className="mb-4 text-center text-red-400 font-medium">{error}</p>
                         )}
                         <button
                             type="submit"
                             disabled={loading || !nickname.trim()}
-                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 p-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                         >
                             {loading ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />
                             ) : (
                                 <>
-                                    Let's Go!
+                                    Let&apos;s Go!
                                     <Zap className="h-5 w-5" />
                                 </>
                             )}
@@ -164,7 +169,7 @@ export default function JoinGamePage() {
                                 setStep("code");
                                 setError("");
                             }}
-                            className="mt-4 w-full text-center text-gray-500 hover:text-gray-700"
+                            className="mt-4 w-full text-center text-gray-500 hover:text-gray-300"
                         >
                             ← Different code
                         </button>
@@ -173,7 +178,7 @@ export default function JoinGamePage() {
             </div>
 
             {/* Powered by */}
-            <div className="mt-8 flex items-center gap-2 text-white/60">
+            <div className="mt-8 flex items-center gap-2 text-gray-500">
                 <Sparkles className="h-4 w-4" />
                 <span className="text-sm">Powered by Gemini AI</span>
             </div>

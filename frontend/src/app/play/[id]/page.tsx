@@ -500,10 +500,10 @@ export default function PlayGamePage() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
                 <div className="text-center">
-                    <Loader2 className="mx-auto h-12 w-12 animate-spin text-white" />
-                    <p className="mt-4 text-white/80">Loading game...</p>
+                    <Loader2 className="mx-auto h-12 w-12 animate-spin text-sky-400" />
+                    <p className="mt-4 text-gray-400">Loading game...</p>
                 </div>
             </div>
         );
@@ -511,11 +511,11 @@ export default function PlayGamePage() {
 
     if (!game) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-8">
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-8">
                 <div className="text-xl text-white">Game not found</div>
                 <button
                     onClick={() => router.push("/join")}
-                    className="mt-4 rounded-full bg-white px-6 py-3 font-bold text-purple-600 shadow-lg hover:scale-105 transition-transform"
+                    className="mt-4 rounded-full bg-sky-600 px-6 py-3 font-bold text-white shadow-lg hover:bg-sky-500 transition-colors"
                 >
                     Join Another Game
                 </button>
@@ -526,18 +526,18 @@ export default function PlayGamePage() {
     // Lobby - waiting for game to start
     if (game.status === "lobby") {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-8">
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-8">
                 <div className="mb-8 animate-bounce">
-                    <Sparkles className="h-20 w-20 text-yellow-300" />
+                    <Sparkles className="h-20 w-20 text-sky-400" />
                 </div>
                 <h1 className="mb-4 text-4xl font-bold text-white">
                     Hey {nickname}! 👋
                 </h1>
-                <p className="mb-8 text-xl text-white/80">
+                <p className="mb-8 text-xl text-gray-400">
                     Get ready to play...
                 </p>
-                <div className="flex items-center gap-3 rounded-full bg-white/20 px-6 py-3 backdrop-blur">
-                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                <div className="flex items-center gap-3 rounded-full bg-gray-900 px-6 py-3 border border-gray-800">
+                    <Loader2 className="h-5 w-5 animate-spin text-sky-400" />
                     <span className="text-white">Waiting for host to start</span>
                 </div>
             </div>
@@ -547,12 +547,12 @@ export default function PlayGamePage() {
     // Game finished
     if (game.status === "finished") {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4 overflow-auto">
+            <div className="min-h-screen bg-gray-950 p-4 overflow-auto">
                 {showAnalytics && playerId ? (
                     <div className="max-w-2xl mx-auto py-8">
                         <button
                             onClick={() => setShowAnalytics(false)}
-                            className="mb-4 text-white/70 hover:text-white flex items-center gap-2"
+                            className="mb-4 text-gray-400 hover:text-white flex items-center gap-2"
                         >
                             ← Back to Results
                         </button>
@@ -560,7 +560,7 @@ export default function PlayGamePage() {
                         <div className="mt-6 flex justify-center">
                             <button
                                 onClick={() => router.push("/join")}
-                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                                className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors"
                             >
                                 Play Again
                             </button>
@@ -570,7 +570,7 @@ export default function PlayGamePage() {
                     <div className="max-w-2xl mx-auto py-8">
                         <button
                             onClick={() => setShowExitTicket(false)}
-                            className="mb-4 text-white/70 hover:text-white flex items-center gap-2"
+                            className="mb-4 text-gray-400 hover:text-white flex items-center gap-2"
                         >
                             ← Back to Results
                         </button>
@@ -584,11 +584,11 @@ export default function PlayGamePage() {
                             </div>
 
                             {/* Micro Lesson */}
-                            <div className="bg-blue-500/20 rounded-xl p-4 border border-blue-500/30">
-                                <h3 className="font-bold text-blue-300 mb-2 flex items-center gap-2">
+                            <div className="bg-sky-500/20 rounded-xl p-4 border border-sky-500/30">
+                                <h3 className="font-bold text-sky-300 mb-2 flex items-center gap-2">
                                     <Sparkles className="h-5 w-5" /> Quick Review
                                 </h3>
-                                <p className="text-white/90 text-sm">{exitTicket.micro_lesson}</p>
+                                <p className="text-gray-200 text-sm">{exitTicket.micro_lesson}</p>
                                 {exitTicket.encouragement && (
                                     <p className="text-cyan-300 text-sm mt-2 italic">{exitTicket.encouragement}</p>
                                 )}
@@ -657,7 +657,7 @@ export default function PlayGamePage() {
                             {/* Link to learning dashboard */}
                             <Link
                                 href="/student/learning"
-                                className="flex items-center justify-center gap-2 bg-white/10 rounded-xl p-4 border border-white/20 text-white hover:bg-white/20 transition-colors"
+                                className="flex items-center justify-center gap-2 bg-gray-900 rounded-xl p-4 border border-gray-800 text-white hover:bg-gray-800 transition-colors"
                             >
                                 <BookOpen className="h-5 w-5" />
                                 View All Your Exit Tickets
@@ -668,7 +668,7 @@ export default function PlayGamePage() {
                         <div className="mt-6 flex flex-col gap-3 items-center">
                             <button
                                 onClick={() => router.push("/join")}
-                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                                className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors"
                             >
                                 Play Again
                             </button>
@@ -688,7 +688,7 @@ export default function PlayGamePage() {
                                         #{playerState.rank}
                                     </span>
                                 </div>
-                                <p className="text-2xl text-white/90">
+                                <p className="text-2xl text-gray-300">
                                     {playerState.score.toLocaleString()} points
                                 </p>
                             </div>
@@ -696,7 +696,7 @@ export default function PlayGamePage() {
                         <div className="flex flex-col gap-3 w-full max-w-sm">
                             <button
                                 onClick={() => setShowAnalytics(true)}
-                                className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                                className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors flex items-center justify-center gap-2"
                             >
                                 <BarChart3 className="h-5 w-5" />
                                 View Learning Insights
@@ -704,7 +704,7 @@ export default function PlayGamePage() {
                             <button
                                 onClick={fetchExitTicket}
                                 disabled={exitTicketLoading}
-                                className="rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="rounded-full bg-amber-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-amber-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {exitTicketLoading ? (
                                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -715,21 +715,21 @@ export default function PlayGamePage() {
                             </button>
                             <button
                                 onClick={exportStudyGuide}
-                                className="rounded-full bg-white/20 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-white/30 transition-all flex items-center justify-center gap-2"
+                                className="rounded-full bg-gray-800 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 border border-gray-700"
                             >
                                 <Download className="h-5 w-5" />
                                 Download Results
                             </button>
                             <Link
                                 href="/student/learning"
-                                className="rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                                className="rounded-full bg-purple-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
                             >
                                 <BookOpen className="h-5 w-5" />
                                 My Learning Dashboard
                             </Link>
                             <button
                                 onClick={() => router.push("/join")}
-                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                                className="rounded-full bg-emerald-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-emerald-500 transition-colors"
                             >
                                 Play Again
                             </button>
@@ -743,7 +743,7 @@ export default function PlayGamePage() {
     // Results - after answering (show AI host message)
     if (hasAnswered && hostMessage) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4 overflow-auto">
+            <div className="min-h-screen bg-gray-950 p-4 overflow-auto">
                 <div className="flex flex-col items-center justify-center min-h-[90vh] max-w-md mx-auto">
                     {/* Result Icon */}
                     <div className={`mb-6 flex h-28 w-28 items-center justify-center rounded-full ${
@@ -801,7 +801,7 @@ export default function PlayGamePage() {
 
                     {/* AI Host Message */}
                     {!showPeerDiscussion && (
-                        <div className="mb-8 w-full rounded-2xl bg-white/20 p-6 backdrop-blur-lg border border-white/30">
+                        <div className="mb-8 w-full rounded-2xl bg-gray-900 p-6 border border-gray-800">
                             <div className="flex items-start gap-3">
                                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
                                     <Sparkles className="h-5 w-5 text-white" />
@@ -819,13 +819,13 @@ export default function PlayGamePage() {
                     )}
 
                     {/* Current Score */}
-                    <div className="rounded-2xl bg-white/10 px-8 py-4 text-center backdrop-blur w-full">
-                        <p className="text-white/70 text-sm">Your Score</p>
+                    <div className="rounded-2xl bg-gray-900 px-8 py-4 text-center border border-gray-800 w-full">
+                        <p className="text-gray-400 text-sm">Your Score</p>
                         <p className="text-3xl font-bold text-white">
                             {playerState?.score.toLocaleString() || 0}
                         </p>
                         {playerState && (
-                            <p className="mt-1 text-white/70">Rank #{playerState.rank}</p>
+                            <p className="mt-1 text-gray-400">Rank #{playerState.rank}</p>
                         )}
                     </div>
 
@@ -848,7 +848,7 @@ export default function PlayGamePage() {
                             ) : (
                                 <button
                                     onClick={() => router.push("/join")}
-                                    className="rounded-full bg-green-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform"
+                                    className="rounded-full bg-emerald-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-emerald-500 transition-colors"
                                 >
                                     Finish Quiz
                                 </button>
@@ -858,7 +858,7 @@ export default function PlayGamePage() {
 
                     {/* FOR SYNC MODE: Keep existing waiting message */}
                     {game?.sync_mode !== false && !showPeerDiscussion && (
-                        <div className="mt-8 flex items-center gap-2 text-white/60">
+                        <div className="mt-8 flex items-center gap-2 text-gray-500">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             <span>Waiting for next question...</span>
                         </div>
@@ -871,9 +871,9 @@ export default function PlayGamePage() {
     // Waiting for result after answering
     if (hasAnswered && !hostMessage) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-8">
-                <Loader2 className="h-12 w-12 animate-spin text-white mb-4" />
-                <p className="text-white/80">Checking your answer...</p>
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-8">
+                <Loader2 className="h-12 w-12 animate-spin text-sky-400 mb-4" />
+                <p className="text-gray-400">Checking your answer...</p>
             </div>
         );
     }
@@ -890,10 +890,10 @@ export default function PlayGamePage() {
     // Show confidence confirmation step
     if (showConfirmStep && selectedAnswer && game.current_question) {
         return (
-            <div className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
+            <div className="flex min-h-screen flex-col bg-gray-950 p-4">
                 {/* Header */}
                 <div className="mb-4 flex items-center justify-between">
-                    <div className="rounded-full bg-white/20 px-4 py-2 backdrop-blur">
+                    <div className="rounded-full bg-gray-900 px-4 py-2 border border-gray-800">
                         <span className="text-white/70">Q</span>{" "}
                         <span className="font-bold text-white">
                             {game.current_question_index + 1}/{game.total_questions}
@@ -917,8 +917,8 @@ export default function PlayGamePage() {
                 </div>
 
                 {/* Selected Answer Display */}
-                <div className="mb-6 rounded-2xl bg-white/20 p-4 backdrop-blur border border-white/30">
-                    <p className="text-white/70 text-sm mb-2">Your answer:</p>
+                <div className="mb-6 rounded-2xl bg-gray-900 p-4 border border-gray-800">
+                    <p className="text-gray-400 text-sm mb-2">Your answer:</p>
                     <div className={`flex items-center gap-3 rounded-xl bg-gradient-to-r ${
                         colors[Object.keys(game.current_question.options).indexOf(selectedAnswer)]
                     } p-4`}>
@@ -932,7 +932,7 @@ export default function PlayGamePage() {
                 </div>
 
                 {/* Confidence Slider */}
-                <div className="mb-6 rounded-2xl bg-white/10 p-6 backdrop-blur border border-white/20">
+                <div className="mb-6 rounded-2xl bg-gray-900 p-6 border border-gray-800">
                     <div className="flex items-center gap-2 mb-4">
                         <Brain className="h-5 w-5 text-white" />
                         <h3 className="font-bold text-white">How confident are you?</h3>
@@ -948,7 +948,7 @@ export default function PlayGamePage() {
                 <div className="mb-6">
                     <button
                         onClick={() => setShowReasoning(!showReasoning)}
-                        className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-3"
+                        className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-3"
                     >
                         {showReasoning ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         <span className="text-sm">Why did you choose this? (optional)</span>
@@ -958,7 +958,7 @@ export default function PlayGamePage() {
                             value={reasoning}
                             onChange={(e) => setReasoning(e.target.value)}
                             placeholder="Share your thinking... (helps with personalized feedback)"
-                            className="w-full bg-white/10 rounded-xl p-4 text-white placeholder-white/50 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 resize-none"
+                            className="w-full bg-gray-800 rounded-xl p-4 text-white placeholder-gray-500 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/50 resize-none"
                             rows={3}
                         />
                     )}
@@ -971,7 +971,7 @@ export default function PlayGamePage() {
                             setShowConfirmStep(false);
                             setSelectedAnswer(null);
                         }}
-                        className="flex-1 rounded-xl bg-white/20 py-4 font-bold text-white hover:bg-white/30 transition-colors"
+                        className="flex-1 rounded-xl bg-gray-800 py-4 font-bold text-white hover:bg-gray-700 transition-colors border border-gray-700"
                     >
                         Change Answer
                     </button>
@@ -985,8 +985,8 @@ export default function PlayGamePage() {
 
                 {/* Score footer */}
                 <div className="mt-4 flex justify-center">
-                    <div className="rounded-full bg-white/20 px-6 py-2 backdrop-blur">
-                        <span className="text-white/70">Score: </span>
+                    <div className="rounded-full bg-gray-900 px-6 py-2 border border-gray-800">
+                        <span className="text-gray-400">Score: </span>
                         <span className="font-bold text-white">
                             {playerState?.score?.toLocaleString() || 0}
                         </span>
@@ -997,10 +997,10 @@ export default function PlayGamePage() {
     }
 
     return (
-        <div className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
+        <div className="flex min-h-screen flex-col bg-gray-950 p-4">
             {/* Header */}
             <div className="mb-4 flex items-center justify-between">
-                <div className="rounded-full bg-white/20 px-4 py-2 backdrop-blur">
+                <div className="rounded-full bg-gray-900 px-4 py-2 border border-gray-800">
                     <span className="text-white/70">Q</span>{" "}
                     <span className="font-bold text-white">
                         {game.current_question_index + 1}/{game.total_questions}
@@ -1059,8 +1059,8 @@ export default function PlayGamePage() {
 
             {/* Score footer */}
             <div className="mt-4 flex justify-center">
-                <div className="rounded-full bg-white/20 px-6 py-2 backdrop-blur">
-                    <span className="text-white/70">Score: </span>
+                <div className="rounded-full bg-gray-900 px-6 py-2 border border-gray-800">
+                    <span className="text-gray-400">Score: </span>
                     <span className="font-bold text-white">
                         {playerState?.score?.toLocaleString() || 0}
                     </span>

@@ -77,8 +77,14 @@ export default function StudentHubPage() {
                     return;
                 }
 
-                // Join the game
-                const joinRes = await fetch(`${API_URL}/games/${game.id}/join`, {
+                // Join the game - use game_id explicitly
+                const gameId = game.game_id;
+                if (!gameId) {
+                    setJoinError("Invalid game response. Please try again.");
+                    setIsLoading(false);
+                    return;
+                }
+                const joinRes = await fetch(`${API_URL}/games/${gameId}/join`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ nickname: savedName }),
@@ -88,14 +94,13 @@ export default function StudentHubPage() {
                     const joinData = await joinRes.json();
                     sessionStorage.setItem("playerId", joinData.player_id);
                     sessionStorage.setItem("nickname", savedName);
-                    sessionStorage.setItem("gameId", game.id);
-                    router.push(`/play/${game.id}`);
+                    sessionStorage.setItem("gameId", gameId);
+                    router.push(`/play/${gameId}`);
                 } else {
-                    const error = await joinRes.json();
-                    setJoinError(error.detail || "Couldn't join the game");
+                    setJoinError("Couldn't join game. Try again!");
                 }
             } else {
-                setJoinError("Game not found. Check your code!");
+                setJoinError("Game not found. Check the code!");
             }
         } catch {
             setJoinError("Connection failed. Try again!");
@@ -115,29 +120,29 @@ export default function StudentHubPage() {
     // If no name saved, show name entry form
     if (!savedName) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 px-6">
-                <div className="w-full max-w-md animate-fade-in rounded-2xl bg-white p-8 shadow-xl">
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-6">
+                <div className="w-full max-w-md animate-fade-in rounded-2xl bg-gray-900 p-8 shadow-xl border border-gray-800">
                     <div className="mb-8 text-center">
-                        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-3xl shadow-lg shadow-indigo-600/20">
+                        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-600 text-3xl shadow-lg shadow-sky-600/20">
                             🎒
                         </div>
-                        <h1 className="text-2xl font-bold text-gray-900">Welcome to Quizly!</h1>
-                        <p className="mt-2 text-gray-500">
+                        <h1 className="text-2xl font-bold text-white">Welcome to Quizly!</h1>
+                        <p className="mt-2 text-gray-400">
                             Enter your name to get started
                         </p>
                     </div>
 
                     <form onSubmit={handleSaveName} className="space-y-6">
                         <div>
-                            <label className="mb-2 block text-sm font-medium text-gray-700">
-                                What's your name?
+                            <label className="mb-2 block text-sm font-medium text-gray-300">
+                                What&apos;s your name?
                             </label>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="e.g. Alex Smith"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-lg outline-none transition-all placeholder:text-gray-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/20"
+                                className="w-full rounded-xl border-2 border-gray-700 bg-gray-800 px-4 py-3 text-lg text-white outline-none transition-all placeholder:text-gray-500 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/20"
                                 autoFocus
                             />
                         </div>
@@ -145,7 +150,7 @@ export default function StudentHubPage() {
                         <button
                             type="submit"
                             disabled={!name.trim()}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 text-lg font-bold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/40 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-4 text-lg font-bold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-500 hover:shadow-xl hover:shadow-sky-600/40 disabled:opacity-50"
                         >
                             Get Started
                             <ArrowRight className="h-5 w-5" />
@@ -153,7 +158,7 @@ export default function StudentHubPage() {
                     </form>
 
                     <div className="mt-8 text-center">
-                        <Link href="/" className="text-sm text-gray-400 hover:text-gray-600">
+                        <Link href="/" className="text-sm text-gray-500 hover:text-gray-300">
                             ← Back to Home
                         </Link>
                     </div>
@@ -164,23 +169,23 @@ export default function StudentHubPage() {
 
     // Student Hub - main dashboard
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="min-h-screen bg-gray-950">
             {/* Header */}
-            <header className="sticky top-0 z-40 border-b bg-white/80 backdrop-blur-sm">
+            <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm">
                 <div className="mx-auto max-w-4xl px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600">
                                 <Sparkles className="h-5 w-5 text-white" />
                             </div>
                             <div>
-                                <h1 className="font-bold text-gray-900">Quizly</h1>
-                                <p className="text-xs text-gray-500">Welcome back, {savedName}!</p>
+                                <h1 className="font-bold text-white">Quizly</h1>
+                                <p className="text-xs text-gray-400">Welcome back, {savedName}!</p>
                             </div>
                         </div>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-white"
                         >
                             <LogOut className="h-4 w-4" />
                             Switch User
@@ -191,14 +196,14 @@ export default function StudentHubPage() {
 
             <main className="mx-auto max-w-4xl px-6 py-8">
                 {/* Join Game Card */}
-                <div className="mb-8 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white shadow-xl">
+                <div className="mb-8 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 p-6 text-white shadow-xl">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h2 className="text-xl font-bold mb-1 flex items-center gap-2">
                                 <Gamepad2 className="h-6 w-6" />
                                 Join a Live Game
                             </h2>
-                            <p className="text-indigo-200">Enter the game code from your teacher</p>
+                            <p className="text-sky-200">Enter the game code from your teacher</p>
                         </div>
                         <form onSubmit={handleJoinGame} className="flex gap-3">
                             <input
@@ -212,7 +217,7 @@ export default function StudentHubPage() {
                             <button
                                 type="submit"
                                 disabled={isLoading || joinCode.length < 4}
-                                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-indigo-600 transition-all hover:bg-indigo-50 disabled:opacity-50"
+                                className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-sky-600 transition-all hover:bg-sky-50 disabled:opacity-50"
                             >
                                 {isLoading ? (
                                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -233,113 +238,113 @@ export default function StudentHubPage() {
                 {/* Stats Overview */}
                 {stats && (
                     <div className="grid grid-cols-3 gap-4 mb-8">
-                        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-2 text-indigo-600 mb-1">
+                        <div className="rounded-xl bg-gray-900 p-4 border border-gray-800">
+                            <div className="flex items-center gap-2 text-sky-400 mb-1">
                                 <Trophy className="h-4 w-4" />
                                 <span className="text-xs font-medium">Games Played</span>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900">{stats.games_played}</p>
+                            <p className="text-2xl font-bold text-white">{stats.games_played}</p>
                         </div>
-                        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-2 text-emerald-600 mb-1">
+                        <div className="rounded-xl bg-gray-900 p-4 border border-gray-800">
+                            <div className="flex items-center gap-2 text-emerald-400 mb-1">
                                 <BookOpen className="h-4 w-4" />
                                 <span className="text-xs font-medium">Exit Tickets</span>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900">{stats.total_exit_tickets}</p>
+                            <p className="text-2xl font-bold text-white">{stats.total_exit_tickets}</p>
                         </div>
-                        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-2 text-orange-600 mb-1">
+                        <div className="rounded-xl bg-gray-900 p-4 border border-gray-800">
+                            <div className="flex items-center gap-2 text-orange-400 mb-1">
                                 <Target className="h-4 w-4" />
                                 <span className="text-xs font-medium">To Review</span>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900">{stats.active_misconceptions}</p>
+                            <p className="text-2xl font-bold text-white">{stats.active_misconceptions}</p>
                         </div>
                     </div>
                 )}
 
                 {/* Quick Actions */}
-                <h2 className="text-lg font-bold text-gray-900 mb-4">What would you like to do?</h2>
+                <h2 className="text-lg font-bold text-white mb-4">What would you like to do?</h2>
                 <div className="grid md:grid-cols-2 gap-4">
                     {/* Learning Dashboard */}
                     <Link
                         href="/student/learning"
-                        className="group rounded-xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all"
+                        className="group rounded-xl bg-gray-900 p-6 border border-gray-800 hover:border-sky-500/50 transition-all"
                     >
                         <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
                                 <Brain className="h-6 w-6" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-gray-900 mb-1">My Learning Dashboard</h3>
-                                <p className="text-sm text-gray-500">
+                                <h3 className="font-bold text-white mb-1">My Learning Dashboard</h3>
+                                <p className="text-sm text-gray-400">
                                     View exit tickets, track progress, and review misconceptions
                                 </p>
                             </div>
-                            <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                            <ArrowRight className="h-5 w-5 text-gray-600 group-hover:text-sky-400 transition-colors" />
                         </div>
                     </Link>
 
                     {/* Coding Challenges */}
                     <Link
                         href="/play/coding"
-                        className="group rounded-xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-emerald-200 transition-all"
+                        className="group rounded-xl bg-gray-900 p-6 border border-gray-800 hover:border-emerald-500/50 transition-all"
                     >
                         <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                                 <Code2 className="h-6 w-6" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-gray-900 mb-1">Coding Challenges</h3>
-                                <p className="text-sm text-gray-500">
+                                <h3 className="font-bold text-white mb-1">Coding Challenges</h3>
+                                <p className="text-sm text-gray-400">
                                     Practice LeetCode-style problems and improve your skills
                                 </p>
                             </div>
-                            <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-emerald-600 transition-colors" />
+                            <ArrowRight className="h-5 w-5 text-gray-600 group-hover:text-emerald-400 transition-colors" />
                         </div>
                     </Link>
 
                     {/* Browse Quizzes */}
                     <Link
                         href="/student/dashboard"
-                        className="group rounded-xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-purple-200 transition-all"
+                        className="group rounded-xl bg-gray-900 p-6 border border-gray-800 hover:border-purple-500/50 transition-all"
                     >
                         <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
                                 <BookOpen className="h-6 w-6" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-gray-900 mb-1">Browse Quizzes</h3>
-                                <p className="text-sm text-gray-500">
+                                <h3 className="font-bold text-white mb-1">Browse Quizzes</h3>
+                                <p className="text-sm text-gray-400">
                                     Find and join available quizzes from your teachers
                                 </p>
                             </div>
-                            <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
+                            <ArrowRight className="h-5 w-5 text-gray-600 group-hover:text-purple-400 transition-colors" />
                         </div>
                     </Link>
 
                     {/* My Profile */}
                     <Link
                         href="/student/profile"
-                        className="group rounded-xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-amber-200 transition-all"
+                        className="group rounded-xl bg-gray-900 p-6 border border-gray-800 hover:border-amber-500/50 transition-all"
                     >
                         <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                                 <User className="h-6 w-6" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-bold text-gray-900 mb-1">My Profile</h3>
-                                <p className="text-sm text-gray-500">
+                                <h3 className="font-bold text-white mb-1">My Profile</h3>
+                                <p className="text-sm text-gray-400">
                                     View your stats, achievements, and learning history
                                 </p>
                             </div>
-                            <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-amber-600 transition-colors" />
+                            <ArrowRight className="h-5 w-5 text-gray-600 group-hover:text-amber-400 transition-colors" />
                         </div>
                     </Link>
                 </div>
 
                 {/* Footer */}
                 <div className="mt-12 text-center">
-                    <p className="flex items-center justify-center gap-2 text-sm text-gray-400">
+                    <p className="flex items-center justify-center gap-2 text-sm text-gray-500">
                         <Sparkles className="h-4 w-4" />
                         Powered by Quizly AI
                     </p>
