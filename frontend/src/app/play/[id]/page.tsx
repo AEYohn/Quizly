@@ -320,6 +320,9 @@ export default function PlayGamePage() {
                     setStreak(0);
                 }
 
+                // Fetch updated player state BEFORE showing AI reaction
+                await fetchPlayerState();
+
                 // Fetch AI host reaction
                 fetchHostReaction(
                     isCorrect,
@@ -333,9 +336,6 @@ export default function PlayGamePage() {
                 // If answer submission failed, still show a message
                 setHostMessage("Answer submitted!");
             }
-
-            // Fetch updated player state
-            fetchPlayerState();
         } catch (error) {
             console.error("Failed to submit answer:", error);
         }
