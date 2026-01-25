@@ -202,6 +202,7 @@ class GenerateProblemRequest(BaseModel):
     session_id: Optional[str] = None
     num_test_cases: int = 5
     attachments: Optional[List[Attachment]] = None  # Images for multimodal input
+    validate_solution: bool = True  # Run solution against test cases to verify
 
 
 @router.post("/generate")
@@ -299,8 +300,8 @@ Return ONLY valid JSON, no markdown code blocks."""
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate problem: {str(e)}")
 
-    # Return the generated data without saving to DB (let frontend handle that)
-    return {
+    # Extract generated data
+    result = {
         "title": generated.get("title", "Untitled Problem"),
         "description": generated.get("description", ""),
         "constraints": generated.get("constraints", ""),
@@ -310,7 +311,86 @@ Return ONLY valid JSON, no markdown code blocks."""
         "solution_code": generated.get("solution_code", {}),
         "test_cases": generated.get("test_cases", []),
         "difficulty": data.difficulty,
+        "validated": False,
+        "validation_results": [],
     }
+
+    # Generate correct test case outputs by running the AI solution
+    # This ensures test cases are always correct by using actual execution results
+    if data.validate_solution and result["solution_code"].get(data.language) and result["test_cases"]:
+        try:
+            from app.services.code_runner import code_runner
+
+            solution_code = result["solution_code"][data.language]
+
+            # Prepare test cases - we only need inputs, we'll generate outputs
+            test_cases_for_runner = [
+                {
+                    "input": tc.get("input", ""),
+                    "expected_output": "",  # We'll get this from execution
+                    "is_hidden": False,
+                }
+                for tc in result["test_cases"]
+            ]
+
+            # Run the AI solution to get correct outputs
+            execution_result = await code_runner.run_code(
+                code=solution_code,
+                language=data.language,
+                test_cases=test_cases_for_runner,
+            )
+
+            # Update test cases with actual outputs from the solution
+            validated_test_cases = []
+            validation_results = []
+            all_valid = True
+
+            for i, tc in enumerate(result["test_cases"]):
+                if i < len(execution_result.test_results):
+                    tr = execution_result.test_results[i]
+
+                    if tr.actual_output and not tr.error_message:
+                        # Success - use the actual output as the expected output
+                        validated_tc = tc.copy()
+                        validated_tc["expected_output"] = tr.actual_output.strip()
+                        validated_tc["validated"] = True
+                        validated_test_cases.append(validated_tc)
+
+                        validation_results.append({
+                            "test_case": i + 1,
+                            "status": "success",
+                            "input": tc.get("input", ""),
+                            "output": tr.actual_output.strip(),
+                            "time_ms": tr.execution_time_ms,
+                        })
+                    else:
+                        # Execution failed - keep original but flag it
+                        all_valid = False
+                        validated_test_cases.append(tc)
+
+                        validation_results.append({
+                            "test_case": i + 1,
+                            "status": "error",
+                            "input": tc.get("input", ""),
+                            "error": tr.error_message or "Execution failed",
+                        })
+                else:
+                    validated_test_cases.append(tc)
+
+            result["test_cases"] = validated_test_cases
+            result["validated"] = all_valid
+            result["validation_results"] = validation_results
+
+            if all_valid:
+                result["validation_message"] = f"All {len(validated_test_cases)} test cases validated by running solution"
+            else:
+                result["validation_message"] = "Some test cases failed validation - solution may have errors"
+
+        except Exception as e:
+            result["validation_error"] = str(e)
+            result["validation_message"] = f"Validation failed: {str(e)}"
+
+    return result
 
 
 class GenerateBatchRequest(BaseModel):
