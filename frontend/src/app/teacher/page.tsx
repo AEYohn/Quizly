@@ -126,9 +126,13 @@ export default function TeacherDashboard() {
             });
             if (response.ok) {
                 setQuizzes(quizzes.filter(q => q.id !== quizId));
+            } else {
+                const error = await response.json().catch(() => ({ detail: "Delete failed" }));
+                alert(`Failed to delete: ${error.detail || response.statusText}`);
             }
         } catch (error) {
             console.error("Failed to delete quiz:", error);
+            alert("Failed to delete quiz. Please try again.");
         }
         setDeletingQuiz(null);
         setOpenDropdown(null);
