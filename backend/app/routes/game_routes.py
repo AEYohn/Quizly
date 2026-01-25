@@ -637,10 +637,13 @@ async def submit_answer(
         player.current_streak = 0
     
     await db.commit()
-    
+
     return {
         "submitted": True,
+        "is_correct": is_correct,
+        "correct_answer": question.correct_answer,
         "points_earned": points_earned,
+        "total_score": player.total_score,
     }
 
 

@@ -310,8 +310,8 @@ export default function PlayGamePage() {
 
             if (response.ok) {
                 const result = await response.json();
-                // Backend returns points_earned > 0 for correct answers
-                const isCorrect = result.points_earned > 0;
+                // Backend now returns is_correct directly
+                const isCorrect = result.is_correct;
 
                 // Update streak
                 if (isCorrect) {
@@ -320,15 +320,21 @@ export default function PlayGamePage() {
                     setStreak(0);
                 }
 
-                // Fetch updated player state BEFORE showing AI reaction
-                await fetchPlayerState();
+                // Update player state immediately from response
+                setPlayerState(prev => ({
+                    ...prev,
+                    score: result.total_score,
+                    last_answer_correct: isCorrect,
+                    last_answer_points: result.points_earned,
+                    rank: prev?.rank || 1,
+                }));
 
-                // Fetch AI host reaction
+                // Fetch AI host reaction with correct answer from backend
                 fetchHostReaction(
                     isCorrect,
                     game.current_question.question_text,
                     answer,
-                    result.correct_answer || answer,
+                    result.correct_answer,
                     game.current_question.options,
                     timeTaken
                 );
