@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 import json
 
-from ..database import get_db
+from ..database import get_db, async_session
 from ..models.game import GameSession, Quiz, Player
 from ..websocket_manager import manager, GameTimer, active_timers
 
@@ -36,7 +36,22 @@ async def player_websocket(
     - host_disconnected: Host has left the game
     """
     await manager.connect_player(websocket, game_id, player_id)
-    
+
+    # Query player nickname from DB
+    player_nickname = None
+    player_avatar = None
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(Player).where(Player.id == UUID(player_id))
+            )
+            player = result.scalars().first()
+            if player:
+                player_nickname = player.nickname
+                player_avatar = player.avatar
+    except Exception as e:
+        print(f"Failed to query player nickname: {e}")
+
     try:
         # Send initial connection confirmation
         await manager.send_to_player(websocket, {
@@ -44,11 +59,13 @@ async def player_websocket(
             "game_id": game_id,
             "player_id": player_id
         })
-        
-        # Notify host of player connection
+
+        # Notify host of player connection (with nickname if available)
         await manager.send_to_host(game_id, {
             "type": "player_connected",
             "player_id": player_id,
+            "nickname": player_nickname,
+            "avatar": player_avatar,
             "player_count": manager.get_player_count(game_id)
         })
         

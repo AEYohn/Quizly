@@ -491,7 +491,17 @@ async def join_game(
     db.add(player)
     await db.commit()
     await db.refresh(player)
-    
+
+    # Notify host via WebSocket that a new player joined
+    # This is critical - without this, the host's lobby won't see the player
+    await manager.send_to_host(str(game.id), {
+        "type": "player_connected",
+        "player_id": str(player.id),
+        "nickname": player.nickname,
+        "avatar": player.avatar,
+        "player_count": len([p for p in game.players if p.is_active]) + 1
+    })
+
     # Return format expected by frontend
     return {
         "player_id": str(player.id),
@@ -557,8 +567,10 @@ async def submit_answer(
     
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-    
-    if game.status != "question":
+
+    # For sync mode, require game to be in "question" status
+    # For async mode (sync_mode=False), allow answers anytime (students play at their own pace)
+    if game.sync_mode and game.status != "question":
         raise HTTPException(status_code=400, detail="Not accepting answers")
     
     # Get player
@@ -572,10 +584,18 @@ async def submit_answer(
     
     # Get current question
     questions = sorted(game.quiz.questions, key=lambda q: q.order)
-    if game.current_question_index >= len(questions):
+
+    # For async mode, use question_index from request; for sync mode, use game's index
+    if game.sync_mode:
+        question_index = game.current_question_index
+    else:
+        # Async mode: player specifies which question they're answering
+        question_index = answer_data.get("question_index", 0)
+
+    if question_index >= len(questions):
         raise HTTPException(status_code=400, detail="Invalid question index")
-    
-    question = questions[game.current_question_index]
+
+    question = questions[question_index]
     
     # Check if already answered
     result = await db.execute(
@@ -717,9 +737,13 @@ async def get_leaderboard(
 @router.get("/{game_id}/player")
 async def get_game_for_player(
     game_id: UUID,
+    question_index: Optional[int] = Query(None, description="Question index for async mode"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get game state for player view (no auth required)."""
+    """Get game state for player view (no auth required).
+
+    For async mode (sync_mode=False), pass question_index to get a specific question.
+    """
     result = await db.execute(
         select(GameSession)
         .options(
@@ -728,15 +752,34 @@ async def get_game_for_player(
         .where(GameSession.id == game_id)
     )
     game = result.scalars().first()
-    
+
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-    
+
     questions = sorted(game.quiz.questions, key=lambda q: q.order)
-    
+
     # Build current question (without correct answer!)
     current_question = None
-    if game.status == "question" and 0 <= game.current_question_index < len(questions):
+    effective_status = game.status
+    effective_question_index = game.current_question_index
+
+    # For async mode (sync_mode=False), students can start immediately without waiting
+    # They don't need the teacher to click "Start Game"
+    if not game.sync_mode:
+        effective_status = "question"  # Always treat as active for async
+        # Use provided question_index, or default to 0
+        q_idx = question_index if question_index is not None else 0
+        effective_question_index = q_idx
+        if 0 <= q_idx < len(questions):
+            q = questions[q_idx]
+            current_question = {
+                "question_text": q.question_text,
+                "question_type": q.question_type,
+                "options": q.options,
+                "time_limit": q.time_limit,
+                "points": q.points,
+            }
+    elif game.status == "question" and 0 <= game.current_question_index < len(questions):
         q = questions[game.current_question_index]
         current_question = {
             "question_text": q.question_text,
@@ -745,11 +788,11 @@ async def get_game_for_player(
             "time_limit": q.time_limit,
             "points": q.points,
         }
-    
+
     return {
         "id": str(game.id),
-        "status": game.status,
-        "current_question_index": game.current_question_index,
+        "status": effective_status,
+        "current_question_index": effective_question_index,
         "total_questions": len(questions),
         "quiz_title": game.quiz.title,
         "current_question": current_question,

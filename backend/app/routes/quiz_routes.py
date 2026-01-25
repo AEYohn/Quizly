@@ -91,6 +91,7 @@ class QuizDetailResponse(QuizResponse):
 # ==============================================================================
 
 @router.post("", response_model=QuizResponse)
+@router.post("/", response_model=QuizResponse, include_in_schema=False)
 async def create_quiz(
     quiz_data: QuizCreate,
     db: AsyncSession = Depends(get_db),
@@ -143,6 +144,7 @@ async def create_quiz(
 
 
 @router.get("", response_model=List[QuizResponse])
+@router.get("/", response_model=List[QuizResponse], include_in_schema=False)
 async def list_quizzes(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)

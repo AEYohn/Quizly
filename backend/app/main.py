@@ -58,6 +58,7 @@ app = FastAPI(
     description="AI-powered peer instruction platform API",
     version="0.1.0",
     lifespan=lifespan,
+    redirect_slashes=False,  # Don't redirect /quizzes/ to /quizzes (breaks POST requests)
 )
 
 # Add rate limiter
