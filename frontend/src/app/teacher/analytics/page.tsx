@@ -23,6 +23,7 @@ import {
     PieChart,
     Activity
 } from "lucide-react";
+import { Suspense } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -73,7 +74,7 @@ interface GameAnalytics {
     }>;
 }
 
-export default function TeacherAnalyticsPage() {
+function TeacherAnalyticsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const gameId = searchParams.get("game");
@@ -546,6 +547,18 @@ export default function TeacherAnalyticsPage() {
                 )}
             </main>
         </div>
+    );
+}
+
+export default function TeacherAnalyticsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            </div>
+        }>
+            <TeacherAnalyticsContent />
+        </Suspense>
     );
 }
 

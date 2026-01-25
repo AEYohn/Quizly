@@ -75,8 +75,9 @@ function parseInputToVariables(input: string): ParsedVariable[] {
     const lines = input.split(/[\n;]/).filter(l => l.trim());
     for (const line of lines) {
         const match = line.match(/^\s*(\w+)\s*=\s*(.+)\s*$/);
-        if (match) {
-            const [, name, rawValue] = match;
+        if (match && match[1] && match[2]) {
+            const name = match[1];
+            const rawValue = match[2];
             let value = rawValue.trim();
             // Try to parse the value to determine type
             try {
@@ -120,8 +121,9 @@ function getValueType(value: unknown): ParsedVariable["type"] {
 // Convert variables back to JSON format for API
 function variablesToJson(variables: ParsedVariable[]): string {
     if (variables.length === 0) return "{}";
-    if (variables.length === 1 && variables[0].name === "input") {
-        return variables[0].value;
+    const first = variables[0];
+    if (variables.length === 1 && first && first.name === "input") {
+        return first.value;
     }
 
     const obj: Record<string, unknown> = {};

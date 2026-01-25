@@ -48,7 +48,7 @@ export function MisconceptionCard({
     const [isResolving, setIsResolving] = useState(false);
 
     const severityConfig = SEVERITY_CONFIG[misconception.severity as keyof typeof SEVERITY_CONFIG] || SEVERITY_CONFIG.moderate;
-    const categoryConfig = CATEGORY_CONFIG[misconception.category] || CATEGORY_CONFIG.unknown;
+    const categoryConfig = CATEGORY_CONFIG[misconception.category] || CATEGORY_CONFIG.unknown!;
     const CategoryIcon = categoryConfig.icon;
 
     const handleResolve = async () => {

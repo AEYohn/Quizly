@@ -113,7 +113,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
 
                         <div className="space-y-2">
                             {ticket.question_options.map((option, i) => {
-                                const optionLetter = option[0];
+                                const optionLetter = option.charAt(0);
                                 const isSelected = selectedAnswer === optionLetter || ticket.student_answer === optionLetter;
                                 const isCorrectOption = ticket.correct_answer === optionLetter;
                                 const showCorrectness = isAnswered && (isSelected || isCorrectOption);

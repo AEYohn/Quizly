@@ -600,7 +600,7 @@ export default function PlayGamePage() {
                                 <p className="text-white mb-3">{exitTicket.question_prompt}</p>
                                 <div className="space-y-2">
                                     {exitTicket.question_options.map((opt, i) => {
-                                        const optLetter = opt[0];
+                                        const optLetter = opt.charAt(0);
                                         const isSelected = exitTicketAnswer === optLetter;
                                         const showResult = exitTicketResult !== null;
                                         const isCorrect = exitTicket.correct_answer === optLetter;
