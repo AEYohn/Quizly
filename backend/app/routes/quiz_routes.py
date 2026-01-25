@@ -59,12 +59,60 @@ class QuizCreate(BaseModel):
     is_public: bool = False
     questions: List[QuestionCreate] = []
 
+    # Async-first timing settings
+    timer_enabled: bool = False
+    default_time_limit: int = 30
+
+    # Question behavior settings
+    shuffle_questions: bool = False
+    shuffle_answers: bool = False
+    allow_retries: bool = True
+    max_retries: int = 0  # 0 = unlimited
+
+    # Feedback settings
+    show_correct_answer: bool = True
+    show_explanation: bool = True
+    show_distribution: bool = False
+
+    # AI feature settings
+    difficulty_adaptation: bool = True
+    peer_discussion_enabled: bool = True
+    peer_discussion_trigger: str = "high_confidence_wrong"
+
+    # Live mode settings
+    allow_teacher_intervention: bool = True
+    sync_pacing_available: bool = False
+
 
 class QuizUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     subject: Optional[str] = None
     is_public: Optional[bool] = None
+
+    # Async-first timing settings
+    timer_enabled: Optional[bool] = None
+    default_time_limit: Optional[int] = None
+
+    # Question behavior settings
+    shuffle_questions: Optional[bool] = None
+    shuffle_answers: Optional[bool] = None
+    allow_retries: Optional[bool] = None
+    max_retries: Optional[int] = None
+
+    # Feedback settings
+    show_correct_answer: Optional[bool] = None
+    show_explanation: Optional[bool] = None
+    show_distribution: Optional[bool] = None
+
+    # AI feature settings
+    difficulty_adaptation: Optional[bool] = None
+    peer_discussion_enabled: Optional[bool] = None
+    peer_discussion_trigger: Optional[str] = None
+
+    # Live mode settings
+    allow_teacher_intervention: Optional[bool] = None
+    sync_pacing_available: Optional[bool] = None
 
 
 class QuizResponse(BaseModel):
@@ -77,6 +125,30 @@ class QuizResponse(BaseModel):
     question_count: int
     created_at: str
     updated_at: str
+
+    # Async-first timing settings
+    timer_enabled: bool = False
+    default_time_limit: int = 30
+
+    # Question behavior settings
+    shuffle_questions: bool = False
+    shuffle_answers: bool = False
+    allow_retries: bool = True
+    max_retries: int = 0
+
+    # Feedback settings
+    show_correct_answer: bool = True
+    show_explanation: bool = True
+    show_distribution: bool = False
+
+    # AI feature settings
+    difficulty_adaptation: bool = True
+    peer_discussion_enabled: bool = True
+    peer_discussion_trigger: str = "high_confidence_wrong"
+
+    # Live mode settings
+    allow_teacher_intervention: bool = True
+    sync_pacing_available: bool = False
 
     class Config:
         from_attributes = True
@@ -101,13 +173,32 @@ async def create_quiz(
     if current_user.role != "teacher":
         raise HTTPException(status_code=403, detail="Only teachers can create quizzes")
     
-    # Create quiz
+    # Create quiz with all settings
     quiz = Quiz(
         teacher_id=current_user.id,
         title=quiz_data.title,
         description=quiz_data.description,
         subject=quiz_data.subject,
-        is_public=quiz_data.is_public
+        is_public=quiz_data.is_public,
+        # Async-first timing settings
+        timer_enabled=quiz_data.timer_enabled,
+        default_time_limit=quiz_data.default_time_limit,
+        # Question behavior settings
+        shuffle_questions=quiz_data.shuffle_questions,
+        shuffle_answers=quiz_data.shuffle_answers,
+        allow_retries=quiz_data.allow_retries,
+        max_retries=quiz_data.max_retries,
+        # Feedback settings
+        show_correct_answer=quiz_data.show_correct_answer,
+        show_explanation=quiz_data.show_explanation,
+        show_distribution=quiz_data.show_distribution,
+        # AI feature settings
+        difficulty_adaptation=quiz_data.difficulty_adaptation,
+        peer_discussion_enabled=quiz_data.peer_discussion_enabled,
+        peer_discussion_trigger=quiz_data.peer_discussion_trigger,
+        # Live mode settings
+        allow_teacher_intervention=quiz_data.allow_teacher_intervention,
+        sync_pacing_available=quiz_data.sync_pacing_available,
     )
     db.add(quiz)
     
@@ -139,7 +230,22 @@ async def create_quiz(
         is_public=quiz.is_public,
         question_count=len(quiz_data.questions),
         created_at=quiz.created_at.isoformat(),
-        updated_at=quiz.updated_at.isoformat()
+        updated_at=quiz.updated_at.isoformat(),
+        # Settings
+        timer_enabled=quiz.timer_enabled,
+        default_time_limit=quiz.default_time_limit,
+        shuffle_questions=quiz.shuffle_questions,
+        shuffle_answers=quiz.shuffle_answers,
+        allow_retries=quiz.allow_retries,
+        max_retries=quiz.max_retries,
+        show_correct_answer=quiz.show_correct_answer,
+        show_explanation=quiz.show_explanation,
+        show_distribution=quiz.show_distribution,
+        difficulty_adaptation=quiz.difficulty_adaptation,
+        peer_discussion_enabled=quiz.peer_discussion_enabled,
+        peer_discussion_trigger=quiz.peer_discussion_trigger,
+        allow_teacher_intervention=quiz.allow_teacher_intervention,
+        sync_pacing_available=quiz.sync_pacing_available,
     )
 
 
@@ -169,7 +275,21 @@ async def list_quizzes(
             is_public=q.is_public,
             question_count=len(q.questions),
             created_at=q.created_at.isoformat(),
-            updated_at=q.updated_at.isoformat()
+            updated_at=q.updated_at.isoformat(),
+            timer_enabled=getattr(q, 'timer_enabled', False),
+            default_time_limit=getattr(q, 'default_time_limit', 30),
+            shuffle_questions=getattr(q, 'shuffle_questions', False),
+            shuffle_answers=getattr(q, 'shuffle_answers', False),
+            allow_retries=getattr(q, 'allow_retries', True),
+            max_retries=getattr(q, 'max_retries', 0),
+            show_correct_answer=getattr(q, 'show_correct_answer', True),
+            show_explanation=getattr(q, 'show_explanation', True),
+            show_distribution=getattr(q, 'show_distribution', False),
+            difficulty_adaptation=getattr(q, 'difficulty_adaptation', True),
+            peer_discussion_enabled=getattr(q, 'peer_discussion_enabled', True),
+            peer_discussion_trigger=getattr(q, 'peer_discussion_trigger', 'high_confidence_wrong'),
+            allow_teacher_intervention=getattr(q, 'allow_teacher_intervention', True),
+            sync_pacing_available=getattr(q, 'sync_pacing_available', False),
         )
         for q in quizzes
     ]
@@ -199,7 +319,21 @@ async def list_public_quizzes(
             is_public=q.is_public,
             question_count=len(q.questions),
             created_at=q.created_at.isoformat(),
-            updated_at=q.updated_at.isoformat()
+            updated_at=q.updated_at.isoformat(),
+            timer_enabled=getattr(q, 'timer_enabled', False),
+            default_time_limit=getattr(q, 'default_time_limit', 30),
+            shuffle_questions=getattr(q, 'shuffle_questions', False),
+            shuffle_answers=getattr(q, 'shuffle_answers', False),
+            allow_retries=getattr(q, 'allow_retries', True),
+            max_retries=getattr(q, 'max_retries', 0),
+            show_correct_answer=getattr(q, 'show_correct_answer', True),
+            show_explanation=getattr(q, 'show_explanation', True),
+            show_distribution=getattr(q, 'show_distribution', False),
+            difficulty_adaptation=getattr(q, 'difficulty_adaptation', True),
+            peer_discussion_enabled=getattr(q, 'peer_discussion_enabled', True),
+            peer_discussion_trigger=getattr(q, 'peer_discussion_trigger', 'high_confidence_wrong'),
+            allow_teacher_intervention=getattr(q, 'allow_teacher_intervention', True),
+            sync_pacing_available=getattr(q, 'sync_pacing_available', False),
         )
         for q in quizzes
     ]
@@ -236,6 +370,20 @@ async def get_quiz(
         question_count=len(quiz.questions),
         created_at=quiz.created_at.isoformat(),
         updated_at=quiz.updated_at.isoformat(),
+        timer_enabled=getattr(quiz, 'timer_enabled', False),
+        default_time_limit=getattr(quiz, 'default_time_limit', 30),
+        shuffle_questions=getattr(quiz, 'shuffle_questions', False),
+        shuffle_answers=getattr(quiz, 'shuffle_answers', False),
+        allow_retries=getattr(quiz, 'allow_retries', True),
+        max_retries=getattr(quiz, 'max_retries', 0),
+        show_correct_answer=getattr(quiz, 'show_correct_answer', True),
+        show_explanation=getattr(quiz, 'show_explanation', True),
+        show_distribution=getattr(quiz, 'show_distribution', False),
+        difficulty_adaptation=getattr(quiz, 'difficulty_adaptation', True),
+        peer_discussion_enabled=getattr(quiz, 'peer_discussion_enabled', True),
+        peer_discussion_trigger=getattr(quiz, 'peer_discussion_trigger', 'high_confidence_wrong'),
+        allow_teacher_intervention=getattr(quiz, 'allow_teacher_intervention', True),
+        sync_pacing_available=getattr(quiz, 'sync_pacing_available', False),
         questions=[
             QuestionResponse(
                 id=str(q.id),
@@ -284,10 +432,39 @@ async def update_quiz(
         quiz.subject = quiz_data.subject
     if quiz_data.is_public is not None:
         quiz.is_public = quiz_data.is_public
-    
+    # Update settings
+    if quiz_data.timer_enabled is not None:
+        quiz.timer_enabled = quiz_data.timer_enabled
+    if quiz_data.default_time_limit is not None:
+        quiz.default_time_limit = quiz_data.default_time_limit
+    if quiz_data.shuffle_questions is not None:
+        quiz.shuffle_questions = quiz_data.shuffle_questions
+    if quiz_data.shuffle_answers is not None:
+        quiz.shuffle_answers = quiz_data.shuffle_answers
+    if quiz_data.allow_retries is not None:
+        quiz.allow_retries = quiz_data.allow_retries
+    if quiz_data.max_retries is not None:
+        quiz.max_retries = quiz_data.max_retries
+    if quiz_data.show_correct_answer is not None:
+        quiz.show_correct_answer = quiz_data.show_correct_answer
+    if quiz_data.show_explanation is not None:
+        quiz.show_explanation = quiz_data.show_explanation
+    if quiz_data.show_distribution is not None:
+        quiz.show_distribution = quiz_data.show_distribution
+    if quiz_data.difficulty_adaptation is not None:
+        quiz.difficulty_adaptation = quiz_data.difficulty_adaptation
+    if quiz_data.peer_discussion_enabled is not None:
+        quiz.peer_discussion_enabled = quiz_data.peer_discussion_enabled
+    if quiz_data.peer_discussion_trigger is not None:
+        quiz.peer_discussion_trigger = quiz_data.peer_discussion_trigger
+    if quiz_data.allow_teacher_intervention is not None:
+        quiz.allow_teacher_intervention = quiz_data.allow_teacher_intervention
+    if quiz_data.sync_pacing_available is not None:
+        quiz.sync_pacing_available = quiz_data.sync_pacing_available
+
     await db.commit()
     await db.refresh(quiz)
-    
+
     return QuizResponse(
         id=str(quiz.id),
         teacher_id=str(quiz.teacher_id),
@@ -297,7 +474,21 @@ async def update_quiz(
         is_public=quiz.is_public,
         question_count=len(quiz.questions),
         created_at=quiz.created_at.isoformat(),
-        updated_at=quiz.updated_at.isoformat()
+        updated_at=quiz.updated_at.isoformat(),
+        timer_enabled=getattr(quiz, 'timer_enabled', False),
+        default_time_limit=getattr(quiz, 'default_time_limit', 30),
+        shuffle_questions=getattr(quiz, 'shuffle_questions', False),
+        shuffle_answers=getattr(quiz, 'shuffle_answers', False),
+        allow_retries=getattr(quiz, 'allow_retries', True),
+        max_retries=getattr(quiz, 'max_retries', 0),
+        show_correct_answer=getattr(quiz, 'show_correct_answer', True),
+        show_explanation=getattr(quiz, 'show_explanation', True),
+        show_distribution=getattr(quiz, 'show_distribution', False),
+        difficulty_adaptation=getattr(quiz, 'difficulty_adaptation', True),
+        peer_discussion_enabled=getattr(quiz, 'peer_discussion_enabled', True),
+        peer_discussion_trigger=getattr(quiz, 'peer_discussion_trigger', 'high_confidence_wrong'),
+        allow_teacher_intervention=getattr(quiz, 'allow_teacher_intervention', True),
+        sync_pacing_available=getattr(quiz, 'sync_pacing_available', False),
     )
 
 
