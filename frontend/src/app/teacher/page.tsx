@@ -17,6 +17,7 @@ import {
     Check,
     Share2,
     ExternalLink,
+    Code,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -39,13 +40,29 @@ interface Game {
     created_at: string;
 }
 
+interface CodingProblem {
+    id: string;
+    title: string;
+    description: string;
+    difficulty: string;
+    subject: string;
+    tags: string[];
+    points: number;
+    solve_count: number;
+    attempt_count: number;
+    test_case_count: number;
+    created_at: string;
+}
+
 export default function TeacherDashboard() {
     const router = useRouter();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [allGames, setAllGames] = useState<Game[]>([]);
+    const [codingProblems, setCodingProblems] = useState<CodingProblem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [creatingGame, setCreatingGame] = useState<string | null>(null);
     const [deletingQuiz, setDeletingQuiz] = useState<string | null>(null);
+    const [deletingProblem, setDeletingProblem] = useState<string | null>(null);
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
     useEffect(() => {
@@ -62,16 +79,24 @@ export default function TeacherDashboard() {
         const headers = { Authorization: `Bearer ${token}` };
 
         try {
-            const [quizzesRes, gamesRes] = await Promise.all([
+            const [quizzesRes, gamesRes, codingRes] = await Promise.all([
                 fetch(`${API_URL}/quizzes/`, { headers }),
-                fetch(`${API_URL}/games/`, { headers })
+                fetch(`${API_URL}/games/`, { headers }),
+                fetch(`${API_URL}/coding/my`, { headers })
             ]);
 
             if (quizzesRes.ok) {
-                setQuizzes(await quizzesRes.json());
+                const quizzesData = await quizzesRes.json();
+                setQuizzes(quizzesData);
             }
             if (gamesRes.ok) {
-                setAllGames(await gamesRes.json());
+                const gamesData = await gamesRes.json();
+                console.log("[Dashboard] Games loaded:", gamesData);
+                console.log("[Dashboard] Games quiz_ids:", gamesData.map((g: Game) => g.quiz_id));
+                setAllGames(gamesData);
+            }
+            if (codingRes.ok) {
+                setCodingProblems(await codingRes.json());
             }
         } catch (err) {
             console.error("Failed to fetch data:", err);
@@ -81,7 +106,10 @@ export default function TeacherDashboard() {
 
     // Get or create async game for a quiz
     const getGameForQuiz = (quizId: string): Game | undefined => {
-        return allGames.find(g => g.quiz_id === quizId && g.status !== "finished");
+        const game = allGames.find(g => g.quiz_id === quizId && g.status !== "finished");
+        console.log(`[Dashboard] getGameForQuiz(${quizId}):`, game ? `Found game ${game.game_code}` : "No game found");
+        console.log(`[Dashboard] All games for comparison:`, allGames.map(g => ({ quiz_id: g.quiz_id, status: g.status, code: g.game_code })));
+        return game;
     };
 
     const createGame = async (quizId: string) => {
@@ -129,6 +157,28 @@ export default function TeacherDashboard() {
         setDeletingQuiz(null);
     };
 
+    const deleteCodingProblem = async (problemId: string) => {
+        if (!confirm("Are you sure you want to delete this coding challenge?")) return;
+
+        setDeletingProblem(problemId);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/coding/${problemId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                setCodingProblems(codingProblems.filter(p => p.id !== problemId));
+            } else {
+                alert("Failed to delete coding challenge");
+            }
+        } catch (error) {
+            console.error("Failed to delete coding challenge:", error);
+            alert("Failed to delete coding challenge");
+        }
+        setDeletingProblem(null);
+    };
+
     const copyCode = (code: string) => {
         navigator.clipboard.writeText(code);
         setCopiedCode(code);
@@ -140,6 +190,33 @@ export default function TeacherDashboard() {
             return `${window.location.origin}/join?code=${code}`;
         }
         return "";
+    };
+
+    const getCodingUrl = (problemId: string) => {
+        if (typeof window !== "undefined") {
+            return `${window.location.origin}/play/coding/${problemId}`;
+        }
+        return "";
+    };
+
+    const copyCodingLink = (problemId: string) => {
+        const url = getCodingUrl(problemId);
+        navigator.clipboard.writeText(url);
+        setCopiedCode(problemId);
+        setTimeout(() => setCopiedCode(null), 2000);
+    };
+
+    const getDifficultyColor = (difficulty: string) => {
+        switch (difficulty.toLowerCase()) {
+            case "easy":
+                return "bg-green-100 text-green-700";
+            case "medium":
+                return "bg-yellow-100 text-yellow-700";
+            case "hard":
+                return "bg-red-100 text-red-700";
+            default:
+                return "bg-gray-100 text-gray-700";
+        }
     };
 
     const shareQuiz = async (code: string, title: string) => {
@@ -174,10 +251,17 @@ export default function TeacherDashboard() {
                 <div className="mx-auto max-w-5xl px-6 py-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">My Quizzes</h1>
-                            <p className="text-gray-500">Create and share quizzes with your students</p>
+                            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+                            <p className="text-gray-500">Create and share quizzes and coding challenges with your students</p>
                         </div>
                         <div className="flex gap-3">
+                            <Link
+                                href="/teacher/coding/new"
+                                className="flex items-center gap-2 rounded-lg border border-purple-200 bg-white px-5 py-2.5 font-medium text-purple-600 hover:bg-purple-50 transition-colors"
+                            >
+                                <Code className="h-4 w-4" />
+                                Create Coding Challenge
+                            </Link>
                             <Link
                                 href="/teacher/quizzes/new"
                                 className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700 transition-colors"
@@ -190,25 +274,31 @@ export default function TeacherDashboard() {
                 </div>
             </div>
 
-            <div className="mx-auto max-w-5xl px-6 py-8">
-                {quizzes.length === 0 ? (
-                    <div className="rounded-2xl bg-white p-16 text-center border border-gray-200">
-                        <Gamepad2 className="mx-auto h-16 w-16 text-gray-300" />
-                        <h3 className="mt-6 text-xl font-semibold text-gray-900">No quizzes yet</h3>
-                        <p className="mt-2 text-gray-500 max-w-sm mx-auto">
-                            Create your first quiz with AI - just describe what you want and we'll generate it
-                        </p>
-                        <Link
-                            href="/teacher/quizzes/new"
-                            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-700"
-                        >
-                            <PlusCircle className="h-5 w-5" />
-                            Create Your First Quiz
-                        </Link>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {quizzes.map((quiz) => {
+            <div className="mx-auto max-w-5xl px-6 py-8 space-y-10">
+                {/* Quizzes Section */}
+                <section>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Gamepad2 className="h-5 w-5 text-purple-600" />
+                        Quizzes
+                    </h2>
+                    {quizzes.length === 0 ? (
+                        <div className="rounded-2xl bg-white p-12 text-center border border-gray-200">
+                            <Gamepad2 className="mx-auto h-12 w-12 text-gray-300" />
+                            <h3 className="mt-4 text-lg font-semibold text-gray-900">No quizzes yet</h3>
+                            <p className="mt-2 text-gray-500 max-w-sm mx-auto">
+                                Create your first quiz with AI - just describe what you want
+                            </p>
+                            <Link
+                                href="/teacher/quizzes/new"
+                                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+                            >
+                                <PlusCircle className="h-4 w-4" />
+                                Create Quiz
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {quizzes.map((quiz) => {
                             const game = getGameForQuiz(quiz.id);
                             const isCreating = creatingGame === quiz.id;
 
@@ -331,7 +421,113 @@ export default function TeacherDashboard() {
                             );
                         })}
                     </div>
-                )}
+                    )}
+                </section>
+
+                {/* Coding Challenges Section */}
+                <section>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Code className="h-5 w-5 text-purple-600" />
+                        Coding Challenges
+                    </h2>
+                    {codingProblems.length === 0 ? (
+                        <div className="rounded-2xl bg-white p-12 text-center border border-gray-200">
+                            <Code className="mx-auto h-12 w-12 text-gray-300" />
+                            <h3 className="mt-4 text-lg font-semibold text-gray-900">No coding challenges yet</h3>
+                            <p className="mt-2 text-gray-500 max-w-sm mx-auto">
+                                Create LeetCode-style coding problems for your students
+                            </p>
+                            <Link
+                                href="/teacher/coding/new"
+                                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+                            >
+                                <PlusCircle className="h-4 w-4" />
+                                Create Coding Challenge
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {codingProblems.map((problem) => (
+                                <div
+                                    key={problem.id}
+                                    className="rounded-xl bg-white border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                                >
+                                    <div className="flex items-start justify-between gap-4">
+                                        {/* Problem Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-3">
+                                                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                                    {problem.title}
+                                                </h3>
+                                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${getDifficultyColor(problem.difficulty)}`}>
+                                                    {problem.difficulty}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-sm text-gray-500">
+                                                {problem.test_case_count} test cases • {problem.points} points
+                                            </p>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-3">
+                                            {/* Share Link */}
+                                            <button
+                                                onClick={() => copyCodingLink(problem.id)}
+                                                className="flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+                                            >
+                                                {copiedCode === problem.id ? (
+                                                    <>
+                                                        <Check className="h-4 w-4" />
+                                                        Copied!
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Share2 className="h-4 w-4" />
+                                                        Copy Link
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {/* Open */}
+                                            <Link
+                                                href={`/play/coding/${problem.id}`}
+                                                target="_blank"
+                                                className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                            >
+                                                <ExternalLink className="h-4 w-4" />
+                                                Open
+                                            </Link>
+
+                                            {/* Delete */}
+                                            <div className="flex items-center border-l border-gray-200 pl-3 ml-1">
+                                                <button
+                                                    onClick={() => deleteCodingProblem(problem.id)}
+                                                    disabled={deletingProblem === problem.id}
+                                                    className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                                    title="Delete coding challenge"
+                                                >
+                                                    {deletingProblem === problem.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats */}
+                                    {(problem.solve_count > 0 || problem.attempt_count > 0) && (
+                                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-4 text-sm text-gray-500">
+                                            <span>{problem.attempt_count} attempts</span>
+                                            <span>{problem.solve_count} solved</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
             </div>
         </div>
     );

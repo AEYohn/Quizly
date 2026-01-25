@@ -7,13 +7,13 @@ from uuid import UUID
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 
 from ..database import get_db
-from ..db_models import CodingProblem, TestCase, CodeSubmission, Session
-from ..auth import get_current_user_optional
+from ..db_models import CodingProblem, TestCase, CodeSubmission, Session, User
+from ..auth import get_current_user_optional, get_current_user
 
 
 router = APIRouter()
@@ -137,6 +137,38 @@ async def list_coding_problems(
             "solve_count": p.solve_count,
             "attempt_count": p.attempt_count,
             "test_case_count": len(p.test_cases) if p.test_cases else 0,
+        }
+        for p in problems
+    ]
+
+
+@router.get("/my")
+async def list_my_coding_problems(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List coding problems created by the current user."""
+    query = select(CodingProblem).options(
+        selectinload(CodingProblem.test_cases)
+    ).where(CodingProblem.creator_id == current_user.id)
+
+    query = query.order_by(CodingProblem.created_at.desc())
+    result = await db.execute(query)
+    problems = result.scalars().all()
+
+    return [
+        {
+            "id": str(p.id),
+            "title": p.title,
+            "description": p.description[:200] + "..." if len(p.description) > 200 else p.description,
+            "difficulty": p.difficulty,
+            "subject": p.subject,
+            "tags": p.tags if isinstance(p.tags, list) else [],
+            "points": p.points,
+            "solve_count": p.solve_count,
+            "attempt_count": p.attempt_count,
+            "test_case_count": len(p.test_cases) if p.test_cases else 0,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
         }
         for p in problems
     ]
@@ -579,6 +611,34 @@ async def get_coding_problem(
         "test_cases": visible_test_cases,
         "hidden_test_count": hidden_count,
     }
+
+
+@router.delete("/{problem_id}")
+async def delete_coding_problem(
+    problem_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a coding problem."""
+    result = await db.execute(
+        select(CodingProblem).where(CodingProblem.id == UUID(problem_id))
+    )
+    problem = result.scalar_one_or_none()
+
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    if problem.creator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this problem")
+
+    # Delete related test cases and submissions first
+    await db.execute(delete(TestCase).where(TestCase.problem_id == problem.id))
+    await db.execute(delete(CodeSubmission).where(CodeSubmission.problem_id == problem.id))
+
+    await db.delete(problem)
+    await db.commit()
+
+    return {"message": "Problem deleted"}
 
 
 @router.post("/{problem_id}/test-cases")
