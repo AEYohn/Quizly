@@ -46,7 +46,7 @@ class Quiz(Base):
     
     # Relationships
     questions: Mapped[List["QuizQuestion"]] = relationship(back_populates="quiz", cascade="all, delete-orphan", order_by="QuizQuestion.order")
-    games: Mapped[List["GameSession"]] = relationship(back_populates="quiz")
+    games: Mapped[List["GameSession"]] = relationship(back_populates="quiz", cascade="all, delete-orphan")
 
 
 class QuizQuestion(Base):
