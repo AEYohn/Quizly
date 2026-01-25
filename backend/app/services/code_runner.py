@@ -102,22 +102,38 @@ if __name__ == "__main__":
     
     # Read input
     input_data = sys.stdin.read().strip()
-    
+
     # Find the solution function (could be named solution, two_sum, etc.)
     func = None
     for name, obj in list(globals().items()):
-        if callable(obj) and not name.startswith("_") and name not in ["print", "json", "sys", "inspect"]:
+        if callable(obj) and not name.startswith("_") and name not in ["print", "json", "sys", "inspect", "re"]:
             if hasattr(obj, "__code__"):
                 func = obj
                 break
-    
+
     if func is None:
         print("Error: No function found", file=sys.stderr)
         sys.exit(1)
-    
-    # Parse input
+
+    # Parse input - try JSON first, fallback to key=value format
+    import re
     try:
         parsed = json.loads(input_data)
+    except json.JSONDecodeError:
+        # Try parsing key=value format like "coins=[1,2,5], amount=5"
+        parsed = {{}}
+        # Match patterns like key=[...] or key=value
+        pattern = r'(\w+)\s*=\s*(\[[^\]]*\]|\d+|"[^"]*"|\w+)'
+        matches = re.findall(pattern, input_data)
+        for key, value in matches:
+            try:
+                parsed[key] = json.loads(value)
+            except:
+                parsed[key] = value
+        if not parsed:
+            raise ValueError(f"Could not parse input: {{input_data}}")
+
+    try:
         
         # If it's a dict, use as kwargs; if list/tuple, use as args
         if isinstance(parsed, dict):
