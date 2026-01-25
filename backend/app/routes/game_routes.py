@@ -550,7 +550,9 @@ async def submit_answer(
     player_id_str = answer_data.get("player_id")
     answer = answer_data.get("answer")
     time_taken = answer_data.get("time_taken", 0)  # seconds
-    
+    confidence = answer_data.get("confidence")  # 0-100 confidence level (optional)
+    reasoning = answer_data.get("reasoning")  # Student's reasoning (optional)
+
     if not player_id_str or not answer:
         raise HTTPException(status_code=400, detail="Missing player_id or answer")
     
@@ -624,7 +626,9 @@ async def submit_answer(
         answer=answer.upper(),
         is_correct=is_correct,
         response_time_ms=response_time_ms,
-        points_earned=points_earned
+        points_earned=points_earned,
+        confidence=confidence,
+        reasoning=reasoning
     )
     db.add(player_answer)
     
@@ -899,6 +903,213 @@ async def get_specific_question_results(
         "answer_distribution": answer_distribution,
         "total_answers": total_answers,
         "correct_count": correct_count
+    }
+
+
+# ==============================================================================
+# Player Learning Analytics
+# ==============================================================================
+
+@router.get("/{game_id}/players/{player_id}/analytics")
+async def get_player_analytics(
+    game_id: UUID,
+    player_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get comprehensive learning analytics for a player in a game.
+
+    Returns:
+    - Confidence-correctness quadrant analysis
+    - Misconception detection (high confidence + wrong answers)
+    - Time analysis per question
+    - Learning insights and recommendations
+    """
+    # Get player with all answers
+    result = await db.execute(
+        select(Player)
+        .options(selectinload(Player.answers))
+        .where(Player.id == player_id, Player.game_id == game_id)
+    )
+    player = result.scalars().first()
+
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    # Get game with questions for context
+    result = await db.execute(
+        select(GameSession)
+        .options(
+            selectinload(GameSession.quiz).selectinload(Quiz.questions),
+            selectinload(GameSession.players)
+        )
+        .where(GameSession.id == game_id)
+    )
+    game = result.scalars().first()
+
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    questions = {q.id: q for q in game.quiz.questions}
+
+    # Analyze answers
+    answers_with_confidence = [a for a in player.answers if a.confidence is not None]
+    total_answers = len(player.answers)
+
+    # Confidence-Correctness Quadrant Analysis
+    quadrants = {
+        "confident_correct": [],      # High confidence (>=70) + correct
+        "confident_incorrect": [],     # High confidence (>=70) + incorrect (MISCONCEPTION!)
+        "uncertain_correct": [],       # Low confidence (<70) + correct (lucky guess or self-doubt)
+        "uncertain_incorrect": []      # Low confidence (<70) + incorrect (knowledge gap)
+    }
+
+    misconceptions = []
+    time_analysis = []
+    concept_performance = {}
+
+    for answer in player.answers:
+        question = questions.get(answer.question_id)
+        if not question:
+            continue
+
+        confidence = answer.confidence or 50  # default to 50 if not provided
+        is_high_confidence = confidence >= 70
+
+        # Categorize into quadrants
+        if is_high_confidence and answer.is_correct:
+            quadrants["confident_correct"].append({
+                "question_id": str(answer.question_id),
+                "question_text": question.question_text,
+                "confidence": confidence
+            })
+        elif is_high_confidence and not answer.is_correct:
+            quadrants["confident_incorrect"].append({
+                "question_id": str(answer.question_id),
+                "question_text": question.question_text,
+                "confidence": confidence,
+                "student_answer": answer.answer,
+                "correct_answer": question.correct_answer,
+                "reasoning": answer.reasoning
+            })
+            # This is a misconception - high confidence but wrong!
+            misconceptions.append({
+                "question_text": question.question_text,
+                "student_answer": answer.answer,
+                "correct_answer": question.correct_answer,
+                "confidence": confidence,
+                "reasoning": answer.reasoning,
+                "explanation": question.explanation,
+                "severity": "high" if confidence >= 85 else "medium"
+            })
+        elif not is_high_confidence and answer.is_correct:
+            quadrants["uncertain_correct"].append({
+                "question_id": str(answer.question_id),
+                "question_text": question.question_text,
+                "confidence": confidence
+            })
+        else:
+            quadrants["uncertain_incorrect"].append({
+                "question_id": str(answer.question_id),
+                "question_text": question.question_text,
+                "confidence": confidence
+            })
+
+        # Time analysis
+        time_analysis.append({
+            "question_index": question.order,
+            "time_ms": answer.response_time_ms,
+            "is_correct": answer.is_correct,
+            "confidence": confidence
+        })
+
+    # Calculate statistics
+    total_with_confidence = len(answers_with_confidence)
+    avg_confidence = sum(a.confidence for a in answers_with_confidence) / total_with_confidence if total_with_confidence > 0 else 0
+    avg_confidence_correct = sum(a.confidence for a in answers_with_confidence if a.is_correct) / max(1, len([a for a in answers_with_confidence if a.is_correct]))
+    avg_confidence_incorrect = sum(a.confidence for a in answers_with_confidence if not a.is_correct) / max(1, len([a for a in answers_with_confidence if not a.is_correct]))
+
+    # Calculate misconception rate
+    misconception_rate = len(quadrants["confident_incorrect"]) / max(1, total_answers) * 100
+
+    # Determine calibration (is student's confidence aligned with actual performance?)
+    accuracy = player.correct_answers / max(1, total_answers) * 100
+    calibration_gap = avg_confidence - accuracy
+
+    if calibration_gap > 20:
+        calibration_status = "overconfident"
+        calibration_message = "You tend to be more confident than your accuracy suggests. Take more time to verify your answers."
+    elif calibration_gap < -20:
+        calibration_status = "underconfident"
+        calibration_message = "You know more than you think! Trust your knowledge more."
+    else:
+        calibration_status = "well_calibrated"
+        calibration_message = "Your confidence aligns well with your performance. Keep it up!"
+
+    # Generate personalized tips based on analysis
+    tips = []
+    if len(misconceptions) > 0:
+        tips.append(f"Review the {len(misconceptions)} question(s) where you were confident but incorrect - these are misconceptions to address.")
+    if len(quadrants["uncertain_correct"]) > 2:
+        tips.append("You got several questions right despite low confidence. Trust your knowledge more!")
+    if len(quadrants["uncertain_incorrect"]) > len(quadrants["confident_incorrect"]):
+        tips.append("Most of your incorrect answers came from knowledge gaps (low confidence), not misconceptions. Focus on learning new material.")
+
+    # Calculate rank among all players
+    players_sorted = sorted(game.players, key=lambda p: p.total_score, reverse=True)
+    rank = next((i + 1 for i, p in enumerate(players_sorted) if p.id == player_id), 1)
+
+    return {
+        "player_id": str(player_id),
+        "game_id": str(game_id),
+        "nickname": player.nickname,
+        "total_score": player.total_score,
+        "rank": rank,
+        "total_players": len([p for p in game.players if p.is_active]),
+
+        # Core metrics
+        "accuracy": accuracy,
+        "total_questions": total_answers,
+        "correct_answers": player.correct_answers,
+
+        # Confidence analysis
+        "avg_confidence": round(avg_confidence, 1),
+        "avg_confidence_correct": round(avg_confidence_correct, 1),
+        "avg_confidence_incorrect": round(avg_confidence_incorrect, 1),
+
+        # Quadrant analysis
+        "quadrants": {
+            "confident_correct": len(quadrants["confident_correct"]),
+            "confident_incorrect": len(quadrants["confident_incorrect"]),
+            "uncertain_correct": len(quadrants["uncertain_correct"]),
+            "uncertain_incorrect": len(quadrants["uncertain_incorrect"])
+        },
+        "quadrant_details": quadrants,
+
+        # Misconception detection
+        "misconceptions": misconceptions,
+        "misconception_rate": round(misconception_rate, 1),
+
+        # Calibration
+        "calibration": {
+            "status": calibration_status,
+            "gap": round(calibration_gap, 1),
+            "message": calibration_message
+        },
+
+        # Time analysis
+        "time_analysis": time_analysis,
+        "avg_response_time_ms": sum(a.response_time_ms for a in player.answers) / max(1, total_answers),
+
+        # Tips
+        "personalized_tips": tips,
+
+        # Summary insights
+        "insights": {
+            "strongest_area": "consistent_performance" if len(quadrants["confident_correct"]) >= total_answers * 0.5 else "needs_improvement",
+            "focus_areas": "misconception_correction" if len(misconceptions) > 0 else "knowledge_building",
+            "learning_style": "confident_learner" if avg_confidence >= 70 else "careful_learner"
+        }
     }
 
 

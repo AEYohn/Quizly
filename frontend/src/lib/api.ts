@@ -716,13 +716,52 @@ export const gamesApi = {
         }),
 
     /**
-     * Submit an answer (player)
+     * Submit an answer (player) with optional confidence and reasoning
      */
-    submitAnswer: (gameId: string, playerId: string, answer: string, timeTaken: number) =>
-        fetchApi<{ is_correct: boolean; points_earned: number }>(`/games/${gameId}/answer`, {
+    submitAnswer: (gameId: string, playerId: string, answer: string, timeTaken: number, confidence?: number, reasoning?: string) =>
+        fetchApi<{ is_correct: boolean; points_earned: number; total_score: number; correct_answer: string }>(`/games/${gameId}/answer`, {
             method: 'POST',
-            body: JSON.stringify({ player_id: playerId, answer, time_taken: timeTaken }),
+            body: JSON.stringify({
+                player_id: playerId,
+                answer,
+                time_taken: timeTaken,
+                confidence,
+                reasoning
+            }),
         }),
+
+    /**
+     * Get player learning analytics for a game
+     */
+    getPlayerAnalytics: (gameId: string, playerId: string) =>
+        fetchApi<{
+            player_id: string;
+            game_id: string;
+            nickname: string;
+            total_score: number;
+            rank: number;
+            accuracy: number;
+            avg_confidence: number;
+            quadrants: {
+                confident_correct: number;
+                confident_incorrect: number;
+                uncertain_correct: number;
+                uncertain_incorrect: number;
+            };
+            misconceptions: Array<{
+                question_text: string;
+                student_answer: string;
+                correct_answer: string;
+                confidence: number;
+                severity: string;
+            }>;
+            calibration: {
+                status: string;
+                gap: number;
+                message: string;
+            };
+            personalized_tips: string[];
+        }>(`/games/${gameId}/players/${playerId}/analytics`),
 
     /**
      * Export game results
@@ -864,6 +903,101 @@ export const codeApi = {
         fetchApi<{ test_cases: Array<TestCaseInput & { description?: string }> }>('/code/generate-test-cases', {
             method: 'POST',
             body: JSON.stringify({ problem, function_signature: functionSignature, num_cases: numCases }),
+        }),
+};
+
+// ============================================
+// Student Learning API
+// ============================================
+
+export interface LearningProfile {
+    user_id: string;
+    name: string;
+    total_games_played: number;
+    total_questions_answered: number;
+    overall_accuracy: number;
+    avg_confidence: number;
+    calibration_status: string;
+    learning_streak: number;
+    concepts_mastered: string[];
+    concepts_in_progress: string[];
+    misconceptions: Array<{
+        concept: string;
+        description: string;
+        occurrence_count: number;
+        last_seen: string;
+    }>;
+    recent_games: Array<{
+        game_id: string;
+        quiz_title: string;
+        score: number;
+        rank: number;
+        accuracy: number;
+        played_at: string;
+    }>;
+    review_queue: Array<{
+        concept: string;
+        due_date: string;
+        priority: string;
+    }>;
+    strengths: string[];
+    weaknesses: string[];
+}
+
+export interface MasteryItem {
+    concept: string;
+    mastery_score: number;
+    total_attempts: number;
+    correct_attempts: number;
+    last_practiced: string;
+}
+
+export interface ReviewQueueItem {
+    concept: string;
+    due_date: string;
+    priority: string;
+    interval_days?: number;
+    ease_factor?: number;
+}
+
+export const studentApi = {
+    /**
+     * Get student's learning profile
+     */
+    getProfile: (token: string) =>
+        fetchApi<LearningProfile>('/students/profile', {
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+
+    /**
+     * Get student's concept mastery levels
+     */
+    getMastery: (token: string) =>
+        fetchApi<{ user_id: string; mastery: MasteryItem[] }>('/students/mastery', {
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+
+    /**
+     * Get student's spaced repetition review queue
+     */
+    getReviewQueue: (token: string) =>
+        fetchApi<{ user_id: string; due_count: number; items: ReviewQueueItem[] }>('/students/review-queue', {
+            headers: { Authorization: `Bearer ${token}` },
+        }),
+
+    /**
+     * Mark a concept as reviewed with quality rating (SM-2 algorithm)
+     */
+    completeReview: (token: string, concept: string, quality: number) =>
+        fetchApi<{
+            concept: string;
+            quality: number;
+            next_review_at: string;
+            interval_days: number;
+            ease_factor: number;
+        }>(`/students/review-complete?concept=${encodeURIComponent(concept)}&quality=${quality}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
         }),
 };
 

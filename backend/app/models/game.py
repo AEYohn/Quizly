@@ -145,19 +145,23 @@ class Player(Base):
 class PlayerAnswer(Base):
     """An individual answer submission."""
     __tablename__ = "player_answers"
-    
+
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     player_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("players.id"), nullable=False)
     question_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("quiz_questions.id"), nullable=False)
-    
+
     # Answer details
     answer: Mapped[str] = mapped_column(String(10), nullable=False)  # "A", "B", "C", "D"
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
     response_time_ms: Mapped[int] = mapped_column(Integer, nullable=False)  # milliseconds to answer
     points_earned: Mapped[int] = mapped_column(Integer, default=0)
-    
+
+    # Adaptive learning fields
+    confidence: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0-100 confidence level
+    reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Student's reasoning for answer
+
     # Timestamp
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    
+
     # Relationships
     player: Mapped["Player"] = relationship(back_populates="answers")

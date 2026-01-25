@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star } from "lucide-react";
+import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3 } from "lucide-react";
 import { useGameSocket } from "~/lib/useGameSocket";
+import ConfidenceSlider from "~/components/ConfidenceSlider";
+import PeerDiscussion from "~/components/PeerDiscussion";
+import LearningAnalytics from "~/components/LearningAnalytics";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -58,6 +61,19 @@ export default function PlayGamePage() {
     const [showExplanation, setShowExplanation] = useState(false);
     const [streak, setStreak] = useState(0);
 
+    // Adaptive learning state
+    const [confidence, setConfidence] = useState<number>(70);
+    const [reasoning, setReasoning] = useState<string>("");
+    const [showReasoning, setShowReasoning] = useState(false);
+    const [showConfirmStep, setShowConfirmStep] = useState(false);
+    const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
+
+    // AI Peer Discussion state
+    const [showPeerDiscussion, setShowPeerDiscussion] = useState(false);
+
+    // Learning Analytics state
+    const [showAnalytics, setShowAnalytics] = useState(false);
+
     const playerId = typeof window !== "undefined"
         ? sessionStorage.getItem("playerId")
         : null;
@@ -94,6 +110,13 @@ export default function PlayGamePage() {
             setHostMessage("");
             setShowExplanation(false);
             setTimeLeft(data.time_limit);
+            // Reset adaptive learning state
+            setConfidence(70);
+            setReasoning("");
+            setShowReasoning(false);
+            setShowConfirmStep(false);
+            setShowPeerDiscussion(false);
+            setLastCorrectAnswer(null);
         },
         onTimerTick: (data) => {
             // Synchronized timer from server - use this for accurate countdown
@@ -287,14 +310,21 @@ export default function PlayGamePage() {
         return () => clearTimeout(timer);
     }, [timeLeft, hasAnswered]);
 
-    const submitAnswer = async (answer: string) => {
-        if (hasAnswered || !playerId || !game?.current_question) return;
-
+    // Step 1: Select answer - shows confidence slider
+    const selectAnswer = (answer: string) => {
+        if (hasAnswered || !game?.current_question) return;
         setSelectedAnswer(answer);
+        setShowConfirmStep(true);
+    };
+
+    // Step 2: Confirm answer with confidence - submits to backend
+    const confirmAnswer = async () => {
+        if (hasAnswered || !playerId || !game?.current_question || !selectedAnswer) return;
+
         setHasAnswered(true);
+        setShowConfirmStep(false);
 
         const timeTaken = (Date.now() - questionStartTime) / 1000;
-        const correctAnswer = Object.keys(game.current_question.options)[0]; // We'll get the real answer from the response
 
         try {
             const response = await fetch(`${API_URL}/games/${gameId}/answer`, {
@@ -303,21 +333,29 @@ export default function PlayGamePage() {
                 body: JSON.stringify({
                     player_id: playerId,
                     question_index: game.current_question_index,
-                    answer: answer,
+                    answer: selectedAnswer,
                     time_taken: timeTaken,
+                    confidence: confidence,
+                    reasoning: reasoning || undefined,
                 }),
             });
 
             if (response.ok) {
                 const result = await response.json();
-                // Backend now returns is_correct directly
                 const isCorrect = result.is_correct;
+
+                // Store correct answer for peer discussion
+                setLastCorrectAnswer(result.correct_answer);
 
                 // Update streak
                 if (isCorrect) {
                     setStreak(prev => prev + 1);
                 } else {
                     setStreak(0);
+                    // Show peer discussion for wrong answers with high confidence (misconception)
+                    if (confidence >= 60) {
+                        setShowPeerDiscussion(true);
+                    }
                 }
 
                 // Update player state immediately from response
@@ -333,18 +371,22 @@ export default function PlayGamePage() {
                 fetchHostReaction(
                     isCorrect,
                     game.current_question.question_text,
-                    answer,
+                    selectedAnswer,
                     result.correct_answer,
                     game.current_question.options,
                     timeTaken
                 );
             } else {
-                // If answer submission failed, still show a message
                 setHostMessage("Answer submitted!");
             }
         } catch (error) {
             console.error("Failed to submit answer:", error);
         }
+    };
+
+    // Legacy function for backward compatibility
+    const submitAnswer = async (answer: string) => {
+        selectAnswer(answer);
     };
 
     if (loading) {
@@ -396,30 +438,61 @@ export default function PlayGamePage() {
     // Game finished
     if (game.status === "finished") {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-8">
-                <div className="animate-bounce mb-6">
-                    <Trophy className="h-24 w-24 text-yellow-400 drop-shadow-lg" />
-                </div>
-                <h1 className="mb-4 text-4xl font-bold text-white">Game Over!</h1>
-                {playerState && (
-                    <div className="mb-8 text-center">
-                        <div className="mb-4 flex items-center justify-center gap-2">
-                            <Star className="h-8 w-8 text-yellow-400" />
-                            <span className="text-6xl font-bold text-white">
-                                #{playerState.rank}
-                            </span>
+            <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4 overflow-auto">
+                {showAnalytics && playerId ? (
+                    <div className="max-w-2xl mx-auto py-8">
+                        <button
+                            onClick={() => setShowAnalytics(false)}
+                            className="mb-4 text-white/70 hover:text-white flex items-center gap-2"
+                        >
+                            ← Back to Results
+                        </button>
+                        <LearningAnalytics gameId={gameId} playerId={playerId} />
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                onClick={() => router.push("/join")}
+                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                            >
+                                Play Again
+                            </button>
                         </div>
-                        <p className="text-2xl text-white/90">
-                            {playerState.score.toLocaleString()} points
-                        </p>
+                    </div>
+                ) : (
+                    <div className="flex min-h-[90vh] flex-col items-center justify-center">
+                        <div className="animate-bounce mb-6">
+                            <Trophy className="h-24 w-24 text-yellow-400 drop-shadow-lg" />
+                        </div>
+                        <h1 className="mb-4 text-4xl font-bold text-white">Game Over!</h1>
+                        {playerState && (
+                            <div className="mb-8 text-center">
+                                <div className="mb-4 flex items-center justify-center gap-2">
+                                    <Star className="h-8 w-8 text-yellow-400" />
+                                    <span className="text-6xl font-bold text-white">
+                                        #{playerState.rank}
+                                    </span>
+                                </div>
+                                <p className="text-2xl text-white/90">
+                                    {playerState.score.toLocaleString()} points
+                                </p>
+                            </div>
+                        )}
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => setShowAnalytics(true)}
+                                className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center gap-2"
+                            >
+                                <BarChart3 className="h-5 w-5" />
+                                View Learning Insights
+                            </button>
+                            <button
+                                onClick={() => router.push("/join")}
+                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                            >
+                                Play Again
+                            </button>
+                        </div>
                     </div>
                 )}
-                <button
-                    onClick={() => router.push("/join")}
-                    className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
-                >
-                    Play Again 🎮
-                </button>
             </div>
         );
     }
@@ -427,93 +500,127 @@ export default function PlayGamePage() {
     // Results - after answering (show AI host message)
     if (hasAnswered && hostMessage) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-8">
-                {/* Result Icon */}
-                <div className={`mb-6 flex h-28 w-28 items-center justify-center rounded-full ${
-                    playerState?.last_answer_correct
-                        ? "bg-green-500 animate-pulse"
-                        : "bg-orange-500"
-                } shadow-2xl`}>
-                    {playerState?.last_answer_correct ? (
-                        <Check className="h-14 w-14 text-white" />
-                    ) : (
-                        <X className="h-14 w-14 text-white" />
-                    )}
-                </div>
-
-                {/* Points earned */}
-                {playerState?.last_answer_correct && playerState?.last_answer_points > 0 && (
-                    <div className="mb-4 flex items-center gap-2 animate-bounce">
-                        <Zap className="h-8 w-8 text-yellow-400" />
-                        <span className="text-4xl font-bold text-yellow-400">
-                            +{playerState.last_answer_points}
-                        </span>
-                    </div>
-                )}
-
-                {/* Streak indicator */}
-                {streak >= 2 && (
-                    <div className="mb-4 rounded-full bg-orange-500 px-4 py-2 text-white font-bold">
-                        🔥 {streak} streak!
-                    </div>
-                )}
-
-                {/* AI Host Message */}
-                <div className="mb-8 max-w-md rounded-2xl bg-white/20 p-6 backdrop-blur-lg border border-white/30">
-                    <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-                            <Sparkles className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-white/70 mb-1">Quizzy says:</p>
-                            {hostLoading ? (
-                                <Loader2 className="h-5 w-5 animate-spin text-white" />
-                            ) : (
-                                <p className="text-lg text-white">{hostMessage}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Current Score */}
-                <div className="rounded-2xl bg-white/10 px-8 py-4 text-center backdrop-blur">
-                    <p className="text-white/70 text-sm">Your Score</p>
-                    <p className="text-3xl font-bold text-white">
-                        {playerState?.score.toLocaleString() || 0}
-                    </p>
-                    {playerState && (
-                        <p className="mt-1 text-white/70">Rank #{playerState.rank}</p>
-                    )}
-                </div>
-
-                {/* FOR ASYNC MODE: Show Next Question Button */}
-                {game?.sync_mode === false && (
-                    <div className="mt-8">
-                        {asyncQuestionIndex + 1 < game.total_questions ? (
-                            <button
-                                onClick={nextQuestion}
-                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
-                            >
-                                Next Question →
-                            </button>
+            <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4 overflow-auto">
+                <div className="flex flex-col items-center justify-center min-h-[90vh] max-w-md mx-auto">
+                    {/* Result Icon */}
+                    <div className={`mb-6 flex h-28 w-28 items-center justify-center rounded-full ${
+                        playerState?.last_answer_correct
+                            ? "bg-green-500 animate-pulse"
+                            : "bg-orange-500"
+                    } shadow-2xl`}>
+                        {playerState?.last_answer_correct ? (
+                            <Check className="h-14 w-14 text-white" />
                         ) : (
-                            <button
-                                onClick={() => router.push("/join")}
-                                className="rounded-full bg-green-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform"
-                            >
-                                Finish Quiz 🎉
-                            </button>
+                            <X className="h-14 w-14 text-white" />
                         )}
                     </div>
-                )}
 
-                {/* FOR SYNC MODE: Keep existing waiting message */}
-                {game?.sync_mode !== false && (
-                    <div className="mt-8 flex items-center gap-2 text-white/60">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Waiting for next question...</span>
+                    {/* Points earned */}
+                    {playerState?.last_answer_correct && playerState?.last_answer_points > 0 && (
+                        <div className="mb-4 flex items-center gap-2 animate-bounce">
+                            <Zap className="h-8 w-8 text-yellow-400" />
+                            <span className="text-4xl font-bold text-yellow-400">
+                                +{playerState.last_answer_points}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Streak indicator */}
+                    {streak >= 2 && (
+                        <div className="mb-4 rounded-full bg-orange-500 px-4 py-2 text-white font-bold">
+                            🔥 {streak} streak!
+                        </div>
+                    )}
+
+                    {/* Confidence feedback */}
+                    {!playerState?.last_answer_correct && confidence >= 70 && (
+                        <div className="mb-4 rounded-xl bg-orange-500/20 border border-orange-500/30 px-4 py-2 text-orange-200 text-sm flex items-center gap-2">
+                            <Brain className="h-4 w-4" />
+                            <span>High confidence but incorrect - let's review this concept!</span>
+                        </div>
+                    )}
+
+                    {/* AI Peer Discussion for misconceptions */}
+                    {showPeerDiscussion && game?.current_question && lastCorrectAnswer && selectedAnswer && (
+                        <div className="mb-6 w-full">
+                            <PeerDiscussion
+                                question={{
+                                    question_text: game.current_question.question_text,
+                                    options: game.current_question.options,
+                                }}
+                                studentAnswer={selectedAnswer}
+                                studentReasoning={reasoning}
+                                correctAnswer={lastCorrectAnswer}
+                                onComplete={() => setShowPeerDiscussion(false)}
+                            />
+                        </div>
+                    )}
+
+                    {/* AI Host Message */}
+                    {!showPeerDiscussion && (
+                        <div className="mb-8 w-full rounded-2xl bg-white/20 p-6 backdrop-blur-lg border border-white/30">
+                            <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                                    <Sparkles className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-white/70 mb-1">Quizzy says:</p>
+                                    {hostLoading ? (
+                                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                    ) : (
+                                        <p className="text-lg text-white">{hostMessage}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Current Score */}
+                    <div className="rounded-2xl bg-white/10 px-8 py-4 text-center backdrop-blur w-full">
+                        <p className="text-white/70 text-sm">Your Score</p>
+                        <p className="text-3xl font-bold text-white">
+                            {playerState?.score.toLocaleString() || 0}
+                        </p>
+                        {playerState && (
+                            <p className="mt-1 text-white/70">Rank #{playerState.rank}</p>
+                        )}
                     </div>
-                )}
+
+                    {/* FOR ASYNC MODE: Show Next Question Button */}
+                    {game?.sync_mode === false && !showPeerDiscussion && (
+                        <div className="mt-8">
+                            {asyncQuestionIndex + 1 < game.total_questions ? (
+                                <button
+                                    onClick={() => {
+                                        nextQuestion();
+                                        setConfidence(70);
+                                        setReasoning("");
+                                        setShowReasoning(false);
+                                        setShowPeerDiscussion(false);
+                                    }}
+                                    className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                                >
+                                    Next Question →
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => router.push("/join")}
+                                    className="rounded-full bg-green-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform"
+                                >
+                                    Finish Quiz
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* FOR SYNC MODE: Keep existing waiting message */}
+                    {game?.sync_mode !== false && !showPeerDiscussion && (
+                        <div className="mt-8 flex items-center gap-2 text-white/60">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Waiting for next question...</span>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }
@@ -536,6 +643,115 @@ export default function PlayGamePage() {
         "from-green-500 to-green-600",
     ];
     const shapes = ["▲", "◆", "●", "■"];
+
+    // Show confidence confirmation step
+    if (showConfirmStep && selectedAnswer && game.current_question) {
+        return (
+            <div className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
+                {/* Header */}
+                <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-full bg-white/20 px-4 py-2 backdrop-blur">
+                        <span className="text-white/70">Q</span>{" "}
+                        <span className="font-bold text-white">
+                            {game.current_question_index + 1}/{game.total_questions}
+                        </span>
+                    </div>
+
+                    {timeLeft !== null && (
+                        <div className={`flex items-center gap-2 rounded-full px-5 py-2 ${
+                            timeLeft <= 5
+                                ? "bg-red-500 animate-pulse"
+                                : "bg-white"
+                        } shadow-lg`}>
+                            <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-purple-600"}`} />
+                            <span className={`text-2xl font-bold ${
+                                timeLeft <= 5 ? "text-white" : "text-purple-600"
+                            }`}>
+                                {timeLeft}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Selected Answer Display */}
+                <div className="mb-6 rounded-2xl bg-white/20 p-4 backdrop-blur border border-white/30">
+                    <p className="text-white/70 text-sm mb-2">Your answer:</p>
+                    <div className={`flex items-center gap-3 rounded-xl bg-gradient-to-r ${
+                        colors[Object.keys(game.current_question.options).indexOf(selectedAnswer)]
+                    } p-4`}>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-xl">
+                            {shapes[Object.keys(game.current_question.options).indexOf(selectedAnswer)]}
+                        </span>
+                        <span className="font-bold text-white">
+                            {game.current_question.options[selectedAnswer]}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Confidence Slider */}
+                <div className="mb-6 rounded-2xl bg-white/10 p-6 backdrop-blur border border-white/20">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Brain className="h-5 w-5 text-white" />
+                        <h3 className="font-bold text-white">How confident are you?</h3>
+                    </div>
+                    <ConfidenceSlider
+                        value={confidence}
+                        onChange={setConfidence}
+                        showLabels={true}
+                    />
+                </div>
+
+                {/* Optional Reasoning Input */}
+                <div className="mb-6">
+                    <button
+                        onClick={() => setShowReasoning(!showReasoning)}
+                        className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-3"
+                    >
+                        {showReasoning ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        <span className="text-sm">Why did you choose this? (optional)</span>
+                    </button>
+                    {showReasoning && (
+                        <textarea
+                            value={reasoning}
+                            onChange={(e) => setReasoning(e.target.value)}
+                            placeholder="Share your thinking... (helps with personalized feedback)"
+                            className="w-full bg-white/10 rounded-xl p-4 text-white placeholder-white/50 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 resize-none"
+                            rows={3}
+                        />
+                    )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 mt-auto">
+                    <button
+                        onClick={() => {
+                            setShowConfirmStep(false);
+                            setSelectedAnswer(null);
+                        }}
+                        className="flex-1 rounded-xl bg-white/20 py-4 font-bold text-white hover:bg-white/30 transition-colors"
+                    >
+                        Change Answer
+                    </button>
+                    <button
+                        onClick={confirmAnswer}
+                        className="flex-1 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-4 font-bold text-white shadow-lg hover:scale-[1.02] active:scale-95 transition-transform"
+                    >
+                        Submit Answer
+                    </button>
+                </div>
+
+                {/* Score footer */}
+                <div className="mt-4 flex justify-center">
+                    <div className="rounded-full bg-white/20 px-6 py-2 backdrop-blur">
+                        <span className="text-white/70">Score: </span>
+                        <span className="font-bold text-white">
+                            {playerState?.score?.toLocaleString() || 0}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
@@ -578,7 +794,7 @@ export default function PlayGamePage() {
                         ([key, value], index) => (
                             <button
                                 key={key}
-                                onClick={() => submitAnswer(key)}
+                                onClick={() => selectAnswer(key)}
                                 disabled={hasAnswered}
                                 className={`flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r ${colors[index]} p-5 text-white shadow-lg transition-all ${
                                     hasAnswered && selectedAnswer === key
