@@ -91,8 +91,6 @@ export default function TeacherDashboard() {
             }
             if (gamesRes.ok) {
                 const gamesData = await gamesRes.json();
-                console.log("[Dashboard] Games loaded:", gamesData);
-                console.log("[Dashboard] Games quiz_ids:", gamesData.map((g: Game) => g.quiz_id));
                 setAllGames(gamesData);
             }
             if (codingRes.ok) {
@@ -106,10 +104,7 @@ export default function TeacherDashboard() {
 
     // Get or create async game for a quiz
     const getGameForQuiz = (quizId: string): Game | undefined => {
-        const game = allGames.find(g => g.quiz_id === quizId && g.status !== "finished");
-        console.log(`[Dashboard] getGameForQuiz(${quizId}):`, game ? `Found game ${game.game_code}` : "No game found");
-        console.log(`[Dashboard] All games for comparison:`, allGames.map(g => ({ quiz_id: g.quiz_id, status: g.status, code: g.game_code })));
-        return game;
+        return allGames.find(g => g.quiz_id === quizId && g.status !== "finished");
     };
 
     const createGame = async (quizId: string) => {

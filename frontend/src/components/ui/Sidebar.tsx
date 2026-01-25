@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "~/lib/utils";
 import {
     LayoutDashboard,
-    Library,
     Code2,
     LogOut,
     Sparkles,
@@ -13,7 +12,6 @@ import {
 
 const navigation = [
     { name: "Dashboard", href: "/teacher", icon: LayoutDashboard },
-    { name: "My Quizzes", href: "/teacher/quizzes", icon: Library },
     { name: "Coding", href: "/teacher/coding", icon: Code2 },
 ];
 
