@@ -652,11 +652,16 @@ async def submit_answer(
 
 
 @router.get("/{game_id}/results")
-async def get_question_results(
+async def get_game_results(
     game_id: UUID,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get results for the current question (after it ends)."""
+    """
+    Get game results.
+
+    For finished games: Returns full game summary with leaderboard and per-question breakdown.
+    For in-progress games (results phase): Returns current question results.
+    """
     result = await db.execute(
         select(GameSession)
         .options(
@@ -666,26 +671,70 @@ async def get_question_results(
         .where(GameSession.id == game_id)
     )
     game = result.scalars().first()
-    
+
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-    
+
     if game.status not in ["results", "finished"]:
         raise HTTPException(status_code=400, detail="Results not available yet")
-    
-    # Get current question
+
     questions = sorted(game.quiz.questions, key=lambda q: q.order)
+    active_players = [p for p in game.players if p.is_active]
+
+    # Build leaderboard
+    players_sorted = sorted(active_players, key=lambda p: p.total_score, reverse=True)
+
+    # For finished games, return full game results
+    if game.status == "finished":
+        # Build leaderboard with full stats
+        leaderboard = []
+        for i, p in enumerate(players_sorted):
+            total_answers = len(p.answers)
+            leaderboard.append({
+                "player_id": str(p.id),
+                "nickname": p.nickname,
+                "score": p.total_score,
+                "rank": i + 1,
+                "correct_answers": p.correct_answers,
+                "total_answers": total_answers
+            })
+
+        # Build questions summary
+        questions_summary = []
+        for q in questions:
+            correct_count = 0
+            total_answers = 0
+            for player in active_players:
+                for answer in player.answers:
+                    if answer.question_id == q.id:
+                        total_answers += 1
+                        if answer.is_correct:
+                            correct_count += 1
+
+            questions_summary.append({
+                "question_text": q.question_text,
+                "correct_count": correct_count,
+                "total_answers": total_answers
+            })
+
+        return {
+            "id": str(game.id),
+            "quiz_title": game.quiz.title,
+            "player_count": len(active_players),
+            "leaderboard": leaderboard,
+            "questions_summary": questions_summary
+        }
+
+    # For results phase (between questions), return current question results
     question = questions[game.current_question_index]
-    
+
     # Calculate answer distribution
     answer_distribution = {"A": 0, "B": 0, "C": 0, "D": 0}
-    for player in game.players:
+    for player in active_players:
         for answer in player.answers:
             if answer.question_id == question.id:
                 answer_distribution[answer.answer] = answer_distribution.get(answer.answer, 0) + 1
-    
-    # Build leaderboard
-    players_sorted = sorted(game.players, key=lambda p: p.total_score, reverse=True)
+
     leaderboard = [
         PlayerResponse(
             id=str(p.id),
@@ -697,9 +746,8 @@ async def get_question_results(
             rank=i + 1
         )
         for i, p in enumerate(players_sorted)
-        if p.is_active
     ]
-    
+
     return QuestionResults(
         correct_answer=question.correct_answer,
         explanation=question.explanation,

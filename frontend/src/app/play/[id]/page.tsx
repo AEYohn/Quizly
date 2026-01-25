@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3 } from "lucide-react";
+import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3, GraduationCap, Download, BookOpen } from "lucide-react";
 import { useGameSocket } from "~/lib/useGameSocket";
 import ConfidenceSlider from "~/components/ConfidenceSlider";
 import PeerDiscussion from "~/components/PeerDiscussion";
@@ -73,6 +73,16 @@ export default function PlayGamePage() {
 
     // Learning Analytics state
     const [showAnalytics, setShowAnalytics] = useState(false);
+
+    // Exit Ticket state
+    const [exitTicket, setExitTicket] = useState<{
+        strengths: string[];
+        areas_to_improve: string[];
+        micro_lesson: string;
+        follow_up_question: { prompt: string; options: string[]; correct_answer: string };
+    } | null>(null);
+    const [exitTicketLoading, setExitTicketLoading] = useState(false);
+    const [showExitTicket, setShowExitTicket] = useState(false);
 
     const playerId = typeof window !== "undefined"
         ? sessionStorage.getItem("playerId")
@@ -389,6 +399,56 @@ export default function PlayGamePage() {
         selectAnswer(answer);
     };
 
+    // Fetch personalized exit ticket
+    const fetchExitTicket = async () => {
+        if (!playerId || !game) return;
+
+        setExitTicketLoading(true);
+        try {
+            const response = await fetch(`${API_URL}/ai/exit-ticket`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    student_name: nickname || "Student",
+                    responses: [], // Would include actual responses in full implementation
+                    session_topic: game.quiz_title,
+                    concepts: []
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setExitTicket(data);
+                setShowExitTicket(true);
+            }
+        } catch (error) {
+            console.error("Failed to fetch exit ticket:", error);
+        } finally {
+            setExitTicketLoading(false);
+        }
+    };
+
+    // Export study guide
+    const exportStudyGuide = async () => {
+        try {
+            const url = `${API_URL}/games/${gameId}/export?format=md`;
+            const response = await fetch(url);
+            if (response.ok) {
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = downloadUrl;
+                a.download = `${game?.quiz_title || "quiz"}-results.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+            }
+        } catch (error) {
+            console.error("Failed to export:", error);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
@@ -457,6 +517,88 @@ export default function PlayGamePage() {
                             </button>
                         </div>
                     </div>
+                ) : showExitTicket && exitTicket ? (
+                    <div className="max-w-2xl mx-auto py-8">
+                        <button
+                            onClick={() => setShowExitTicket(false)}
+                            className="mb-4 text-white/70 hover:text-white flex items-center gap-2"
+                        >
+                            ← Back to Results
+                        </button>
+
+                        {/* Exit Ticket Content */}
+                        <div className="space-y-4">
+                            <div className="text-center mb-6">
+                                <GraduationCap className="h-12 w-12 text-yellow-400 mx-auto mb-2" />
+                                <h2 className="text-2xl font-bold text-white">Your Personalized Exit Ticket</h2>
+                            </div>
+
+                            {/* Strengths */}
+                            {exitTicket.strengths.length > 0 && (
+                                <div className="bg-green-500/20 rounded-xl p-4 border border-green-500/30">
+                                    <h3 className="font-bold text-green-300 mb-2 flex items-center gap-2">
+                                        <Check className="h-5 w-5" /> Your Strengths
+                                    </h3>
+                                    <ul className="space-y-1">
+                                        {exitTicket.strengths.map((s, i) => (
+                                            <li key={i} className="text-white/90 text-sm">- {s}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Areas to Improve */}
+                            {exitTicket.areas_to_improve.length > 0 && (
+                                <div className="bg-orange-500/20 rounded-xl p-4 border border-orange-500/30">
+                                    <h3 className="font-bold text-orange-300 mb-2 flex items-center gap-2">
+                                        <BookOpen className="h-5 w-5" /> Areas to Review
+                                    </h3>
+                                    <ul className="space-y-1">
+                                        {exitTicket.areas_to_improve.map((a, i) => (
+                                            <li key={i} className="text-white/90 text-sm">- {a}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Micro Lesson */}
+                            {exitTicket.micro_lesson && (
+                                <div className="bg-blue-500/20 rounded-xl p-4 border border-blue-500/30">
+                                    <h3 className="font-bold text-blue-300 mb-2 flex items-center gap-2">
+                                        <Sparkles className="h-5 w-5" /> Quick Review
+                                    </h3>
+                                    <p className="text-white/90 text-sm">{exitTicket.micro_lesson}</p>
+                                </div>
+                            )}
+
+                            {/* Follow-up Question */}
+                            {exitTicket.follow_up_question && (
+                                <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-500/30">
+                                    <h3 className="font-bold text-purple-300 mb-2">Check Your Understanding</h3>
+                                    <p className="text-white mb-3">{exitTicket.follow_up_question.prompt}</p>
+                                    <div className="space-y-2">
+                                        {exitTicket.follow_up_question.options.map((opt, i) => (
+                                            <button
+                                                key={i}
+                                                className="w-full text-left bg-white/10 hover:bg-white/20 rounded-lg px-4 py-2 text-white text-sm transition-colors"
+                                            >
+                                                {String.fromCharCode(65 + i)}. {opt}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-6 flex justify-center">
+                            <button
+                                onClick={() => router.push("/join")}
+                                className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                            >
+                                Play Again
+                            </button>
+                        </div>
+                    </div>
                 ) : (
                     <div className="flex min-h-[90vh] flex-col items-center justify-center">
                         <div className="animate-bounce mb-6">
@@ -476,13 +618,32 @@ export default function PlayGamePage() {
                                 </p>
                             </div>
                         )}
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-3 w-full max-w-sm">
                             <button
                                 onClick={() => setShowAnalytics(true)}
-                                className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center gap-2"
+                                className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2"
                             >
                                 <BarChart3 className="h-5 w-5" />
                                 View Learning Insights
+                            </button>
+                            <button
+                                onClick={fetchExitTicket}
+                                disabled={exitTicketLoading}
+                                className="rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 px-8 py-4 text-lg font-bold text-white shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {exitTicketLoading ? (
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                    <GraduationCap className="h-5 w-5" />
+                                )}
+                                Get Exit Ticket
+                            </button>
+                            <button
+                                onClick={exportStudyGuide}
+                                className="rounded-full bg-white/20 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-white/30 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Download className="h-5 w-5" />
+                                Download Results
                             </button>
                             <button
                                 onClick={() => router.push("/join")}
