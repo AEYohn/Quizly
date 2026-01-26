@@ -583,14 +583,17 @@ export default function PlayGamePage() {
                     setStreak(prev => prev + 1);
                 } else {
                     setStreak(0);
-                    // Show peer discussion for ALL wrong answers (unless explicitly disabled)
-                    const peerEnabled = game.quiz_settings?.peer_discussion_enabled ?? true;
-                    const peerTrigger = game.quiz_settings?.peer_discussion_trigger ?? "always";
-
-                    if (peerEnabled && peerTrigger !== "never") {
-                        // Always show peer discussion for wrong answers
-                        // Students must complete it before moving on
+                    // In async mode, ALWAYS show peer discussion for wrong answers
+                    // This is required for the retry-in-chat flow
+                    if (game.sync_mode === false) {
                         setShowPeerDiscussion(true);
+                    } else {
+                        // For sync mode, respect quiz settings
+                        const peerEnabled = game.quiz_settings?.peer_discussion_enabled ?? true;
+                        const peerTrigger = game.quiz_settings?.peer_discussion_trigger ?? "always";
+                        if (peerEnabled && peerTrigger !== "never") {
+                            setShowPeerDiscussion(true);
+                        }
                     }
                 }
 
