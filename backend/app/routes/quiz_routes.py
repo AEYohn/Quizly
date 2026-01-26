@@ -126,6 +126,11 @@ class QuizResponse(BaseModel):
     created_at: str
     updated_at: str
 
+    # Game stats
+    times_played: int = 0
+    active_game_id: Optional[str] = None
+    active_game_code: Optional[str] = None
+
     # Async-first timing settings
     timer_enabled: bool = False
     default_time_limit: int = 30
@@ -256,17 +261,34 @@ async def list_quizzes(
     current_user: User = Depends(get_current_user)
 ):
     """List quizzes - teachers see their own, can also see public ones."""
-    # Get user's quizzes
+    # Get user's quizzes with their game sessions
     result = await db.execute(
         select(Quiz)
-        .options(selectinload(Quiz.questions))
+        .options(
+            selectinload(Quiz.questions),
+            selectinload(Quiz.games)
+        )
         .where(Quiz.teacher_id == current_user.id)
         .order_by(Quiz.updated_at.desc())
     )
     quizzes = result.scalars().all()
-    
-    return [
-        QuizResponse(
+
+    responses = []
+    for q in quizzes:
+        # Count games and find most recent active game
+        games = getattr(q, 'games', []) or []
+        times_played = len(games)
+        active_game = None
+
+        # Find the most recent game (prefer non-finished, then most recent)
+        if games:
+            # Sort by created_at descending
+            sorted_games = sorted(games, key=lambda g: g.created_at, reverse=True)
+            # Prefer active games over finished
+            active_games = [g for g in sorted_games if g.status != "finished"]
+            active_game = active_games[0] if active_games else sorted_games[0]
+
+        responses.append(QuizResponse(
             id=str(q.id),
             teacher_id=str(q.teacher_id),
             title=q.title,
@@ -276,6 +298,9 @@ async def list_quizzes(
             question_count=len(q.questions),
             created_at=q.created_at.isoformat(),
             updated_at=q.updated_at.isoformat(),
+            times_played=times_played,
+            active_game_id=str(active_game.id) if active_game else None,
+            active_game_code=active_game.game_code if active_game else None,
             timer_enabled=getattr(q, 'timer_enabled', False),
             default_time_limit=getattr(q, 'default_time_limit', 30),
             shuffle_questions=getattr(q, 'shuffle_questions', False),
@@ -290,9 +315,9 @@ async def list_quizzes(
             peer_discussion_trigger=getattr(q, 'peer_discussion_trigger', 'high_confidence_wrong'),
             allow_teacher_intervention=getattr(q, 'allow_teacher_intervention', True),
             sync_pacing_available=getattr(q, 'sync_pacing_available', False),
-        )
-        for q in quizzes
-    ]
+        ))
+
+    return responses
 
 
 @router.get("/public", response_model=List[QuizResponse])

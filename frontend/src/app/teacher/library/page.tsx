@@ -452,12 +452,23 @@ export default function LibraryPage() {
                                             <Share2 className="h-4 w-4" />
                                             Share
                                         </button>
-                                        <Link
-                                            href={`/teacher/game/${item.id}/results`}
-                                            className="flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-gray-300 transition-colors hover:bg-gray-800"
-                                        >
-                                            <BarChart3 className="h-4 w-4" />
-                                        </Link>
+                                        {(item as Quiz).times_played > 0 && (item as Quiz).active_game_id ? (
+                                            <Link
+                                                href={`/teacher/game/${(item as Quiz).active_game_id}/results`}
+                                                className="flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-gray-300 transition-colors hover:bg-gray-800"
+                                                title="View results"
+                                            >
+                                                <BarChart3 className="h-4 w-4" />
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                disabled
+                                                className="flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-gray-500 cursor-not-allowed opacity-50"
+                                                title="No plays yet"
+                                            >
+                                                <BarChart3 className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </>
                                 )}
                                 <Link
@@ -520,13 +531,24 @@ export default function LibraryPage() {
                                             <Share2 className="h-4 w-4" />
                                             Share
                                         </button>
-                                        <Link
-                                            href={`/teacher/game/${item.id}/results`}
-                                            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
-                                        >
-                                            <BarChart3 className="h-4 w-4" />
-                                            Results
-                                        </Link>
+                                        {(item as Quiz).times_played > 0 && (item as Quiz).active_game_id ? (
+                                            <Link
+                                                href={`/teacher/game/${(item as Quiz).active_game_id}/results`}
+                                                className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
+                                            >
+                                                <BarChart3 className="h-4 w-4" />
+                                                Results
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                disabled
+                                                className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-500 cursor-not-allowed opacity-50"
+                                                title="No plays yet"
+                                            >
+                                                <BarChart3 className="h-4 w-4" />
+                                                Results
+                                            </button>
+                                        )}
                                     </>
                                 )}
                                 <Link
