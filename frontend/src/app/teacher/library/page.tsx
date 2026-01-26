@@ -66,6 +66,7 @@ export default function LibraryPage() {
     // Share modal state
     const [showShareModal, setShowShareModal] = useState(false);
     const [shareQuiz, setShareQuiz] = useState<Quiz | null>(null);
+    const [shareCoding, setShareCoding] = useState<CodingChallenge | null>(null);
     const [gameCode, setGameCode] = useState<string | null>(null);
     const [gameId, setGameId] = useState<string | null>(null);
     const [creatingGame, setCreatingGame] = useState(false);
@@ -184,6 +185,22 @@ export default function LibraryPage() {
     const copyJoinLink = () => {
         if (gameId) {
             const link = `${window.location.origin}/join?code=${gameCode}`;
+            navigator.clipboard.writeText(link);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    // Open share modal for coding challenge
+    const openCodingShareModal = (challenge: CodingChallenge) => {
+        setShareCoding(challenge);
+        setShowShareModal(true);
+        setCopied(false);
+    };
+
+    const copyCodingLink = () => {
+        if (shareCoding) {
+            const link = `${window.location.origin}/play/coding/${shareCoding.id}`;
             navigator.clipboard.writeText(link);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -443,7 +460,7 @@ export default function LibraryPage() {
 
                             {/* Actions - Async-first UI */}
                             <div className="mt-4 flex gap-2">
-                                {item.type === "quiz" && (
+                                {item.type === "quiz" ? (
                                     <>
                                         <button
                                             onClick={() => openShareModal(item as Quiz)}
@@ -470,6 +487,14 @@ export default function LibraryPage() {
                                             </button>
                                         )}
                                     </>
+                                ) : (
+                                    <button
+                                        onClick={() => openCodingShareModal(item as CodingChallenge)}
+                                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700"
+                                    >
+                                        <Share2 className="h-4 w-4" />
+                                        Share
+                                    </button>
                                 )}
                                 <Link
                                     href={item.type === "quiz" ? `/teacher/quizzes/${item.id}/edit` : `/teacher/coding/${item.id}/edit`}
@@ -522,7 +547,7 @@ export default function LibraryPage() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                {item.type === "quiz" && (
+                                {item.type === "quiz" ? (
                                     <>
                                         <button
                                             onClick={() => openShareModal(item as Quiz)}
@@ -550,6 +575,14 @@ export default function LibraryPage() {
                                             </button>
                                         )}
                                     </>
+                                ) : (
+                                    <button
+                                        onClick={() => openCodingShareModal(item as CodingChallenge)}
+                                        className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+                                    >
+                                        <Share2 className="h-4 w-4" />
+                                        Share
+                                    </button>
                                 )}
                                 <Link
                                     href={item.type === "quiz" ? `/teacher/quizzes/${item.id}/edit` : `/teacher/coding/${item.id}/edit`}
@@ -564,7 +597,7 @@ export default function LibraryPage() {
                 </div>
             )}
 
-            {/* Share Modal */}
+            {/* Share Modal - Quiz */}
             {showShareModal && shareQuiz && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
                     <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 p-6">
@@ -639,6 +672,80 @@ export default function LibraryPage() {
                                     Failed to create share link. Please try again.
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Share Modal - Coding Challenge */}
+            {showShareModal && shareCoding && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-white">Share Coding Challenge</h2>
+                            <button
+                                onClick={() => {
+                                    setShowShareModal(false);
+                                    setShareCoding(null);
+                                }}
+                                className="text-gray-400 hover:text-white"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        <div className="text-center">
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                                <h3 className="text-lg font-medium text-white">{shareCoding.title}</h3>
+                                <span className={`rounded-full px-2 py-0.5 text-xs ${
+                                    shareCoding.difficulty === "easy"
+                                        ? "bg-green-500/20 text-green-400"
+                                        : shareCoding.difficulty === "medium"
+                                        ? "bg-yellow-500/20 text-yellow-400"
+                                        : "bg-red-500/20 text-red-400"
+                                }`}>
+                                    {shareCoding.difficulty}
+                                </span>
+                            </div>
+                            <p className="text-sm text-gray-400 mb-6">
+                                Share this link with students to attempt the challenge
+                            </p>
+
+                            {/* Direct Link */}
+                            <div className="mb-6">
+                                <p className="text-sm text-gray-400 mb-2">Challenge Link</p>
+                                <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-3">
+                                    <code className="flex-1 text-sm text-green-400 truncate">
+                                        {typeof window !== "undefined" ? `${window.location.origin}/play/coding/${shareCoding.id}` : `/play/coding/${shareCoding.id}`}
+                                    </code>
+                                    <button
+                                        onClick={copyCodingLink}
+                                        className="p-2 rounded-lg bg-gray-700 text-gray-400 hover:text-white hover:bg-gray-600 transition-colors"
+                                    >
+                                        {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Share Options */}
+                            <div className="space-y-3">
+                                <button
+                                    onClick={copyCodingLink}
+                                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 font-medium text-white hover:bg-green-700 transition-colors"
+                                >
+                                    <ExternalLink className="h-5 w-5" />
+                                    {copied ? "Copied!" : "Copy Link"}
+                                </button>
+
+                                <Link
+                                    href={`/play/coding/${shareCoding.id}`}
+                                    target="_blank"
+                                    className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-4 py-3 font-medium text-gray-300 hover:bg-gray-800 transition-colors"
+                                >
+                                    <Code2 className="h-5 w-5" />
+                                    Preview Challenge
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>

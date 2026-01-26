@@ -4,6 +4,9 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://backend-production-33a7.up.railway.app"
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -15,8 +18,18 @@
         {
           "key": "X-Frame-Options",
           "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://backend-production-33a7.up.railway.app/:path*"
     }
   ]
 }

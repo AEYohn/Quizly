@@ -273,6 +273,8 @@ async def generate_coding_problem(
 
 Language: {data.language}
 
+IMPORTANT: Test case inputs MUST be valid JSON objects with parameter names as keys.
+
 Return a JSON object with this exact structure:
 {{
     "title": "Problem Title",
@@ -281,17 +283,24 @@ Return a JSON object with this exact structure:
     "hints": ["hint 1", "hint 2"],
     "tags": ["array", "algorithm"],
     "starter_code": {{
-        "{data.language}": "def solution(...):\\n    # Your code here\\n    pass"
+        "{data.language}": "def solution(nums, target):\\n    # Your code here\\n    pass"
     }},
     "solution_code": {{
-        "{data.language}": "def solution(...):\\n    # Complete solution"
+        "{data.language}": "def solution(nums, target):\\n    # Complete solution"
     }},
     "test_cases": [
-        {{"input": "input value", "expected_output": "output value", "explanation": "why"}}
+        {{
+            "input": {{"nums": [2, 7, 11, 15], "target": 9}},
+            "expected_output": [0, 1],
+            "explanation": "Because nums[0] + nums[1] == 9"
+        }}
     ]
 }}
 
-Generate {data.num_test_cases} test cases. Make test inputs and outputs be simple strings that can be parsed.
+CRITICAL: The "input" field must be a JSON object with parameter names matching the function signature.
+NOT a string like "nums=[1,2,3], target=6" - must be {{"nums": [1,2,3], "target": 6}}
+
+Generate {data.num_test_cases} test cases.
 Return ONLY valid JSON, no markdown code blocks."""
 
     # Build content parts for multimodal

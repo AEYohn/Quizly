@@ -413,7 +413,7 @@ export default function NewCodingProblemPage() {
 
     return (
         <div
-            className="min-h-screen bg-gray-50 flex flex-col"
+            className="min-h-screen bg-gray-950 flex flex-col"
             onDragOver={(e) => { e.preventDefault(); if (mode === "ai") setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleFileDrop}
@@ -430,13 +430,13 @@ export default function NewCodingProblemPage() {
             )}
 
             {/* Header */}
-            <header className="sticky top-0 z-40 border-b bg-white">
+            <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-900">
                 <div className="mx-auto max-w-4xl px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={() => router.back()}
-                                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                                className="rounded-lg p-2 text-gray-400 hover:bg-gray-800"
                             >
                                 <ArrowLeft className="h-5 w-5" />
                             </button>
@@ -445,8 +445,8 @@ export default function NewCodingProblemPage() {
                                     <Code2 className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="font-bold text-gray-900">Coding Problems</h1>
-                                    <p className="text-xs text-gray-500">Create LeetCode-style challenges</p>
+                                    <h1 className="font-bold text-white">Coding Problems</h1>
+                                    <p className="text-xs text-gray-400">Create LeetCode-style challenges</p>
                                 </div>
                             </div>
                         </div>
@@ -455,7 +455,7 @@ export default function NewCodingProblemPage() {
                             <select
                                 value={difficulty}
                                 onChange={(e) => setDifficulty(e.target.value)}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-400 focus:outline-none"
                             >
                                 <option value="easy">Easy</option>
                                 <option value="medium">Medium</option>
@@ -464,7 +464,7 @@ export default function NewCodingProblemPage() {
                             <select
                                 value={language}
                                 onChange={(e) => setLanguage(e.target.value)}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-400 focus:outline-none"
                             >
                                 <option value="python">Python</option>
                                 <option value="javascript">JavaScript</option>
@@ -472,11 +472,11 @@ export default function NewCodingProblemPage() {
                                 <option value="cpp">C++</option>
                             </select>
                             {/* Mode Toggle */}
-                            <div className="flex rounded-lg border border-gray-200 p-1">
+                            <div className="flex rounded-lg border border-gray-700 bg-gray-800 p-1">
                                 <button
                                     onClick={() => setMode("ai")}
                                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                                        mode === "ai" ? "bg-purple-100 text-purple-700" : "text-gray-600 hover:bg-gray-100"
+                                        mode === "ai" ? "bg-purple-600 text-white" : "text-gray-400 hover:bg-gray-700"
                                     }`}
                                 >
                                     <Sparkles className="h-4 w-4" />
@@ -485,7 +485,7 @@ export default function NewCodingProblemPage() {
                                 <button
                                     onClick={() => setMode("manual")}
                                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                                        mode === "manual" ? "bg-gray-200 text-gray-800" : "text-gray-600 hover:bg-gray-100"
+                                        mode === "manual" ? "bg-gray-600 text-white" : "text-gray-400 hover:bg-gray-700"
                                     }`}
                                 >
                                     <PenLine className="h-4 w-4" />
@@ -518,10 +518,10 @@ export default function NewCodingProblemPage() {
                                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
                                         <Code2 className="h-8 w-8 text-white" />
                                     </div>
-                                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                                    <h2 className="text-xl font-semibold text-white mb-2">
                                         What coding challenge do you want?
                                     </h2>
-                                    <p className="text-gray-500 mb-6">
+                                    <p className="text-gray-400 mb-6">
                                         Describe the problem, paste a screenshot, or upload a PDF
                                     </p>
                                     <div className="flex flex-wrap justify-center gap-2">
@@ -535,7 +535,7 @@ export default function NewCodingProblemPage() {
                                             <button
                                                 key={suggestion}
                                                 onClick={() => setChatInput(suggestion)}
-                                                className="rounded-full bg-white px-4 py-2 text-sm text-gray-600 border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+                                                className="rounded-full bg-gray-800 px-4 py-2 text-sm text-gray-300 border border-gray-700 hover:border-purple-500 hover:bg-gray-700 transition-colors"
                                             >
                                                 {suggestion}
                                             </button>
@@ -550,13 +550,13 @@ export default function NewCodingProblemPage() {
                                         {msg.files && msg.files.length > 0 && (
                                             <div className="flex gap-2 mb-2 justify-end">
                                                 {msg.files.map((file, i) => (
-                                                    <div key={i} className="rounded-lg overflow-hidden border border-gray-200">
+                                                    <div key={i} className="rounded-lg overflow-hidden border border-gray-700">
                                                         {file.type === "image" ? (
                                                             <img src={file.preview} alt="" className="h-20 w-auto object-cover" />
                                                         ) : (
-                                                            <div className="flex items-center gap-2 bg-gray-100 px-3 py-2">
-                                                                <FileText className="h-5 w-5 text-red-500" />
-                                                                <span className="text-sm text-gray-600">{file.name}</span>
+                                                            <div className="flex items-center gap-2 bg-gray-800 px-3 py-2">
+                                                                <FileText className="h-5 w-5 text-red-400" />
+                                                                <span className="text-sm text-gray-300">{file.name}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -566,7 +566,7 @@ export default function NewCodingProblemPage() {
                                         <div className={`rounded-2xl px-4 py-3 ${
                                             msg.role === "user"
                                                 ? "bg-purple-600 text-white"
-                                                : "bg-white border border-gray-200 text-gray-800"
+                                                : "bg-gray-800 border border-gray-700 text-gray-200"
                                         }`}>
                                             {msg.content}
                                             {msg.role === "ai" && generating && msg === messages[messages.length - 1] && (
@@ -580,23 +580,23 @@ export default function NewCodingProblemPage() {
                         </div>
 
                         {/* Chat Input */}
-                        <div className="sticky bottom-0 pb-6 pt-2 bg-gradient-to-t from-gray-50 via-gray-50">
+                        <div className="sticky bottom-0 pb-6 pt-2 bg-gradient-to-t from-gray-950 via-gray-950">
                             {/* Pending files preview */}
                             {pendingFiles.length > 0 && (
                                 <div className="flex gap-2 mb-3 px-1">
                                     {pendingFiles.map((file, i) => (
                                         <div key={i} className="relative">
                                             {file.type === "image" ? (
-                                                <img src={file.preview} alt="" className="h-16 w-16 rounded-lg object-cover border border-gray-200" />
+                                                <img src={file.preview} alt="" className="h-16 w-16 rounded-lg object-cover border border-gray-700" />
                                             ) : (
-                                                <div className="h-16 w-16 rounded-lg bg-red-50 border border-red-200 flex flex-col items-center justify-center">
-                                                    <FileText className="h-6 w-6 text-red-500" />
-                                                    <span className="text-[10px] text-red-600 mt-1">PDF</span>
+                                                <div className="h-16 w-16 rounded-lg bg-gray-800 border border-gray-700 flex flex-col items-center justify-center">
+                                                    <FileText className="h-6 w-6 text-red-400" />
+                                                    <span className="text-[10px] text-red-400 mt-1">PDF</span>
                                                 </div>
                                             )}
                                             <button
                                                 onClick={() => removePendingFile(i)}
-                                                className="absolute -top-1.5 -right-1.5 rounded-full bg-gray-800 p-0.5 text-white hover:bg-gray-900"
+                                                className="absolute -top-1.5 -right-1.5 rounded-full bg-gray-600 p-0.5 text-white hover:bg-gray-500"
                                             >
                                                 <X className="h-3 w-3" />
                                             </button>
@@ -605,10 +605,10 @@ export default function NewCodingProblemPage() {
                                 </div>
                             )}
 
-                            <div className="flex gap-3 items-end bg-white rounded-2xl border border-gray-200 shadow-lg p-3">
+                            <div className="flex gap-3 items-end bg-gray-800 rounded-2xl border border-gray-700 shadow-lg p-3">
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors"
                                     title="Attach files"
                                 >
                                     <Paperclip className="h-5 w-5" />
@@ -632,7 +632,7 @@ export default function NewCodingProblemPage() {
                                             handleSubmit();
                                         }
                                     }}
-                                    className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none"
+                                    className="flex-1 resize-none bg-transparent text-white placeholder-gray-500 focus:outline-none"
                                     rows={1}
                                 />
                                 <button
@@ -643,7 +643,7 @@ export default function NewCodingProblemPage() {
                                     <Send className="h-5 w-5" />
                                 </button>
                             </div>
-                            <p className="text-center text-xs text-gray-400 mt-2">
+                            <p className="text-center text-xs text-gray-500 mt-2">
                                 Tip: Paste screenshots with Cmd+V or drag files anywhere
                             </p>
                         </div>
@@ -654,13 +654,13 @@ export default function NewCodingProblemPage() {
                 {mode === "manual" && problems.length === 0 && (
                     <div className="flex-1 flex items-center justify-center px-6">
                         <div className="text-center">
-                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-200">
-                                <PenLine className="h-8 w-8 text-gray-500" />
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-800">
+                                <PenLine className="h-8 w-8 text-gray-400" />
                             </div>
-                            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                            <h2 className="text-xl font-semibold text-white mb-2">
                                 Create problems manually
                             </h2>
-                            <p className="text-gray-500 mb-6">
+                            <p className="text-gray-400 mb-6">
                                 Build your coding challenge from scratch
                             </p>
                             <button
@@ -676,15 +676,15 @@ export default function NewCodingProblemPage() {
 
                 {/* Problems List */}
                 {problems.length > 0 && (
-                    <div className="border-t bg-white">
+                    <div className="border-t border-gray-800 bg-gray-900">
                         <div className="max-w-4xl mx-auto px-6 py-6">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">
+                                <h3 className="text-lg font-semibold text-white">
                                     Problems ({problems.length})
                                 </h3>
                                 <button
                                     onClick={addManualProblem}
-                                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                                    className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
                                 >
                                     <Plus className="h-4 w-4" />
                                     Add Problem
@@ -695,19 +695,19 @@ export default function NewCodingProblemPage() {
                                 {problems.map((problem) => (
                                     <div
                                         key={problem.id}
-                                        className="rounded-xl bg-gray-50 border border-gray-200 overflow-hidden"
+                                        className="rounded-xl bg-gray-800 border border-gray-700 overflow-hidden"
                                     >
                                         {/* Problem Header */}
                                         <div
-                                            className="flex items-center gap-3 p-4 cursor-pointer bg-white"
+                                            className="flex items-center gap-3 p-4 cursor-pointer bg-gray-850"
                                             onClick={() => toggleCollapse(problem.id)}
                                         >
                                             <span className={`rounded px-2 py-0.5 text-xs font-medium ${
                                                 problem.difficulty === "easy"
-                                                    ? "bg-green-100 text-green-700"
+                                                    ? "bg-green-900/50 text-green-400"
                                                     : problem.difficulty === "hard"
-                                                    ? "bg-red-100 text-red-700"
-                                                    : "bg-yellow-100 text-yellow-700"
+                                                    ? "bg-red-900/50 text-red-400"
+                                                    : "bg-yellow-900/50 text-yellow-400"
                                             }`}>
                                                 {problem.difficulty}
                                             </span>
@@ -717,7 +717,7 @@ export default function NewCodingProblemPage() {
                                                 value={problem.title}
                                                 onChange={(e) => { e.stopPropagation(); updateProblem(problem.id, { title: e.target.value }); }}
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="flex-1 font-medium text-gray-900 bg-transparent focus:outline-none"
+                                                className="flex-1 font-medium text-white bg-transparent focus:outline-none placeholder-gray-500"
                                             />
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); saveProblem(problem); }}
@@ -729,23 +729,23 @@ export default function NewCodingProblemPage() {
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); deleteProblem(problem.id); }}
-                                                className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50"
+                                                className="p-1.5 text-gray-500 hover:text-red-400 rounded hover:bg-red-900/30"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </button>
-                                            {problem.collapsed ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronUp className="h-4 w-4 text-gray-400" />}
+                                            {problem.collapsed ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronUp className="h-4 w-4 text-gray-500" />}
                                         </div>
 
                                         {/* Problem Content */}
                                         {!problem.collapsed && (
-                                            <div className="p-4 space-y-4 border-t border-gray-200">
+                                            <div className="p-4 space-y-4 border-t border-gray-700">
                                                 {/* Description */}
                                                 <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Problem Description</label>
+                                                    <label className="text-xs font-medium text-gray-400 mb-1 block">Problem Description</label>
                                                     <textarea
                                                         value={problem.description}
                                                         onChange={(e) => updateProblem(problem.id, { description: e.target.value })}
-                                                        className="w-full rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-purple-400 focus:outline-none resize-none font-mono"
+                                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:border-purple-400 focus:outline-none resize-none font-mono"
                                                         rows={6}
                                                         placeholder="Describe the problem, include examples..."
                                                     />
@@ -753,11 +753,11 @@ export default function NewCodingProblemPage() {
 
                                                 {/* Constraints */}
                                                 <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Constraints</label>
+                                                    <label className="text-xs font-medium text-gray-400 mb-1 block">Constraints</label>
                                                     <textarea
                                                         value={problem.constraints}
                                                         onChange={(e) => updateProblem(problem.id, { constraints: e.target.value })}
-                                                        className="w-full rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-900 focus:border-purple-400 focus:outline-none resize-none"
+                                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
                                                         rows={2}
                                                         placeholder="e.g., 1 <= n <= 10^5"
                                                     />
@@ -765,8 +765,8 @@ export default function NewCodingProblemPage() {
 
                                                 {/* Starter Code */}
                                                 <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Starter Code (what students see)</label>
-                                                    <div className="rounded-lg overflow-hidden border border-gray-200">
+                                                    <label className="text-xs font-medium text-gray-400 mb-1 block">Starter Code (what students see)</label>
+                                                    <div className="rounded-lg overflow-hidden border border-gray-700">
                                                         <Editor
                                                             height="150px"
                                                             language={problem.language}
@@ -784,8 +784,8 @@ export default function NewCodingProblemPage() {
 
                                                 {/* Solution Code */}
                                                 <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Solution Code (for reference)</label>
-                                                    <div className="rounded-lg overflow-hidden border border-gray-200">
+                                                    <label className="text-xs font-medium text-gray-400 mb-1 block">Solution Code (for reference)</label>
+                                                    <div className="rounded-lg overflow-hidden border border-gray-700">
                                                         <Editor
                                                             height="200px"
                                                             language={problem.language}
@@ -803,17 +803,17 @@ export default function NewCodingProblemPage() {
 
                                                 {/* Test Cases */}
                                                 <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-2 block">
+                                                    <label className="text-xs font-medium text-gray-400 mb-2 block">
                                                         Test Cases ({problem.test_cases.length})
                                                     </label>
                                                     <div className="space-y-2">
                                                         {problem.test_cases.map((tc, index) => (
                                                             <div
                                                                 key={index}
-                                                                className="rounded-lg border border-gray-200 bg-white p-3"
+                                                                className="rounded-lg border border-gray-700 bg-gray-900 p-3"
                                                             >
                                                                 <div className="flex items-center justify-between mb-2">
-                                                                    <span className="text-xs font-medium text-gray-600">
+                                                                    <span className="text-xs font-medium text-gray-400">
                                                                         Test {index + 1}
                                                                     </span>
                                                                     <div className="flex items-center gap-2">
@@ -821,8 +821,8 @@ export default function NewCodingProblemPage() {
                                                                             onClick={() => updateTestCase(problem.id, index, "is_hidden", !tc.is_hidden)}
                                                                             className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
                                                                                 tc.is_hidden
-                                                                                    ? "bg-gray-100 text-gray-600"
-                                                                                    : "bg-green-100 text-green-700"
+                                                                                    ? "bg-gray-700 text-gray-400"
+                                                                                    : "bg-green-900/50 text-green-400"
                                                                             }`}
                                                                         >
                                                                             {tc.is_hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
@@ -830,7 +830,7 @@ export default function NewCodingProblemPage() {
                                                                         </button>
                                                                         <button
                                                                             onClick={() => removeTestCase(problem.id, index)}
-                                                                            className="text-gray-400 hover:text-red-500"
+                                                                            className="text-gray-500 hover:text-red-400"
                                                                         >
                                                                             <X className="h-4 w-4" />
                                                                         </button>
@@ -838,20 +838,20 @@ export default function NewCodingProblemPage() {
                                                                 </div>
                                                                 <div className="grid grid-cols-2 gap-2">
                                                                     <div>
-                                                                        <label className="text-[10px] text-gray-400 uppercase">Input</label>
+                                                                        <label className="text-[10px] text-gray-500 uppercase">Input</label>
                                                                         <textarea
                                                                             value={tc.input_data}
                                                                             onChange={(e) => updateTestCase(problem.id, index, "input_data", e.target.value)}
-                                                                            className="w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs focus:border-purple-400 focus:outline-none resize-none"
+                                                                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
                                                                             rows={2}
                                                                         />
                                                                     </div>
                                                                     <div>
-                                                                        <label className="text-[10px] text-gray-400 uppercase">Expected Output</label>
+                                                                        <label className="text-[10px] text-gray-500 uppercase">Expected Output</label>
                                                                         <textarea
                                                                             value={tc.expected_output}
                                                                             onChange={(e) => updateTestCase(problem.id, index, "expected_output", e.target.value)}
-                                                                            className="w-full rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs focus:border-purple-400 focus:outline-none resize-none"
+                                                                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
                                                                             rows={2}
                                                                         />
                                                                     </div>
@@ -860,7 +860,7 @@ export default function NewCodingProblemPage() {
                                                         ))}
                                                         <button
                                                             onClick={() => addTestCase(problem.id)}
-                                                            className="w-full rounded-lg border-2 border-dashed border-gray-300 py-2 text-sm text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors"
+                                                            className="w-full rounded-lg border-2 border-dashed border-gray-700 py-2 text-sm text-gray-500 hover:border-purple-500 hover:text-purple-400 transition-colors"
                                                         >
                                                             <Plus className="inline h-4 w-4 mr-1" />
                                                             Add Test Case

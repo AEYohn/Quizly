@@ -1751,6 +1751,24 @@ export default function PlayGamePage() {
                                     ));
                                 }}
                             />
+                            {/* Try Again button - must get it right to proceed */}
+                            {game?.sync_mode === false && (
+                                <div className="mt-4 text-center">
+                                    <button
+                                        onClick={() => {
+                                            setShowPeerDiscussion(false);
+                                            setHasAnswered(false);
+                                            setSelectedAnswer(null);
+                                            setShowConfirmStep(false);
+                                            setHostMessage("");
+                                        }}
+                                        className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors"
+                                    >
+                                        Try Again
+                                    </button>
+                                    <p className="mt-2 text-sm text-gray-400">Answer correctly to continue</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1784,29 +1802,48 @@ export default function PlayGamePage() {
                         )}
                     </div>
 
-                    {/* FOR ASYNC MODE: Show Next Question Button (hidden during peer discussion) */}
+                    {/* FOR ASYNC MODE: Show Next Question or Try Again based on correctness */}
                     {game?.sync_mode === false && !showPeerDiscussion && (
                         <div className="mt-8">
-                            {asyncQuestionIndex + 1 < game.total_questions ? (
-                                <button
-                                    onClick={() => {
-                                        nextQuestion();
-                                        setConfidence(70);
-                                        setReasoning("");
-                                        setShowReasoning(false);
-                                        setShowPeerDiscussion(false);
-                                    }}
-                                    className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
-                                >
-                                    Next Question →
-                                </button>
+                            {playerState?.last_answer_correct ? (
+                                // Correct answer - can proceed
+                                asyncQuestionIndex + 1 < game.total_questions ? (
+                                    <button
+                                        onClick={() => {
+                                            nextQuestion();
+                                            setConfidence(70);
+                                            setReasoning("");
+                                            setShowReasoning(false);
+                                            setShowPeerDiscussion(false);
+                                        }}
+                                        className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                                    >
+                                        Next Question →
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleQuizComplete}
+                                        className="rounded-full bg-emerald-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-emerald-500 transition-colors"
+                                    >
+                                        Finish Quiz
+                                    </button>
+                                )
                             ) : (
-                                <button
-                                    onClick={handleQuizComplete}
-                                    className="rounded-full bg-emerald-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-emerald-500 transition-colors"
-                                >
-                                    Finish Quiz
-                                </button>
+                                // Incorrect answer - must try again
+                                <div className="text-center">
+                                    <button
+                                        onClick={() => {
+                                            setHasAnswered(false);
+                                            setSelectedAnswer(null);
+                                            setShowConfirmStep(false);
+                                            setHostMessage("");
+                                        }}
+                                        className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors"
+                                    >
+                                        Try Again
+                                    </button>
+                                    <p className="mt-2 text-sm text-gray-400">Answer correctly to continue</p>
+                                </div>
                             )}
                         </div>
                     )}
