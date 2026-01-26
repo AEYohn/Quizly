@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { MessageCircle, Send, Loader2, Lightbulb, ThumbsUp, RefreshCw, Users, Bot, ChevronDown, ChevronUp, HelpCircle, Paperclip, X, Image, FileText } from "lucide-react";
+import { MessageCircle, Send, Loader2, Lightbulb, ThumbsUp, RefreshCw, Users, Bot, ChevronDown, ChevronUp, HelpCircle, Paperclip, X, Image, FileText, ChevronRight } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -1077,10 +1077,11 @@ export default function PeerDiscussion({
 
                             <button
                                 onClick={handleComplete}
-                                className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition-all"
+                                className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-700 transition-all animate-pulse-glow shadow-lg shadow-emerald-500/30 border-2 border-emerald-400"
                             >
                                 <ThumbsUp className="h-5 w-5" />
-                                Got it! Continue
+                                Continue to Next Question
+                                <ChevronRight className="h-5 w-5" />
                             </button>
                         </>
                     )}
