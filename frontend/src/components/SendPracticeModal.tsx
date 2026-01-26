@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { X, Loader2, Send, Check, Trash2, Plus, MessageSquare } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Loader2, Send, Check, MessageSquare, AlertCircle } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -44,58 +44,83 @@ export function SendPracticeModal({
     const [selectedQuestions, setSelectedQuestions] = useState<Set<number>>(new Set());
     const [error, setError] = useState<string | null>(null);
     const [sent, setSent] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
 
     // Generate preview when modal opens
-    const generatePreview = async () => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const response = await fetch(`${API_URL}/assignments/generate-preview`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    student_name: studentName,
-                    game_id: gameId,
-                    misconceptions: misconceptions
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setTitle(data.title || "Practice Questions");
-                setQuestions(data.suggested_questions || []);
-                // Select all questions by default
-                setSelectedQuestions(new Set(data.suggested_questions.map((_: Question, i: number) => i)));
-            } else {
-                setError("Failed to generate questions");
-            }
-        } catch (err) {
-            console.error("Error generating preview:", err);
-            setError("Failed to connect to server");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Track if we've already generated to prevent duplicate calls
-    const hasGeneratedRef = useRef(false);
-
-    // Generate on open - using useEffect to prevent infinite render loops
     useEffect(() => {
-        if (isOpen && !hasGeneratedRef.current) {
-            hasGeneratedRef.current = true;
-            generatePreview();
-        }
-        // Reset state when modal closes
-        if (!isOpen) {
-            hasGeneratedRef.current = false;
+        // Only run when modal opens and we haven't loaded yet
+        if (!isOpen || hasLoaded) return;
+
+        // If no misconceptions, skip API call
+        if (misconceptions.length === 0) {
+            setTitle("Practice Questions");
             setQuestions([]);
-            setTitle("");
-            setNote("");
+            setHasLoaded(true);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const fetchQuestions = async () => {
+            setIsLoading(true);
             setError(null);
-            setSent(false);
-            setSelectedQuestions(new Set());
+
+            try {
+                const response = await fetch(`${API_URL}/assignments/generate-preview`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        student_name: studentName,
+                        game_id: gameId,
+                        misconceptions: misconceptions
+                    }),
+                    signal: controller.signal
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setTitle(data.title || "Practice Questions");
+                    setQuestions(data.suggested_questions || []);
+                    // Select all questions by default
+                    const qs = data.suggested_questions || [];
+                    setSelectedQuestions(new Set(qs.map((_: Question, i: number) => i)));
+                } else {
+                    setError("Failed to generate questions");
+                }
+            } catch (err) {
+                if (err instanceof Error && err.name === 'AbortError') {
+                    return; // Cancelled, don't update state
+                }
+                console.error("Error generating preview:", err);
+                setError("Failed to connect to server");
+            } finally {
+                setIsLoading(false);
+                setHasLoaded(true);
+            }
+        };
+
+        fetchQuestions();
+
+        return () => {
+            controller.abort();
+        };
+    }, [isOpen, hasLoaded, misconceptions, studentName, gameId]);
+
+    // Reset state when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            // Delay reset to allow close animation
+            const timer = setTimeout(() => {
+                setQuestions([]);
+                setTitle("");
+                setNote("");
+                setError(null);
+                setSent(false);
+                setSelectedQuestions(new Set());
+                setHasLoaded(false);
+                setIsLoading(false);
+            }, 200);
+            return () => clearTimeout(timer);
         }
     }, [isOpen]);
 
@@ -139,10 +164,6 @@ export function SendPracticeModal({
                 setTimeout(() => {
                     onSent?.();
                     onClose();
-                    // Reset state
-                    setSent(false);
-                    setQuestions([]);
-                    setNote("");
                 }, 1500);
             } else {
                 setError("Failed to send assignment");
@@ -156,6 +177,9 @@ export function SendPracticeModal({
     };
 
     if (!isOpen) return null;
+
+    // No mistakes to base practice on
+    const noMistakes = misconceptions.length === 0 && hasLoaded;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
@@ -191,7 +215,17 @@ export function SendPracticeModal({
                                 <Check className="h-8 w-8 text-emerald-400" />
                             </div>
                             <p className="text-lg font-medium text-white">Sent to {studentName}!</p>
-                            <p className="text-gray-400">They'll see it in their inbox</p>
+                            <p className="text-gray-400">They&apos;ll see it in their inbox</p>
+                        </div>
+                    ) : noMistakes ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <div className="h-16 w-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4">
+                                <AlertCircle className="h-8 w-8 text-amber-400" />
+                            </div>
+                            <p className="text-lg font-medium text-white">No mistakes to practice</p>
+                            <p className="text-gray-400 text-center mt-2">
+                                This student doesn&apos;t have any recorded mistakes from this quiz to generate practice questions.
+                            </p>
                         </div>
                     ) : (
                         <>
@@ -234,55 +268,61 @@ export function SendPracticeModal({
                                 <label className="block text-sm font-medium text-gray-300 mb-2">
                                     Questions ({selectedQuestions.size} selected)
                                 </label>
-                                <div className="space-y-3">
-                                    {questions.map((q, i) => (
-                                        <div
-                                            key={i}
-                                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                                                selectedQuestions.has(i)
-                                                    ? "bg-sky-500/10 border-sky-500/50"
-                                                    : "bg-gray-800 border-gray-700 opacity-60"
-                                            }`}
-                                            onClick={() => toggleQuestion(i)}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className={`mt-0.5 h-5 w-5 rounded border flex items-center justify-center flex-shrink-0 ${
+                                {questions.length === 0 && hasLoaded ? (
+                                    <p className="text-gray-500 text-sm py-4 text-center">
+                                        No questions generated. Try adding more context or misconceptions.
+                                    </p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {questions.map((q, i) => (
+                                            <div
+                                                key={i}
+                                                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                                                     selectedQuestions.has(i)
-                                                        ? "bg-sky-500 border-sky-500"
-                                                        : "border-gray-600"
-                                                }`}>
-                                                    {selectedQuestions.has(i) && (
-                                                        <Check className="h-3 w-3 text-white" />
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-white text-sm">{q.prompt}</p>
-                                                    <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
-                                                        {Object.entries(q.options).map(([key, val]) => (
-                                                            <div
-                                                                key={key}
-                                                                className={`px-2 py-1 rounded ${
-                                                                    key === q.correct_answer
-                                                                        ? "bg-emerald-500/20 text-emerald-400"
-                                                                        : "bg-gray-700 text-gray-400"
-                                                                }`}
-                                                            >
-                                                                {key}: {val}
-                                                            </div>
-                                                        ))}
+                                                        ? "bg-sky-500/10 border-sky-500/50"
+                                                        : "bg-gray-800 border-gray-700 opacity-60"
+                                                }`}
+                                                onClick={() => toggleQuestion(i)}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`mt-0.5 h-5 w-5 rounded border flex items-center justify-center flex-shrink-0 ${
+                                                        selectedQuestions.has(i)
+                                                            ? "bg-sky-500 border-sky-500"
+                                                            : "border-gray-600"
+                                                    }`}>
+                                                        {selectedQuestions.has(i) && (
+                                                            <Check className="h-3 w-3 text-white" />
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-white text-sm">{q.prompt}</p>
+                                                        <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+                                                            {Object.entries(q.options).map(([key, val]) => (
+                                                                <div
+                                                                    key={key}
+                                                                    className={`px-2 py-1 rounded ${
+                                                                        key === q.correct_answer
+                                                                            ? "bg-emerald-500/20 text-emerald-400"
+                                                                            : "bg-gray-700 text-gray-400"
+                                                                    }`}
+                                                                >
+                                                                    {key}: {val}
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}
                 </div>
 
                 {/* Footer */}
-                {!isLoading && !sent && (
+                {!isLoading && !sent && !noMistakes && (
                     <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-700">
                         <button
                             onClick={onClose}
@@ -306,6 +346,18 @@ export function SendPracticeModal({
                                     Send to {studentName}
                                 </>
                             )}
+                        </button>
+                    </div>
+                )}
+
+                {/* Footer for no mistakes case */}
+                {noMistakes && (
+                    <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-700">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
+                        >
+                            Close
                         </button>
                     </div>
                 )}
