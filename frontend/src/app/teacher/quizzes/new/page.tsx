@@ -421,7 +421,7 @@ export default function NewQuizPage() {
             const quiz = await quizResponse.json();
 
             for (const question of questions) {
-                await fetch(`${API_URL}/quizzes/${quiz.id}/questions`, {
+                const qRes = await fetch(`${API_URL}/quizzes/${quiz.id}/questions`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -429,12 +429,17 @@ export default function NewQuizPage() {
                     },
                     body: JSON.stringify(question),
                 });
+                if (!qRes.ok) {
+                    const err = await qRes.json().catch(() => ({}));
+                    throw new Error(err.detail || `Failed to add question: ${qRes.status}`);
+                }
             }
 
             router.push("/teacher/quizzes");
         } catch (error) {
             console.error("Failed to save:", error);
-            alert("Failed to save. Please try again.");
+            const message = error instanceof Error ? error.message : "Unknown error";
+            alert(`Failed to save: ${message}`);
         } finally {
             setSaving(false);
         }
