@@ -37,6 +37,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
     return (
         <html lang="en" className={`${geist.variable}`} suppressHydrationWarning style={{ backgroundColor: "#030712" }}>
+            <head>
+                <meta name="theme-color" content="#030712" />
+                <meta name="msapplication-navbutton-color" content="#030712" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+            </head>
             <body className="min-h-dvh" style={{ backgroundColor: "#030712" }}>
                 <AuthProvider>{children}</AuthProvider>
             </body>
