@@ -3,6 +3,7 @@ import "~/styles/globals.css";
 import { type Metadata, type Viewport } from "next";
 import { Geist } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const metadata: Metadata = {
     title: "Quizly",
@@ -69,7 +70,9 @@ export default function RootLayout({
                 ` }} />
             </head>
             <body style={{ background: "#030712", margin: 0 }}>
-                <AuthProvider>{children}</AuthProvider>
+                <ErrorBoundary>
+                    <AuthProvider>{children}</AuthProvider>
+                </ErrorBoundary>
             </body>
         </html>
     );

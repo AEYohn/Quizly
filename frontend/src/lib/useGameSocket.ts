@@ -23,6 +23,7 @@ export type MessageType =
     | "pong"
     | "command_received"
     | "player_count"
+    | "score_update"
     | "error";
 
 export interface WebSocketMessage {
@@ -87,6 +88,15 @@ export interface PlayerDisconnectedMessage {
     nickname?: string;
 }
 
+export interface ScoreUpdateMessage {
+    player_id: string;
+    nickname: string;
+    points_earned: number;
+    total_score: number;
+    is_correct: boolean;
+    current_streak: number;
+}
+
 export interface ConnectedMessage {
     game_id: string;
     player_id?: string;
@@ -113,6 +123,7 @@ export interface UseGameSocketOptions {
     onPlayerJoined?: (data: PlayerConnectedMessage) => void;  // Alias for lobby
     onPlayerLeft?: (data: PlayerDisconnectedMessage) => void; // Alias for lobby
     onHostDisconnected?: () => void;
+    onScoreUpdate?: (data: ScoreUpdateMessage) => void;  // Real-time score updates
     onError?: (error: Error) => void;
 }
 
@@ -154,6 +165,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
         onPlayerJoined,
         onPlayerLeft,
         onHostDisconnected,
+        onScoreUpdate,
         onError,
     } = options;
 
@@ -180,6 +192,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
         onPlayerJoined,
         onPlayerLeft,
         onHostDisconnected,
+        onScoreUpdate,
         onError,
     });
 
@@ -199,9 +212,10 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
             onPlayerJoined,
             onPlayerLeft,
             onHostDisconnected,
+            onScoreUpdate,
             onError,
         };
-    }, [onConnected, onGameStarted, onGameState, onTimerTick, onQuestionStart, onQuestionEnd, onResults, onGameEnd, onPlayerConnected, onPlayerDisconnected, onPlayerJoined, onPlayerLeft, onHostDisconnected, onError]);
+    }, [onConnected, onGameStarted, onGameState, onTimerTick, onQuestionStart, onQuestionEnd, onResults, onGameEnd, onPlayerConnected, onPlayerDisconnected, onPlayerJoined, onPlayerLeft, onHostDisconnected, onScoreUpdate, onError]);
 
     const handleMessage = useCallback((message: WebSocketMessage) => {
         const callbacks = callbacksRef.current;
@@ -286,6 +300,10 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
                 if (message.count !== undefined) {
                     setPlayerCount(message.count as number);
                 }
+                break;
+
+            case "score_update":
+                callbacks.onScoreUpdate?.(message as unknown as ScoreUpdateMessage);
                 break;
 
             case "pong":

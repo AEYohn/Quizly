@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes
 from .rate_limiter import limiter
+from .exceptions import QuizlyException, quizly_exception_handler
 
 # Import slowapi for rate limiting
 from slowapi import _rate_limit_exceeded_handler
@@ -27,12 +28,12 @@ async def lifespan(app: FastAPI):
     """Manage application lifecycle - database connections etc."""
     # Startup
     print("🚀 Starting Quizly API...")
-    
+
     # Initialize database (always - SQLite for local, PostgreSQL for production)
     try:
         from .database import init_db, close_db
         from .db_models import Base  # noqa: Import models to register them
-        
+
         print("📦 Initializing database...")
         await init_db()
         print("✅ Database connected")
@@ -40,11 +41,27 @@ async def lifespan(app: FastAPI):
         print(f"⚠️ Database not configured (missing dependency): {e}")
     except Exception as e:
         print(f"⚠️ Database connection failed: {e}")
-    
+
+    # Initialize WebSocket manager (Redis if configured)
+    try:
+        from .websocket_manager import initialize_manager
+        await initialize_manager()
+        print("✅ WebSocket manager initialized")
+    except Exception as e:
+        print(f"⚠️ WebSocket manager initialization failed: {e}")
+
     yield  # Application runs here
-    
+
     # Shutdown
     print("👋 Shutting down Quizly API...")
+
+    # Close WebSocket manager
+    try:
+        from .websocket_manager import close_manager
+        await close_manager()
+    except Exception:
+        pass
+
     try:
         from .database import close_db
         await close_db()
@@ -64,6 +81,9 @@ app = FastAPI(
 # Add rate limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add standardized Quizly exception handler
+app.add_exception_handler(QuizlyException, quizly_exception_handler)
 
 # CORS configuration
 # Allow both dev ports by default so the frontend (3000/3001) can reach the API during development
@@ -120,7 +140,7 @@ async def health_check():
     """Detailed health check."""
     db_status = "not_configured"
     gemini_status = "not_configured"
-    
+
     # Check database
     if os.getenv("DATABASE_URL"):
         try:
@@ -130,14 +150,70 @@ async def health_check():
                 db_status = "connected"
         except Exception as e:
             db_status = f"error: {str(e)[:50]}"
-    
+
     # Check Gemini
     if os.getenv("GEMINI_API_KEY"):
         gemini_status = "configured"
-    
+
     return {
         "status": "healthy",
         "database": db_status,
         "gemini": gemini_status,
         "version": "0.1.0"
     }
+
+
+@app.get("/health/ready")
+async def readiness_check():
+    """Readiness check for load balancers and orchestration.
+
+    Returns 200 only if all critical dependencies are available.
+    Returns 503 if any dependency is unavailable.
+    """
+    checks = {
+        "database": {"status": "unchecked", "latency_ms": None},
+        "redis": {"status": "unchecked", "latency_ms": None},
+    }
+    all_healthy = True
+
+    # Check database
+    import time
+    db_start = time.monotonic()
+    try:
+        from .database import async_session
+        async with async_session() as session:
+            await session.execute(text("SELECT 1"))
+            checks["database"]["status"] = "healthy"
+            checks["database"]["latency_ms"] = round((time.monotonic() - db_start) * 1000, 2)
+    except Exception as e:
+        checks["database"]["status"] = "unhealthy"
+        checks["database"]["error"] = str(e)[:100]
+        all_healthy = False
+
+    # Check Redis (if configured)
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        redis_start = time.monotonic()
+        try:
+            import redis.asyncio as redis_client
+            r = redis_client.from_url(redis_url, decode_responses=True)
+            await r.ping()
+            await r.close()
+            checks["redis"]["status"] = "healthy"
+            checks["redis"]["latency_ms"] = round((time.monotonic() - redis_start) * 1000, 2)
+        except Exception as e:
+            checks["redis"]["status"] = "unhealthy"
+            checks["redis"]["error"] = str(e)[:100]
+            all_healthy = False
+    else:
+        checks["redis"]["status"] = "not_configured"
+
+    status_code = 200 if all_healthy else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "ready": all_healthy,
+            "checks": checks,
+            "version": "0.1.0"
+        }
+    )

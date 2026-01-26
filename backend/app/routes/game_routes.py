@@ -6,7 +6,7 @@ Kahoot-style multiplayer game management.
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,7 @@ from ..auth import get_current_user
 from ..db_models import User
 from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer, generate_game_code
 from ..websocket_manager import manager, active_timers, GameTimer
+from ..rate_limiter import limiter, ANSWER_RATE_LIMIT
 from .websocket_routes import broadcast_game_state, start_question_timer, stop_game_timer
 
 router = APIRouter()
@@ -543,12 +544,17 @@ async def get_game_by_code(
 
 
 @router.post("/{game_id}/answer")
+@limiter.limit(ANSWER_RATE_LIMIT)
 async def submit_answer(
+    request: Request,  # Required for rate limiter
     game_id: UUID,
     answer_data: dict,  # Accept flexible dict from frontend
     db: AsyncSession = Depends(get_db)
 ):
-    """Submit an answer for the current question."""
+    """Submit an answer for the current question.
+
+    Rate limited to prevent spam (default: 2 submissions per second per IP).
+    """
     # Extract data from frontend format
     player_id_str = answer_data.get("player_id")
     answer = answer_data.get("answer")
@@ -665,6 +671,21 @@ async def submit_answer(
         player.current_streak = 0
 
     await db.commit()
+
+    # Broadcast real-time score update to all players and host
+    try:
+        await manager.broadcast_to_game(str(game_id), {
+            "type": "score_update",
+            "player_id": str(player_id),
+            "nickname": player.nickname,
+            "points_earned": points_earned,
+            "total_score": player.total_score,
+            "is_correct": is_correct,
+            "current_streak": player.current_streak,
+        })
+    except Exception as e:
+        # Don't fail the answer submission if broadcast fails
+        print(f"Score broadcast failed: {e}")
 
     response_data = {
         "submitted": True,

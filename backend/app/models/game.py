@@ -114,6 +114,10 @@ class GameSession(Base):
     status: Mapped[str] = mapped_column(String(20), default="lobby")  # lobby, playing, question, results, finished
     current_question_index: Mapped[int] = mapped_column(Integer, default=-1)  # -1 = lobby, 0+ = question index
     question_start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Timer persistence (for server restart recovery)
+    timer_end_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    timer_duration: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # original duration in seconds
     
     # Game Mode Settings
     sync_mode: Mapped[bool] = mapped_column(Boolean, default=True)  # True = synchronized (Kahoot-style), False = self-paced

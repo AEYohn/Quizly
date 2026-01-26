@@ -31,35 +31,119 @@ import type {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // ============================================
+// Retry Configuration
+// ============================================
+
+interface RetryConfig {
+    maxRetries: number;
+    baseDelayMs: number;
+    maxDelayMs: number;
+    retryableStatuses: number[];
+}
+
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+    maxRetries: 3,
+    baseDelayMs: 500,
+    maxDelayMs: 5000,
+    retryableStatuses: [408, 429, 500, 502, 503, 504], // Timeout, Rate Limited, Server Errors
+};
+
+/**
+ * Sleep for a specified duration
+ */
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Calculate delay with exponential backoff and jitter
+ */
+function calculateBackoff(attempt: number, config: RetryConfig): number {
+    const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
+    const jitter = Math.random() * 0.3 * exponentialDelay; // Add up to 30% jitter
+    return Math.min(exponentialDelay + jitter, config.maxDelayMs);
+}
+
+/**
+ * Check if an error is retryable
+ */
+function isRetryableError(error: unknown): boolean {
+    if (error instanceof TypeError) {
+        // Network errors (fetch failed, CORS, etc.)
+        return true;
+    }
+    return false;
+}
+
+// ============================================
 // Helper Functions
 // ============================================
 
+interface FetchApiOptions extends RequestInit {
+    retry?: boolean | Partial<RetryConfig>;
+}
+
 async function fetchApi<T>(
     endpoint: string,
-    options?: RequestInit
+    options?: FetchApiOptions
 ): Promise<ApiResult<T>> {
-    try {
-        const response = await fetch(`${API_BASE}${endpoint}`, {
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            ...options,
-        });
+    // Determine retry config
+    const shouldRetry = options?.retry !== false;
+    const retryConfig: RetryConfig = {
+        ...DEFAULT_RETRY_CONFIG,
+        ...(typeof options?.retry === 'object' ? options.retry : {}),
+    };
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-            return { success: false, error: error.detail || `HTTP ${response.status}` };
+    let lastError: string = 'Unknown error';
+
+    for (let attempt = 0; attempt <= (shouldRetry ? retryConfig.maxRetries : 0); attempt++) {
+        try {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options?.headers,
+                },
+                ...options,
+            });
+
+            // Check if we should retry based on status code
+            if (!response.ok) {
+                const shouldRetryStatus = retryConfig.retryableStatuses.includes(response.status);
+
+                if (shouldRetryStatus && attempt < retryConfig.maxRetries) {
+                    // Get retry-after header if present (for rate limiting)
+                    const retryAfter = response.headers.get('Retry-After');
+                    const delay = retryAfter
+                        ? parseInt(retryAfter, 10) * 1000
+                        : calculateBackoff(attempt, retryConfig);
+
+                    console.warn(`[API] Retrying ${endpoint} after ${Math.round(delay)}ms (attempt ${attempt + 1}/${retryConfig.maxRetries})`);
+                    await sleep(delay);
+                    continue;
+                }
+
+                const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                // Handle standardized error format from QuizlyException
+                const errorMessage = error.message || error.detail || `HTTP ${response.status}`;
+                return { success: false, error: errorMessage };
+            }
+
+            const data = await response.json();
+            return { success: true, data };
+        } catch (error) {
+            lastError = error instanceof Error ? error.message : 'Network error';
+
+            // Retry on network errors
+            if (isRetryableError(error) && attempt < retryConfig.maxRetries) {
+                const delay = calculateBackoff(attempt, retryConfig);
+                console.warn(`[API] Network error on ${endpoint}, retrying after ${Math.round(delay)}ms (attempt ${attempt + 1}/${retryConfig.maxRetries})`);
+                await sleep(delay);
+                continue;
+            }
         }
-
-        const data = await response.json();
-        return { success: true, data };
-    } catch (error) {
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Network error'
-        };
     }
+
+    return { success: false, error: lastError };
 }
 
 // ============================================
