@@ -238,12 +238,11 @@ export default function NewQuizPage() {
 
             let prompt = currentInput;
             if (hasFiles && !currentInput) {
-                prompt = `Analyze the uploaded ${fileTypes} and generate quiz questions based on the content. Generate 5 questions.`;
+                prompt = `Analyze the uploaded ${fileTypes} and generate quiz questions based on the content.`;
             } else if (hasFiles) {
                 prompt = `${currentInput}. Use the uploaded ${fileTypes} as reference material.`;
-            } else {
-                prompt = `${currentInput}. Generate 5 educational questions on this topic.`;
             }
+            // Let the user's intent pass through unchanged - backend will extract question count
 
             const response = await fetch(`${API_URL}/ai/chat-generate`, {
                 method: "POST",

@@ -7,6 +7,7 @@ peer discussion, and exit tickets.
 import os
 import asyncio
 import json
+import re
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 
@@ -19,6 +20,31 @@ from ..rate_limiter import limiter, AI_RATE_LIMIT
 def utc_now() -> datetime:
     """Return current UTC time (timezone-aware)."""
     return datetime.now(timezone.utc)
+
+
+def extract_question_count(message: str) -> int:
+    """Extract number of questions from user message.
+
+    Matches patterns like "50 questions", "40 Qns", "generate 20", etc.
+    Returns default of 5 if no number is found.
+    """
+    patterns = [
+        r'(\d+)\s*(?:questions?|qns?|mcqs?)',  # "50 questions", "40 Qns"
+        r'generate\s*(\d+)',                     # "generate 50"
+        r'create\s*(\d+)',                       # "create 50"
+        r'make\s*(\d+)',                         # "make 50"
+    ]
+
+    message_lower = message.lower()
+    for pattern in patterns:
+        match = re.search(pattern, message_lower)
+        if match:
+            count = int(match.group(1))
+            # Cap at reasonable max (100) and minimum of 1
+            return max(1, min(count, 100))
+
+    return 5  # Default: 5 questions if no number specified
+
 
 # Import schemas
 from ..schemas import (
@@ -1067,10 +1093,15 @@ async def chat_generate(request: Request, data: ChatGenerateRequest):
                 prompt_parts.append(f"\n--- Text Content ---\n{att.content}\n--- End Text ---\n")
     
     # Build the generation prompt based on question type
+    # Extract the number of questions from the user's message
+    question_count = extract_question_count(data.message)
+
     if data.question_type == "mcq":
-        system_prompt = """You are an expert educator creating multiple choice questions.
+        system_prompt = f"""You are an expert educator creating multiple choice questions.
 
 Based on the user's request and any provided content (images, files, text), generate educational multiple choice questions.
+
+IMPORTANT: Generate EXACTLY {question_count} questions. This number was extracted from the user's request.
 
 For each question, provide:
 1. A clear question
@@ -1081,22 +1112,23 @@ For each question, provide:
 6. The concept being tested
 
 Return ONLY valid JSON in this exact format:
-{
+{{
     "message": "Brief response to the user about what you generated",
     "questions": [
-        {
+        {{
             "question": "Question text here",
             "options": ["Option A", "Option B", "Option C", "Option D"],
             "correct_answer": 0,
             "explanation": "Why this is correct",
             "difficulty": "medium",
             "concept": "Topic/concept tested"
-        }
+        }}
     ]
-}
+}}
 
-Generate 3-5 questions unless the user specifies a different number.
-Make questions educational and test real understanding, not just memorization."""
+You MUST generate exactly {question_count} questions.
+Make questions educational and test real understanding, not just memorization.
+If the user requested increasing difficulty, vary the difficulty from easy to hard across the questions."""
 
     else:  # coding
         system_prompt = """You are an expert educator creating coding problems.
