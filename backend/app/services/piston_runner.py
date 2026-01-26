@@ -100,13 +100,31 @@ if __name__ == "__main__":
 
     input_data = sys.stdin.read().strip()
 
-    # Find the solution function
+    # Find the solution - check for Solution class first, then functions
     func = None
+    solution_class = None
+
     for name, obj in list(globals().items()):
-        if callable(obj) and not name.startswith("_") and name not in ["print", "json", "sys", "inspect"]:
-            if hasattr(obj, "__code__"):
-                func = obj
-                break
+        if name == "Solution" and isinstance(obj, type):
+            solution_class = obj
+            break
+
+    if solution_class:
+        # Find the first method that's not __init__ or dunder
+        instance = solution_class()
+        for method_name in dir(instance):
+            if not method_name.startswith("_"):
+                method = getattr(instance, method_name)
+                if callable(method):
+                    func = method
+                    break
+    else:
+        # Look for standalone function
+        for name, obj in list(globals().items()):
+            if callable(obj) and not name.startswith("_") and name not in ["print", "json", "sys", "inspect"]:
+                if hasattr(obj, "__code__"):
+                    func = obj
+                    break
 
     if func is None:
         print("Error: No function found", file=sys.stderr)
@@ -119,9 +137,9 @@ if __name__ == "__main__":
         except:
             parsed = input_data
 
-        # Get function parameter count
+        # Get function parameter count (exclude 'self' for methods)
         sig = inspect.signature(func)
-        param_count = len(sig.parameters)
+        param_count = len([p for p in sig.parameters.values() if p.name != 'self'])
 
         # Call function with parsed input
         if isinstance(parsed, dict):
