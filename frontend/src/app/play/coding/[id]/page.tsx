@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { StudentNav } from "@/components/ui/StudentNav";
 import { Markdown } from "@/components/ui/Markdown";
+import { ResizableDivider } from "@/components/ui/ResizableDivider";
 
 // Dynamic import for Monaco to avoid SSR issues
 const CodeEditor = dynamic(
@@ -39,8 +40,8 @@ interface Problem {
     hints: string[];
     constraints?: string;
     starter_code: Record<string, string>;
-    driver_code?: Record<string, string>;
-    function_name?: string;
+    driver_code: Record<string, string>;
+    function_name: string;
     time_limit_seconds: number;
     points: number;
     solve_count: number;
@@ -75,6 +76,17 @@ export default function CodingProblemPage({ params }: { params: Promise<{ id: st
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [studentName] = useState(() => localStorage.getItem("quizly_student_name") || "Student");
+    const [leftPanelWidth, setLeftPanelWidth] = useState(45); // percentage
+
+    const handleHorizontalResize = useCallback((delta: number) => {
+        setLeftPanelWidth(prev => {
+            const containerWidth = window.innerWidth;
+            const deltaPercent = (delta / containerWidth) * 100;
+            const newWidth = prev + deltaPercent;
+            // Clamp between 20% and 70%
+            return Math.min(70, Math.max(20, newWidth));
+        });
+    }, []);
 
     useEffect(() => {
         fetchProblem();
@@ -184,7 +196,10 @@ export default function CodingProblemPage({ params }: { params: Promise<{ id: st
     return (
         <div className="flex h-screen bg-gray-950">
             {/* Left Panel: Problem Description */}
-            <div className="w-[45%] overflow-y-auto border-r border-gray-800">
+            <div
+                className="overflow-y-auto"
+                style={{ width: `${leftPanelWidth}%` }}
+            >
                 {/* Header */}
                 <div className="sticky top-0 z-10 border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm px-6 py-4">
                     <Link
@@ -333,8 +348,14 @@ export default function CodingProblemPage({ params }: { params: Promise<{ id: st
                 </div>
             </div>
 
+            {/* Resizable Divider */}
+            <ResizableDivider
+                direction="horizontal"
+                onResize={handleHorizontalResize}
+            />
+
             {/* Right Panel: Code Editor */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0">
                 {/* Submission Result Banner */}
                 {submissionResult && (
                     <div className={`border-b px-4 py-3 ${
@@ -383,6 +404,8 @@ export default function CodingProblemPage({ params }: { params: Promise<{ id: st
                         initialCode={problem.starter_code[selectedLanguage] || ""}
                         language={selectedLanguage}
                         testCases={testCasesForEditor}
+                        driverCode={problem.driver_code}
+                        functionName={problem.function_name}
                         onSubmit={handleSubmit}
                     />
                 </div>

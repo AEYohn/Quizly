@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import { Play, RotateCcw, Check, X, Loader2, ChevronDown, Clock, Zap, Plus, Trash2 } from "lucide-react";
 import { codeApi, type TestCaseInput, type CodeExecutionResult } from "~/lib/api";
+import { ResizableDivider } from "./ResizableDivider";
 
 interface TestCase {
     id: number;
@@ -30,6 +31,8 @@ interface CodeEditorProps {
     initialCode?: string;
     language?: string;
     testCases?: TestCase[];
+    driverCode?: Record<string, string>;
+    functionName?: string;
     onSubmit?: (code: string, language: string) => void;
     onRunComplete?: (result: CodeExecutionResult) => void;
     readOnly?: boolean;
@@ -149,6 +152,8 @@ export function CodeEditor({
     initialCode,
     language: initialLanguage = "python",
     testCases = [],
+    driverCode,
+    functionName = "solution",
     onSubmit,
     onRunComplete,
     readOnly = false,
@@ -165,6 +170,14 @@ export function CodeEditor({
     // LeetCode-style test case state
     const [selectedTestCaseIndex, setSelectedTestCaseIndex] = useState(0);
     const [editableTestCases, setEditableTestCases] = useState<EditableTestCase[]>([]);
+    const [testPanelHeight, setTestPanelHeight] = useState(224); // pixels (14rem = 224px)
+
+    const handleVerticalResize = useCallback((delta: number) => {
+        setTestPanelHeight(prev => {
+            // Clamp between 100px and 500px
+            return Math.min(500, Math.max(100, prev - delta));
+        });
+    }, []);
 
     // Update code when initialCode changes (e.g., language switch)
     useEffect(() => {
@@ -260,10 +273,13 @@ export function CodeEditor({
         }
 
         try {
+            // Get driver code for current language
+            const currentDriverCode = driverCode?.[language];
+
             // Use batch API for multiple test cases, regular API for single
             const res = apiTestCases.length > 1
-                ? await codeApi.runCodeBatch(code, language, apiTestCases)
-                : await codeApi.runCode(code, language, apiTestCases);
+                ? await codeApi.runCodeBatch(code, language, apiTestCases, functionName, currentDriverCode)
+                : await codeApi.runCode(code, language, apiTestCases, functionName, currentDriverCode);
 
             if (res.success && res.data) {
                 const data = res.data;
@@ -426,10 +442,20 @@ export function CodeEditor({
                 />
             </div>
 
+            {/* Resizable Divider */}
+            <ResizableDivider
+                direction="vertical"
+                onResize={handleVerticalResize}
+                className="bg-gray-700"
+            />
+
             {/* Test Cases / Results Panel - LeetCode Style */}
-            <div className="border-t border-gray-700 bg-gray-800">
+            <div
+                className="bg-gray-800 flex flex-col"
+                style={{ height: testPanelHeight }}
+            >
                 {/* Main Tabs */}
-                <div className="flex border-b border-gray-700">
+                <div className="flex border-b border-gray-700 flex-shrink-0">
                     <button
                         onClick={() => setActiveTab("testcases")}
                         className={`px-4 py-2 text-sm font-medium ${
@@ -462,7 +488,7 @@ export function CodeEditor({
                 </div>
 
                 {/* Content */}
-                <div className="max-h-56 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto min-h-0">
                     {activeTab === "testcases" ? (
                         <div className="p-4">
                             {/* Test Case Tabs - LeetCode Style */}

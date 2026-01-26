@@ -98,15 +98,14 @@ class CodeRunner:
 if __name__ == "__main__":
     import sys
     import json
-    import inspect
-    
-    # Read input
+
+    # Read JSON input
     input_data = sys.stdin.read().strip()
 
     # Find the solution function (could be named solution, two_sum, etc.)
     func = None
     for name, obj in list(globals().items()):
-        if callable(obj) and not name.startswith("_") and name not in ["print", "json", "sys", "inspect", "re"]:
+        if callable(obj) and not name.startswith("_") and name not in ["print", "json", "sys"]:
             if hasattr(obj, "__code__"):
                 func = obj
                 break
@@ -115,51 +114,40 @@ if __name__ == "__main__":
         print("Error: No function found", file=sys.stderr)
         sys.exit(1)
 
-    # Parse input - try JSON first, fallback to key=value format
-    import re
     try:
-        parsed = json.loads(input_data)
-    except json.JSONDecodeError:
-        # Try parsing key=value format like "coins=[1,2,5], amount=5"
-        parsed = {{}}
-        # Match patterns like key=[...] or key=value
-        pattern = r'(\w+)\s*=\s*(\[[^\]]*\]|\d+|"[^"]*"|\w+)'
-        matches = re.findall(pattern, input_data)
-        for key, value in matches:
-            try:
-                parsed[key] = json.loads(value)
-            except:
-                parsed[key] = value
-        if not parsed:
-            raise ValueError(f"Could not parse input: {{input_data}}")
+        # Parse JSON input
+        if not input_data:
+            print(f"Error: Empty input received", file=sys.stderr)
+            sys.exit(1)
 
-    try:
-        
-        # If it's a dict, use as kwargs; if list/tuple, use as args
+        parsed = json.loads(input_data)
+
+        # Call function based on input type
         if isinstance(parsed, dict):
-            # Dict input: pass as keyword arguments
-            result = func(**parsed)
-        elif isinstance(parsed, (list, tuple)):
-            # Check function signature to decide
+            # Verify function signature matches input keys
+            import inspect
             sig = inspect.signature(func)
             params = list(sig.parameters.keys())
-            
-            # If function takes 1 param and it's expecting a list, pass as single arg
-            if len(params) == 1:
-                result = func(parsed)
-            else:
-                # Multiple params - unpack the list
-                result = func(*parsed)
+            # Call with keyword arguments
+            result = func(**parsed)
+        elif isinstance(parsed, list):
+            result = func(*parsed)
         else:
-            # Single value
             result = func(parsed)
-        
-        # Output result
+
+        # Output result as JSON
         if isinstance(result, str):
             print(result)
         else:
             print(json.dumps(result))
-            
+
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON input - {{e}}. Received: {{input_data[:200]}}", file=sys.stderr)
+        sys.exit(1)
+    except TypeError as e:
+        # Better error for missing arguments
+        print(f"Error: {{e}}. Input was: {{input_data[:200]}}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
         print(f"Error: {{e}}", file=sys.stderr)
         sys.exit(1)
@@ -184,9 +172,21 @@ let inputData = '';
 rl.on('line', (line) => {{ inputData += line; }});
 rl.on('close', () => {{
     try {{
-        let args = JSON.parse(inputData.trim());
-        if (!Array.isArray(args)) args = [args];
-        const result = solution(...args);
+        const parsed = JSON.parse(inputData.trim());
+        let result;
+
+        if (Array.isArray(parsed)) {{
+            // Array input: spread as positional args
+            result = solution(...parsed);
+        }} else if (parsed !== null && typeof parsed === 'object') {{
+            // Object input: spread object values as positional args
+            // This matches how Python passes **kwargs
+            result = solution(...Object.values(parsed));
+        }} else {{
+            // Single value
+            result = solution(parsed);
+        }}
+
         console.log(typeof result === 'string' ? result : JSON.stringify(result));
     }} catch (e) {{
         console.error('Error:', e.message);
@@ -461,6 +461,78 @@ class Main {{
     
     def __init__(self):
         self.execution_count = 0
+
+    def _normalize_input(self, input_data) -> str:
+        """Convert input to JSON string for stdin."""
+        # Already a dict/list - serialize it
+        if isinstance(input_data, (dict, list)):
+            return json.dumps(input_data)
+
+        # String input
+        if isinstance(input_data, str):
+            input_str = input_data.strip()
+
+            # Empty string
+            if not input_str:
+                return json.dumps({})
+
+            # Already valid JSON object or array - use as-is
+            try:
+                parsed = json.loads(input_str)
+                # If it parsed to a dict or list, return it
+                if isinstance(parsed, (dict, list)):
+                    return input_str
+                # If it's a primitive, continue to other parsing
+            except json.JSONDecodeError:
+                pass
+
+            # Try to convert key=value format to JSON
+            # e.g., "nums = [1,2,3], target = 6" -> {"nums": [1,2,3], "target": 6}
+            # Also handles: nums=[1,2,3], target=6 (no spaces)
+            parsed = {}
+
+            # More comprehensive pattern that handles:
+            # - Arrays: [1,2,3] or [1, 2, 3] or nested [[1,2],[3,4]]
+            # - Numbers: 9, -5, 3.14, -2.5
+            # - Strings: "hello" or 'hello'
+            # - Booleans: true, false, True, False
+            # - null/None
+            # - Objects: {key: value}
+            pattern = r'(\w+)\s*=\s*(\[(?:[^\[\]]*|\[(?:[^\[\]]*|\[[^\[\]]*\])*\])*\]|\{[^}]*\}|-?\d+(?:\.\d+)?|"[^"]*"|\'[^\']*\'|true|false|null|none|True|False|None)'
+            matches = re.findall(pattern, input_str, re.IGNORECASE)
+
+            for key, value in matches:
+                try:
+                    # Normalize Python-style booleans/None to JSON
+                    value_normalized = value
+                    if value.lower() == 'true':
+                        value_normalized = 'true'
+                    elif value.lower() == 'false':
+                        value_normalized = 'false'
+                    elif value.lower() in ('none', 'null'):
+                        value_normalized = 'null'
+                    # Handle single quotes by converting to double quotes
+                    elif value.startswith("'") and value.endswith("'"):
+                        value_normalized = '"' + value[1:-1] + '"'
+
+                    parsed[key] = json.loads(value_normalized)
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, store as string
+                    parsed[key] = value
+
+            if parsed:
+                return json.dumps(parsed)
+
+            # Last resort - wrap as single value
+            # Try to parse as a single JSON value
+            try:
+                json.loads(input_str)
+                return input_str
+            except:
+                return json.dumps(input_str)
+
+        # Fallback for other types
+        return json.dumps(input_data)
     
     async def run_code(
         self,
@@ -703,19 +775,12 @@ using namespace std;
         input_data = test_case.get("input", "")
         expected_output = str(test_case.get("expected_output", "")).strip()
         is_hidden = test_case.get("is_hidden", False)
-        
+
         temp_file = None
-        
+
         try:
-            # Prepare input
-            if isinstance(input_data, str):
-                try:
-                    json.loads(input_data)
-                    stdin_data = input_data
-                except:
-                    stdin_data = json.dumps(input_data)
-            else:
-                stdin_data = json.dumps(input_data)
+            # Normalize input to JSON string
+            stdin_data = self._normalize_input(input_data)
             
             import time
             start_time = time.time()
