@@ -73,14 +73,15 @@ async def get_db():
 def run_migrations(conn):
     """Add missing columns to existing tables (for schema updates)."""
     from sqlalchemy import text
+    import sys
 
-    print("🔄 Running database migrations...")
+    print("🔄 Running database migrations...", flush=True)
 
     # Check if we're using PostgreSQL (skip for SQLite)
     dialect = conn.dialect.name
-    print(f"   Database dialect: {dialect}")
+    print(f"   Database dialect: {dialect}", flush=True)
     if dialect != "postgresql":
-        print("   Skipping migrations (SQLite mode)")
+        print("   Skipping migrations (SQLite mode)", flush=True)
         return
 
     # Columns to add to the quizzes table
@@ -111,9 +112,9 @@ def run_migrations(conn):
             if result.fetchone() is None:
                 alter_sql = text(f"ALTER TABLE quizzes ADD COLUMN {col_name} {col_type} DEFAULT {default_val}")
                 conn.execute(alter_sql)
-                print(f"Added column 'quizzes.{col_name}'")
+                print(f"   Added column 'quizzes.{col_name}'", flush=True)
         except Exception as e:
-            print(f"Migration warning for quizzes.{col_name}: {e}")
+            print(f"   Migration warning for quizzes.{col_name}: {e}", flush=True)
 
     # Columns to add to player_answers table
     player_answer_columns = [
@@ -132,11 +133,11 @@ def run_migrations(conn):
             if result.fetchone() is None:
                 alter_sql = text(f"ALTER TABLE player_answers ADD COLUMN {col_name} {col_type}")
                 conn.execute(alter_sql)
-                print(f"Added column 'player_answers.{col_name}'")
+                print(f"   Added column 'player_answers.{col_name}'", flush=True)
         except Exception as e:
-            print(f"Migration warning for player_answers.{col_name}: {e}")
+            print(f"   Migration warning for player_answers.{col_name}: {e}", flush=True)
 
-    print("✅ Migrations complete")
+    print("✅ Migrations complete", flush=True)
 
 
 async def init_db():
@@ -149,9 +150,15 @@ async def init_db():
 
     async with engine.begin() as conn:
         # Create tables that don't exist
+        print("   Creating tables...", flush=True)
         await conn.run_sync(Base.metadata.create_all)
+        print("   Tables ready", flush=True)
         # Add missing columns to existing tables
-        await conn.run_sync(run_migrations)
+        try:
+            await conn.run_sync(run_migrations)
+        except Exception as e:
+            print(f"   Migration error: {e}", flush=True)
+            raise
 
 
 async def close_db():
