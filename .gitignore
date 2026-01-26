@@ -47,3 +47,4 @@ coverage/
 # Experiment outputs
 experimentation/lesson_simulation_output/
 experimentation/experiments/*.json
+frontend/.env.vercel
