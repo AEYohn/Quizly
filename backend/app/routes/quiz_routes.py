@@ -261,12 +261,12 @@ async def list_quizzes(
     current_user: User = Depends(get_current_user)
 ):
     """List quizzes - teachers see their own, can also see public ones."""
-    # Get user's quizzes with their game sessions
+    # Get user's quizzes with their game sessions and player counts
     result = await db.execute(
         select(Quiz)
         .options(
             selectinload(Quiz.questions),
-            selectinload(Quiz.games)
+            selectinload(Quiz.games).selectinload(GameSession.players)
         )
         .where(Quiz.teacher_id == current_user.id)
         .order_by(Quiz.updated_at.desc())
