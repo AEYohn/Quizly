@@ -1,18 +1,33 @@
 @import "tailwindcss";
 
-/* Ensure full viewport coverage on mobile */
-html, body {
-    background-color: #030712; /* gray-950 */
-    min-height: 100vh;
-    min-height: 100dvh; /* Dynamic viewport height for mobile */
+/* Ensure full viewport coverage on mobile - iPhone safe areas */
+:root {
+    background-color: #030712;
 }
 
-/* Safe area insets for iPhone notch/home indicator */
+html {
+    background-color: #030712 !important;
+    min-height: 100%;
+    min-height: 100dvh;
+}
+
 body {
+    background-color: #030712 !important;
+    min-height: 100%;
+    min-height: 100dvh;
+    /* Extend background into safe areas */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+}
+
+/* Force background color on iOS Safari */
+@supports (-webkit-touch-callout: none) {
+    html, body {
+        background-color: #030712 !important;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 @theme {

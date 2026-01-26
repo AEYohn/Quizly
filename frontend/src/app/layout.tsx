@@ -1,6 +1,6 @@
 import "~/styles/globals.css";
 
-import { type Metadata } from "next";
+import { type Metadata, type Viewport } from "next";
 import { Geist } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
 
@@ -8,13 +8,23 @@ export const metadata: Metadata = {
     title: "Quizly",
     description: "AI-powered peer instruction platform",
     icons: [{ rel: "icon", url: "/favicon.ico" }],
-    themeColor: "#030712", // gray-950
-    viewport: {
-        width: "device-width",
-        initialScale: 1,
-        maximumScale: 1,
-        viewportFit: "cover",
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: "black-translucent",
+        title: "Quizly",
     },
+    other: {
+        "apple-mobile-web-app-capable": "yes",
+        "mobile-web-app-capable": "yes",
+    },
+};
+
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    viewportFit: "cover",
+    themeColor: "#030712",
 };
 
 const geist = Geist({
@@ -26,8 +36,8 @@ export default function RootLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
     return (
-        <html lang="en" className={`${geist.variable} bg-gray-950`} suppressHydrationWarning>
-            <body className="bg-gray-950 min-h-screen">
+        <html lang="en" className={`${geist.variable}`} suppressHydrationWarning style={{ backgroundColor: "#030712" }}>
+            <body className="min-h-dvh" style={{ backgroundColor: "#030712" }}>
                 <AuthProvider>{children}</AuthProvider>
             </body>
         </html>
