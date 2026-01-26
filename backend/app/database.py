@@ -70,8 +70,71 @@ async def get_db():
             await session.close()
 
 
+async def run_migrations(conn):
+    """Add missing columns to existing tables (for schema updates)."""
+    from sqlalchemy import text
+
+    # Check if we're using PostgreSQL (skip for SQLite)
+    dialect = conn.dialect.name
+    if dialect != "postgresql":
+        return
+
+    # Columns to add to the quizzes table
+    quiz_columns = [
+        ("timer_enabled", "BOOLEAN", "FALSE"),
+        ("default_time_limit", "INTEGER", "30"),
+        ("shuffle_questions", "BOOLEAN", "FALSE"),
+        ("shuffle_answers", "BOOLEAN", "FALSE"),
+        ("allow_retries", "BOOLEAN", "TRUE"),
+        ("max_retries", "INTEGER", "0"),
+        ("show_correct_answer", "BOOLEAN", "TRUE"),
+        ("show_explanation", "BOOLEAN", "TRUE"),
+        ("show_distribution", "BOOLEAN", "FALSE"),
+        ("difficulty_adaptation", "BOOLEAN", "TRUE"),
+        ("peer_discussion_enabled", "BOOLEAN", "TRUE"),
+        ("peer_discussion_trigger", "VARCHAR(50)", "'high_confidence_wrong'"),
+        ("allow_teacher_intervention", "BOOLEAN", "TRUE"),
+        ("sync_pacing_available", "BOOLEAN", "FALSE"),
+    ]
+
+    for col_name, col_type, default_val in quiz_columns:
+        try:
+            check_sql = text(f"""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'quizzes' AND column_name = '{col_name}'
+            """)
+            result = conn.execute(check_sql)
+            if result.fetchone() is None:
+                alter_sql = text(f"ALTER TABLE quizzes ADD COLUMN {col_name} {col_type} DEFAULT {default_val}")
+                conn.execute(alter_sql)
+                print(f"Added column 'quizzes.{col_name}'")
+        except Exception as e:
+            print(f"Migration warning for quizzes.{col_name}: {e}")
+
+    # Columns to add to player_answers table
+    player_answer_columns = [
+        ("confidence", "INTEGER"),
+        ("reasoning", "TEXT"),
+        ("misconception_data", "JSONB"),
+    ]
+
+    for col_name, col_type in player_answer_columns:
+        try:
+            check_sql = text(f"""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'player_answers' AND column_name = '{col_name}'
+            """)
+            result = conn.execute(check_sql)
+            if result.fetchone() is None:
+                alter_sql = text(f"ALTER TABLE player_answers ADD COLUMN {col_name} {col_type}")
+                conn.execute(alter_sql)
+                print(f"Added column 'player_answers.{col_name}'")
+        except Exception as e:
+            print(f"Migration warning for player_answers.{col_name}: {e}")
+
+
 async def init_db():
-    """Create all tables (for development only)."""
+    """Create all tables and run migrations."""
     # Import all models so they're registered with Base
     from .db_models import User, Course, Session, Question, Response  # noqa
     from .models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer  # noqa
@@ -79,7 +142,10 @@ async def init_db():
     from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession  # noqa
 
     async with engine.begin() as conn:
+        # Create tables that don't exist
         await conn.run_sync(Base.metadata.create_all)
+        # Add missing columns to existing tables
+        await conn.run_sync(run_migrations)
 
 
 async def close_db():
