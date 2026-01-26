@@ -137,6 +137,28 @@ def run_migrations(conn):
         except Exception as e:
             print(f"   Migration warning for player_answers.{col_name}: {e}", flush=True)
 
+    # Columns to add to exit_tickets table
+    exit_ticket_columns = [
+        ("practice_questions", "JSONB", "'{}'::jsonb"),
+        ("study_notes", "JSONB", "'{}'::jsonb"),
+        ("flashcards", "JSONB", "'[]'::jsonb"),
+        ("misconceptions", "JSONB", "'[]'::jsonb"),
+    ]
+
+    for col_name, col_type, default_val in exit_ticket_columns:
+        try:
+            check_sql = text(f"""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'exit_tickets' AND column_name = '{col_name}'
+            """)
+            result = conn.execute(check_sql)
+            if result.fetchone() is None:
+                alter_sql = text(f"ALTER TABLE exit_tickets ADD COLUMN {col_name} {col_type} DEFAULT {default_val}")
+                conn.execute(alter_sql)
+                print(f"   Added column 'exit_tickets.{col_name}'", flush=True)
+        except Exception as e:
+            print(f"   Migration warning for exit_tickets.{col_name}: {e}", flush=True)
+
     print("✅ Migrations complete", flush=True)
 
 
