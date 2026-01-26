@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, ArrowRight, Loader2, Zap } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export default function JoinGamePage() {
+function JoinGameContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [gameCode, setGameCode] = useState("");
@@ -226,5 +226,17 @@ export default function JoinGamePage() {
                 <span className="text-sm">Powered by Gemini AI</span>
             </div>
         </div>
+    );
+}
+
+export default function JoinGamePage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-gray-950">
+                <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
+            </div>
+        }>
+            <JoinGameContent />
+        </Suspense>
     );
 }
