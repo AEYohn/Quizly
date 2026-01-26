@@ -424,7 +424,7 @@ export default function EditQuizPage() {
             const token = localStorage.getItem("token");
 
             // Update quiz metadata
-            await fetch(`${API_URL}/quizzes/${quizId}`, {
+            const metaRes = await fetch(`${API_URL}/quizzes/${quizId}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -436,6 +436,10 @@ export default function EditQuizPage() {
                     subject: quizData.subject,
                 }),
             });
+            if (!metaRes.ok) {
+                const err = await metaRes.json().catch(() => ({}));
+                throw new Error(err.detail || `Failed to update quiz: ${metaRes.status}`);
+            }
 
             // Get current questions from server to know what to delete
             const currentRes = await fetch(`${API_URL}/quizzes/${quizId}`, {
@@ -497,7 +501,8 @@ export default function EditQuizPage() {
             router.push("/teacher/quizzes");
         } catch (error) {
             console.error("Failed to save:", error);
-            alert("Failed to save. Please try again.");
+            const message = error instanceof Error ? error.message : "Unknown error";
+            alert(`Failed to save: ${message}`);
         } finally {
             setSaving(false);
         }
