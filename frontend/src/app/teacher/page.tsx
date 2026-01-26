@@ -127,6 +127,13 @@ export default function TeacherDashboard() {
     };
 
     const createGame = async (quizId: string) => {
+        // Check if there's already an existing game - reuse it instead of creating new
+        const existingGame = getGameForQuiz(quizId);
+        if (existingGame) {
+            copyCode(existingGame.game_code);
+            return;
+        }
+
         setCreatingGame(quizId);
         try {
             const token = localStorage.getItem("token");
