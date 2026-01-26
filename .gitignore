@@ -49,3 +49,6 @@ experimentation/lesson_simulation_output/
 experimentation/experiments/*.json
 frontend/.env.vercel
 experimentation/.env
+
+# Pitch/investor docs (not for public repo)
+pitch-docs/
