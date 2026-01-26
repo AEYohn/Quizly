@@ -74,30 +74,40 @@ function parseInputToVariables(input: string): ParsedVariable[] {
         // Not JSON, try key=value format
     }
 
-    // Try key=value format (LeetCode style: nums = [1,2,3]\ntarget = 5)
-    const lines = input.split(/[\n;]/).filter(l => l.trim());
-    for (const line of lines) {
-        const match = line.match(/^\s*(\w+)\s*=\s*(.+)\s*$/);
-        if (match && match[1] && match[2]) {
-            const name = match[1];
-            const rawValue = match[2];
-            let value = rawValue.trim();
-            // Try to parse the value to determine type
-            try {
-                const parsed = JSON.parse(value);
-                variables.push({
-                    name,
-                    value: JSON.stringify(parsed),
-                    type: getValueType(parsed),
-                });
-            } catch {
-                // Treat as string if not valid JSON
-                variables.push({
-                    name,
-                    value: `"${value}"`,
-                    type: "string",
-                });
-            }
+    // Parse key=value format using regex that handles arrays properly
+    // Matches: name = value where value can be an array [...], number, string, or boolean
+    // Pattern handles: nums = [1,2,3], target = 9 on the same line
+    const pattern = /(\w+)\s*=\s*(\[(?:[^\[\]]*|\[(?:[^\[\]]*|\[[^\[\]]*\])*\])*\]|\{[^}]*\}|-?\d+(?:\.\d+)?|"[^"]*"|'[^']*'|true|false|null|True|False|None)/gi;
+    let match;
+
+    while ((match = pattern.exec(input)) !== null) {
+        const name = match[1];
+        let value = match[2];
+
+        if (!name || !value) continue;
+
+        // Normalize Python-style values to JSON
+        if (value.toLowerCase() === 'true') value = 'true';
+        else if (value.toLowerCase() === 'false') value = 'false';
+        else if (value.toLowerCase() === 'none' || value.toLowerCase() === 'null') value = 'null';
+        else if (value.startsWith("'") && value.endsWith("'")) {
+            value = '"' + value.slice(1, -1) + '"';
+        }
+
+        try {
+            const parsed = JSON.parse(value);
+            variables.push({
+                name,
+                value: JSON.stringify(parsed),
+                type: getValueType(parsed),
+            });
+        } catch {
+            // Treat as string if not valid JSON
+            variables.push({
+                name,
+                value: `"${value}"`,
+                type: "string",
+            });
         }
     }
 
