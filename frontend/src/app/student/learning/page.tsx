@@ -12,6 +12,22 @@ import { MisconceptionTracker } from "@/components/MisconceptionTracker";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+interface StudyNotes {
+    key_concepts?: string[];
+    common_mistakes?: string[];
+    strategies?: string[];
+    memory_tips?: string[];
+}
+
+interface PracticeQuestion {
+    prompt: string;
+    options: string[];
+    correct_answer: string;
+    hint?: string;
+    explanation?: string;
+    difficulty?: string;
+}
+
 interface ExitTicket {
     id: string;
     student_name: string;
@@ -26,6 +42,11 @@ interface ExitTicket {
     created_at: string;
     student_answer?: string;
     answered_correctly?: boolean;
+    // New comprehensive fields
+    study_notes?: StudyNotes;
+    practice_questions?: PracticeQuestion[];
+    flashcards?: { front: string; back: string }[];
+    misconceptions?: { type: string; description: string; correction: string }[];
 }
 
 interface Misconception {

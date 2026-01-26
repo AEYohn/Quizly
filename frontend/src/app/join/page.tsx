@@ -1,19 +1,61 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, ArrowRight, Loader2, Zap } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function JoinGamePage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [gameCode, setGameCode] = useState("");
     const [nickname, setNickname] = useState("");
     const [step, setStep] = useState<"code" | "nickname">("code");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [gameId, setGameId] = useState("");
+
+    // Auto-fill and validate game code from URL
+    const validateAndSetCode = useCallback(async (code: string) => {
+        setGameCode(code);
+        setLoading(true);
+        setError("");
+
+        try {
+            const response = await fetch(`${API_URL}/games/code/${code.toUpperCase()}`);
+            if (response.ok) {
+                const game = await response.json();
+                if (game.status !== "lobby") {
+                    setError("This game has already started!");
+                    setLoading(false);
+                    return;
+                }
+                const id = game.game_id;
+                if (!id) {
+                    setError("Invalid game. Please try again.");
+                    setLoading(false);
+                    return;
+                }
+                setGameId(id);
+                setStep("nickname");
+            } else {
+                setError("Game not found. Check your code!");
+            }
+        } catch {
+            setError("Can't connect. Try again!");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Check for code in URL on mount
+    useEffect(() => {
+        const codeFromUrl = searchParams.get("code");
+        if (codeFromUrl && codeFromUrl.length >= 4) {
+            validateAndSetCode(codeFromUrl.toUpperCase());
+        }
+    }, [searchParams, validateAndSetCode]);
 
     const handleCodeSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

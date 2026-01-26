@@ -34,11 +34,17 @@ if not DATABASE_URL:
     # Use a simple relative path without URL encoding
     DATABASE_URL = "sqlite+aiosqlite:///./sql_app.db"
 else:
-    # Production: handle Railway's postgres:// prefix (needs postgresql+asyncpg://)
+    # Production: handle Railway's postgres:// prefix
+    # Use psycopg async driver which handles SSL better
     if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-    elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+    elif DATABASE_URL.startswith("postgresql://") and "+" not in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    # Add sslmode=disable for Railway PostgreSQL
+    if "sslmode" not in DATABASE_URL:
+        separator = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL += f"{separator}sslmode=disable"
 
 # Create async engine
 engine = create_async_engine(
@@ -70,7 +76,7 @@ async def init_db():
     from .db_models import User, Course, Session, Question, Response  # noqa
     from .models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer  # noqa
     # Import learning models for exit tickets, misconceptions, etc.
-    from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession  # noqa
+    from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession  # noqa
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

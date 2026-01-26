@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
     ArrowRight, Loader2, Sparkles, Gamepad2, BookOpen, Code2,
-    Trophy, Brain, User, LogOut, Play, Target
+    Trophy, Brain, User, LogOut, Play, Target, Inbox
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -17,18 +17,31 @@ export default function StudentHubPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [joinCode, setJoinCode] = useState("");
     const [joinError, setJoinError] = useState("");
+    const [recentStudents, setRecentStudents] = useState<string[]>([]);
     const [stats, setStats] = useState<{
         total_exit_tickets: number;
         active_misconceptions: number;
         games_played: number;
     } | null>(null);
+    const [inboxCount, setInboxCount] = useState(0);
 
     useEffect(() => {
+        // Load recent students from localStorage
+        const recent = localStorage.getItem("quizly_recent_students");
+        if (recent) {
+            try {
+                setRecentStudents(JSON.parse(recent));
+            } catch {
+                setRecentStudents([]);
+            }
+        }
+
         const stored = localStorage.getItem("quizly_student_name");
         if (stored) {
             setSavedName(stored);
             setName(stored);
             fetchStudentStats(stored);
+            fetchInboxCount(stored);
         }
     }, []);
 
@@ -50,14 +63,49 @@ export default function StudentHubPage() {
         }
     };
 
+    const fetchInboxCount = async (studentName: string) => {
+        try {
+            const res = await fetch(
+                `${API_URL}/assignments/inbox/${encodeURIComponent(studentName)}`
+            );
+            if (res.ok) {
+                const data = await res.json();
+                setInboxCount(data.unread_count || 0);
+            }
+        } catch (err) {
+            console.error("Error fetching inbox:", err);
+        }
+    };
+
+    // Add student to recent students list (max 5)
+    const addToRecentStudents = (studentName: string) => {
+        const updated = [studentName, ...recentStudents.filter(n => n !== studentName)].slice(0, 5);
+        setRecentStudents(updated);
+        localStorage.setItem("quizly_recent_students", JSON.stringify(updated));
+    };
+
+    // Quick switch to a recent student
+    const switchToStudent = (studentName: string) => {
+        localStorage.setItem("quizly_student_name", studentName);
+        sessionStorage.setItem("quizly_student_name", studentName);
+        sessionStorage.setItem("nickname", studentName);
+        setSavedName(studentName);
+        setName(studentName);
+        addToRecentStudents(studentName);
+        fetchStudentStats(studentName);
+        fetchInboxCount(studentName);
+    };
+
     const handleSaveName = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
 
-        localStorage.setItem("quizly_student_name", name);
-        sessionStorage.setItem("quizly_student_name", name);
-        setSavedName(name);
-        fetchStudentStats(name);
+        localStorage.setItem("quizly_student_name", name.trim());
+        sessionStorage.setItem("quizly_student_name", name.trim());
+        sessionStorage.setItem("nickname", name.trim());
+        setSavedName(name.trim());
+        addToRecentStudents(name.trim());
+        fetchStudentStats(name.trim());
     };
 
     const handleJoinGame = async (e: React.FormEvent) => {
@@ -128,6 +176,32 @@ export default function StudentHubPage() {
                             Enter your name to get started
                         </p>
                     </div>
+
+                    {/* Recent Students for quick switch */}
+                    {recentStudents.length > 0 && (
+                        <div className="mb-6">
+                            <p className="mb-3 text-sm font-medium text-gray-400">
+                                Recent Students
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {recentStudents.map((studentName) => (
+                                    <button
+                                        key={studentName}
+                                        onClick={() => switchToStudent(studentName)}
+                                        className="flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-white hover:bg-gray-700 transition-colors border border-gray-700 hover:border-sky-500"
+                                    >
+                                        <User className="h-4 w-4 text-gray-400" />
+                                        {studentName}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="my-4 flex items-center gap-3">
+                                <div className="h-px flex-1 bg-gray-800" />
+                                <span className="text-xs text-gray-500">or enter a new name</span>
+                                <div className="h-px flex-1 bg-gray-800" />
+                            </div>
+                        </div>
+                    )}
 
                     <form onSubmit={handleSaveName} className="space-y-6">
                         <div>
@@ -232,6 +306,25 @@ export default function StudentHubPage() {
                     )}
                 </div>
 
+                {/* Quick Switch - Other Recent Students */}
+                {recentStudents.filter(n => n !== savedName).length > 0 && (
+                    <div className="mb-6 rounded-xl bg-gray-900/50 p-4 border border-gray-800">
+                        <p className="text-sm text-gray-400 mb-3">Quick switch to another student:</p>
+                        <div className="flex flex-wrap gap-2">
+                            {recentStudents.filter(n => n !== savedName).map((studentName) => (
+                                <button
+                                    key={studentName}
+                                    onClick={() => switchToStudent(studentName)}
+                                    className="flex items-center gap-2 rounded-lg bg-gray-800 px-3 py-1.5 text-sm text-white hover:bg-gray-700 transition-colors border border-gray-700 hover:border-sky-500"
+                                >
+                                    <User className="h-3 w-3 text-gray-400" />
+                                    {studentName}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Stats Overview */}
                 {stats && (
                     <div className="grid grid-cols-3 gap-4 mb-8">
@@ -278,6 +371,35 @@ export default function StudentHubPage() {
                                 </p>
                             </div>
                             <ArrowRight className="h-5 w-5 text-gray-600 group-hover:text-sky-400 transition-colors" />
+                        </div>
+                    </Link>
+
+                    {/* Inbox from Teacher */}
+                    <Link
+                        href="/student/inbox"
+                        className="group rounded-xl bg-gray-900 p-6 border border-gray-800 hover:border-pink-500/50 transition-all relative"
+                    >
+                        {inboxCount > 0 && (
+                            <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-pink-500 text-xs font-bold text-white shadow-lg">
+                                {inboxCount}
+                            </div>
+                        )}
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pink-500/20 text-pink-400 group-hover:bg-pink-500 group-hover:text-white transition-colors">
+                                <Inbox className="h-6 w-6" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-white mb-1">
+                                    My Inbox
+                                    {inboxCount > 0 && (
+                                        <span className="ml-2 text-sm text-pink-400">({inboxCount} new)</span>
+                                    )}
+                                </h3>
+                                <p className="text-sm text-gray-400">
+                                    Practice assignments from your teacher
+                                </p>
+                            </div>
+                            <ArrowRight className="h-5 w-5 text-gray-600 group-hover:text-pink-400 transition-colors" />
                         </div>
                     </Link>
 

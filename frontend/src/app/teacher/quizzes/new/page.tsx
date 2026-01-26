@@ -75,7 +75,9 @@ interface ChatMessage {
 interface QuizSettings {
     // Timing
     timer_enabled: boolean;
-    default_time_limit: number;
+    timer_mode: "per_question" | "total_quiz";
+    default_time_limit: number; // seconds per question
+    total_quiz_time: number; // minutes for entire quiz
     // Question behavior
     shuffle_questions: boolean;
     shuffle_answers: boolean;
@@ -120,7 +122,9 @@ export default function NewQuizPage() {
     const [quizSettings, setQuizSettings] = useState<QuizSettings>({
         // Timing - async-first defaults
         timer_enabled: false,
+        timer_mode: "per_question",
         default_time_limit: 30,
+        total_quiz_time: 15, // 15 minutes default
         // Question behavior
         shuffle_questions: false,
         shuffle_answers: false,
@@ -556,20 +560,87 @@ export default function NewQuizPage() {
                                     </button>
                                 </label>
                                 {quizSettings.timer_enabled && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-400">Time per question:</span>
-                                        <select
-                                            value={quizSettings.default_time_limit}
-                                            onChange={(e) => setQuizSettings(s => ({ ...s, default_time_limit: parseInt(e.target.value) }))}
-                                            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:border-sky-500 focus:outline-none"
-                                        >
-                                            <option value={15}>15 seconds</option>
-                                            <option value={30}>30 seconds</option>
-                                            <option value={60}>1 minute</option>
-                                            <option value={120}>2 minutes</option>
-                                            <option value={300}>5 minutes</option>
-                                        </select>
-                                    </div>
+                                    <>
+                                        {/* Timer Mode Selection */}
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-gray-400">Timer mode:</span>
+                                            <div className="flex rounded-lg border border-gray-700 p-0.5 bg-gray-800">
+                                                <button
+                                                    onClick={() => setQuizSettings(s => ({ ...s, timer_mode: "per_question" }))}
+                                                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                                        quizSettings.timer_mode === "per_question"
+                                                            ? "bg-sky-500 text-white"
+                                                            : "text-gray-400 hover:text-white"
+                                                    }`}
+                                                >
+                                                    Per Question
+                                                </button>
+                                                <button
+                                                    onClick={() => setQuizSettings(s => ({ ...s, timer_mode: "total_quiz" }))}
+                                                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                                        quizSettings.timer_mode === "total_quiz"
+                                                            ? "bg-sky-500 text-white"
+                                                            : "text-gray-400 hover:text-white"
+                                                    }`}
+                                                >
+                                                    Total Quiz
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {quizSettings.timer_mode === "per_question" ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm text-gray-400">Time per question:</span>
+                                                <select
+                                                    value={quizSettings.default_time_limit}
+                                                    onChange={(e) => setQuizSettings(s => ({ ...s, default_time_limit: parseInt(e.target.value) }))}
+                                                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:border-sky-500 focus:outline-none"
+                                                >
+                                                    <option value={10}>10 seconds</option>
+                                                    <option value={15}>15 seconds</option>
+                                                    <option value={20}>20 seconds</option>
+                                                    <option value={30}>30 seconds</option>
+                                                    <option value={45}>45 seconds</option>
+                                                    <option value={60}>1 minute</option>
+                                                    <option value={90}>1.5 minutes</option>
+                                                    <option value={120}>2 minutes</option>
+                                                    <option value={180}>3 minutes</option>
+                                                    <option value={300}>5 minutes</option>
+                                                </select>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm text-gray-400">Total quiz time:</span>
+                                                <select
+                                                    value={quizSettings.total_quiz_time}
+                                                    onChange={(e) => setQuizSettings(s => ({ ...s, total_quiz_time: parseInt(e.target.value) }))}
+                                                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white focus:border-sky-500 focus:outline-none"
+                                                >
+                                                    <option value={5}>5 minutes</option>
+                                                    <option value={10}>10 minutes</option>
+                                                    <option value={15}>15 minutes</option>
+                                                    <option value={20}>20 minutes</option>
+                                                    <option value={30}>30 minutes</option>
+                                                    <option value={45}>45 minutes</option>
+                                                    <option value={60}>1 hour</option>
+                                                    <option value={90}>1.5 hours</option>
+                                                    <option value={120}>2 hours</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Estimated duration */}
+                                        {questions.length > 0 && quizSettings.timer_mode === "per_question" && (
+                                            <div className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2">
+                                                Estimated total: ~{Math.ceil(questions.length * quizSettings.default_time_limit / 60)} min for {questions.length} questions
+                                            </div>
+                                        )}
+                                        {questions.length > 0 && quizSettings.timer_mode === "total_quiz" && (
+                                            <div className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2">
+                                                ~{Math.round(quizSettings.total_quiz_time * 60 / questions.length)} sec per question ({questions.length} questions)
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
 

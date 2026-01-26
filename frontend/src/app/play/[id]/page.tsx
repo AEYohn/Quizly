@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3, GraduationCap, Download, BookOpen, ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import PeerDiscussion from "~/components/PeerDiscussion";
 import LearningAnalytics from "~/components/LearningAnalytics";
 import PostQuizSummary from "~/components/PostQuizSummary";
 import PracticeRecommendations from "~/components/PracticeRecommendations";
+import MathText from "~/components/MathText";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -52,6 +53,44 @@ interface PlayerState {
     rank: number;
     last_answer_correct: boolean | null;
     last_answer_points: number;
+    correct_answers?: number;
+}
+
+// Flashcard component for study packet
+function FlashcardComponent({ front, back, index }: { front: string; back: string; index: number }) {
+    const [isFlipped, setIsFlipped] = useState(false);
+
+    return (
+        <div
+            onClick={() => setIsFlipped(!isFlipped)}
+            className="cursor-pointer"
+        >
+            <div className={`relative rounded-xl p-5 transition-all duration-300 ${
+                isFlipped
+                    ? "bg-emerald-500/20 border border-emerald-500/30"
+                    : "bg-white/10 border border-white/20 hover:bg-white/15"
+            }`}>
+                <div className="flex items-start gap-3">
+                    <span className="flex-shrink-0 bg-white/20 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-medium">
+                        {index + 1}
+                    </span>
+                    <div className="flex-1">
+                        <p className={`font-medium ${isFlipped ? "text-emerald-300" : "text-white"}`}>
+                            {front}
+                        </p>
+                        {isFlipped && (
+                            <div className="mt-3 pt-3 border-t border-emerald-500/30">
+                                <p className="text-gray-200">{back}</p>
+                            </div>
+                        )}
+                        {!isFlipped && (
+                            <p className="text-gray-500 text-sm mt-2">Click to reveal answer</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export default function PlayGamePage() {
@@ -97,6 +136,8 @@ export default function PlayGamePage() {
 
     // Post-quiz flow stages: "summary" -> "exit_ticket" -> "practice" -> "complete"
     const [postQuizStage, setPostQuizStage] = useState<"summary" | "exit_ticket" | "practice" | "complete">("summary");
+    // Track when quiz is manually completed to stop polling (use ref to avoid stale closure)
+    const isQuizCompletedRef = useRef(false);
     const [analyticsData, setAnalyticsData] = useState<{
         quadrants?: { confident_correct: number; confident_incorrect: number; uncertain_correct: number; uncertain_incorrect: number };
         calibration?: { status: "overconfident" | "underconfident" | "well_calibrated"; gap: number; message: string };
@@ -114,9 +155,24 @@ export default function PlayGamePage() {
     }>>([]);
 
     // Exit Ticket state (using new student learning API)
+    interface PracticeQuestion {
+        prompt: string;
+        options: string[];
+        correct_answer: string;
+        hint?: string;
+        explanation?: string;
+        difficulty?: "foundation" | "core" | "extension";
+    }
+    interface StudyNotes {
+        key_concepts?: string[];
+        common_mistakes?: string[];
+        strategies?: string[];
+        memory_tips?: string[];
+    }
     const [exitTicket, setExitTicket] = useState<{
         id: string;
         target_concept: string;
+        study_notes?: StudyNotes;
         micro_lesson: string;
         encouragement?: string;
         question_prompt: string;
@@ -124,11 +180,20 @@ export default function PlayGamePage() {
         correct_answer: string;
         hint?: string;
         is_completed: boolean;
+        // Extended fields for multi-question practice
+        practice_questions?: PracticeQuestion[];
+        flashcards?: { front: string; back: string }[];
+        misconceptions?: { type: string; description: string; correction: string }[];
     } | null>(null);
+    // Track which section of the study packet the student is viewing
+    const [studyPacketSection, setStudyPacketSection] = useState<"notes" | "homework" | "review">("notes");
     const [exitTicketLoading, setExitTicketLoading] = useState(false);
     const [showExitTicket, setShowExitTicket] = useState(false);
     const [exitTicketAnswer, setExitTicketAnswer] = useState<string | null>(null);
     const [exitTicketResult, setExitTicketResult] = useState<{is_correct: boolean; hint?: string} | null>(null);
+    // Multi-question practice state
+    const [practiceQuestionIndex, setPracticeQuestionIndex] = useState(0);
+    const [practiceAnswers, setPracticeAnswers] = useState<Record<number, { answer: string; correct: boolean }>>({});
 
     // Track student responses for exit ticket generation
     const [studentResponses, setStudentResponses] = useState<Array<{
@@ -136,6 +201,12 @@ export default function PlayGamePage() {
         is_correct: boolean;
         confidence: number;
         question_text: string;
+        student_answer: string;
+        correct_answer: string;
+        reasoning?: string;
+        options?: Record<string, string>;
+        time_taken_ms?: number;
+        had_peer_discussion?: boolean;
     }>>([]);
 
     const playerId = typeof window !== "undefined"
@@ -144,6 +215,33 @@ export default function PlayGamePage() {
     const nickname = typeof window !== "undefined"
         ? sessionStorage.getItem("nickname")
         : null;
+
+    // Back navigation handler - warn user if they try to leave during quiz
+    useEffect(() => {
+        const handlePopState = (e: PopStateEvent) => {
+            // Only show warning if quiz is in progress (not finished or in post-quiz flow)
+            if (game?.status === "question" || game?.status === "results") {
+                e.preventDefault();
+                const confirmLeave = window.confirm(
+                    "Are you sure you want to leave the quiz? Your progress will be saved but you'll exit the current session."
+                );
+                if (confirmLeave) {
+                    router.push("/student");
+                } else {
+                    // Push state back to prevent actual navigation
+                    window.history.pushState(null, "", window.location.href);
+                }
+            }
+        };
+
+        // Push initial state so we can intercept back navigation
+        window.history.pushState(null, "", window.location.href);
+        window.addEventListener("popstate", handlePopState);
+
+        return () => {
+            window.removeEventListener("popstate", handlePopState);
+        };
+    }, [game?.status, router]);
 
     // WebSocket for real-time game updates (timer sync, question transitions)
     // Only needed for sync mode - async games work via HTTP polling
@@ -202,6 +300,13 @@ export default function PlayGamePage() {
             // Game finished
             setGame(prev => prev ? { ...prev, status: "finished" } : null);
             fetchPlayerState();
+            // Sync nickname to localStorage so student dashboard can find their data
+            if (nickname) {
+                localStorage.setItem("quizly_student_name", nickname);
+                const recent = JSON.parse(localStorage.getItem("quizly_recent_students") || "[]");
+                const updated = [nickname, ...recent.filter((n: string) => n !== nickname)].slice(0, 5);
+                localStorage.setItem("quizly_recent_students", JSON.stringify(updated));
+            }
         },
         onHostDisconnected: () => {
             console.log("Host disconnected from game");
@@ -287,6 +392,11 @@ export default function PlayGamePage() {
     }, [gameId, playerId]);
 
     const fetchGame = useCallback(async () => {
+        // Don't fetch if quiz is completed (check ref to avoid stale closure)
+        if (isQuizCompletedRef.current) {
+            return;
+        }
+
         try {
             // Always pass question_index - backend will use it for async mode, ignore for sync mode
             const url = `${API_URL}/games/${gameId}/player?question_index=${asyncQuestionIndex}`;
@@ -294,6 +404,11 @@ export default function PlayGamePage() {
             const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
+
+                // Don't update state if quiz was completed while fetching
+                if (isQuizCompletedRef.current) {
+                    return;
+                }
 
                 // Check if question changed (for sync mode)
                 if (game && data.current_question_index !== game.current_question_index) {
@@ -340,6 +455,11 @@ export default function PlayGamePage() {
             return;
         }
 
+        // Don't poll if quiz is manually completed
+        if (isQuizCompletedRef.current) {
+            return;
+        }
+
         fetchGame();
 
         // Use WebSocket for real-time updates when connected
@@ -347,6 +467,11 @@ export default function PlayGamePage() {
         const pollInterval = isConnected ? 5000 : 1000;  // 5s with WS, 1s without
 
         const interval = setInterval(() => {
+            // Stop polling if quiz is completed (check ref)
+            if (isQuizCompletedRef.current) {
+                clearInterval(interval);
+                return;
+            }
             fetchGame();
             if (hasAnswered || game?.status === "results") {
                 fetchPlayerState();
@@ -418,12 +543,18 @@ export default function PlayGamePage() {
                 // Store correct answer for peer discussion
                 setLastCorrectAnswer(result.correct_answer);
 
-                // Track response for exit ticket generation
+                // Track response for exit ticket generation (with rich data for AI)
                 setStudentResponses(prev => [...prev, {
                     concept: game.quiz_title || "general",
                     is_correct: isCorrect,
                     confidence: confidence,
                     question_text: game.current_question?.question_text || "",
+                    student_answer: `${selectedAnswer}: ${game.current_question?.options?.[selectedAnswer || ""] || selectedAnswer}`,
+                    correct_answer: `${result.correct_answer}: ${game.current_question?.options?.[result.correct_answer] || result.correct_answer}`,
+                    reasoning: reasoning || undefined,
+                    options: game.current_question?.options || undefined,
+                    time_taken_ms: timeTaken,
+                    had_peer_discussion: false, // Will be updated if peer discussion occurs
                 }]);
 
                 // Update streak
@@ -505,7 +636,37 @@ export default function PlayGamePage() {
         }
     };
 
-    // Submit answer to exit ticket follow-up question
+    // Submit answer to practice question
+    const submitPracticeAnswer = (answer: string) => {
+        if (!exitTicket) return;
+
+        const questions = exitTicket.practice_questions || [];
+        const currentQ = questions[practiceQuestionIndex];
+        if (!currentQ) return;
+
+        const isCorrect = answer === currentQ.correct_answer;
+        setPracticeAnswers(prev => ({
+            ...prev,
+            [practiceQuestionIndex]: { answer, correct: isCorrect }
+        }));
+    };
+
+    // Move to next practice question
+    const nextPracticeQuestion = () => {
+        const questions = exitTicket?.practice_questions || [];
+        if (practiceQuestionIndex < questions.length - 1) {
+            setPracticeQuestionIndex(prev => prev + 1);
+        }
+    };
+
+    // Get current practice question
+    const currentPracticeQuestion = exitTicket?.practice_questions?.[practiceQuestionIndex];
+    const currentPracticeAnswer = practiceAnswers[practiceQuestionIndex];
+    const totalPracticeQuestions = exitTicket?.practice_questions?.length || 0;
+    const practiceComplete = Object.keys(practiceAnswers).length === totalPracticeQuestions && totalPracticeQuestions > 0;
+    const practiceScore = Object.values(practiceAnswers).filter(a => a.correct).length;
+
+    // Legacy: Submit answer to exit ticket follow-up question (for backwards compatibility)
     const submitExitTicketAnswer = async (answer: string) => {
         if (!exitTicket) return;
 
@@ -528,6 +689,42 @@ export default function PlayGamePage() {
         } catch (error) {
             console.error("Failed to submit exit ticket answer:", error);
         }
+    };
+
+    // Handle quiz completion for async mode - triggers post-quiz flow
+    const handleQuizComplete = async () => {
+        // Mark quiz as completed to stop polling (set ref immediately)
+        isQuizCompletedRef.current = true;
+
+        // Optionally notify backend that player finished (for analytics)
+        try {
+            await fetch(`${API_URL}/games/${gameId}/player-finish`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ player_id: playerId })
+            });
+        } catch (e) {
+            console.error("Failed to notify finish:", e);
+        }
+
+        // Reset answer state so we exit the results view
+        setHasAnswered(false);
+        setHostMessage("");
+
+        // Sync nickname to localStorage so student dashboard can find their data
+        // This links the quiz session to the student profile
+        if (nickname) {
+            localStorage.setItem("quizly_student_name", nickname);
+            // Also add to recent students list
+            const recent = JSON.parse(localStorage.getItem("quizly_recent_students") || "[]");
+            const updated = [nickname, ...recent.filter((n: string) => n !== nickname)].slice(0, 5);
+            localStorage.setItem("quizly_recent_students", JSON.stringify(updated));
+        }
+
+        // Trigger post-quiz flow
+        setPostQuizStage("summary");
+        // Force game status to finished for rendering
+        setGame(prev => prev ? { ...prev, status: "finished" } : null);
     };
 
     // Export study guide
@@ -651,7 +848,7 @@ export default function PlayGamePage() {
                         </div>
                     </div>
                 ) : showExitTicket && exitTicket ? (
-                    <div className="max-w-2xl mx-auto py-8">
+                    <div className="max-w-3xl mx-auto py-6 px-4">
                         <button
                             onClick={() => setShowExitTicket(false)}
                             className="mb-4 text-gray-400 hover:text-white flex items-center gap-2"
@@ -659,102 +856,285 @@ export default function PlayGamePage() {
                             ← Back to Results
                         </button>
 
-                        {/* Exit Ticket Content */}
-                        <div className="space-y-4">
-                            <div className="text-center mb-6">
-                                <GraduationCap className="h-12 w-12 text-yellow-400 mx-auto mb-2" />
-                                <h2 className="text-2xl font-bold text-white">Your Personalized Exit Ticket</h2>
-                                <p className="text-white/70 mt-1">Focus: {exitTicket.target_concept}</p>
-                            </div>
+                        {/* Header */}
+                        <div className="text-center mb-6">
+                            <GraduationCap className="h-12 w-12 text-yellow-400 mx-auto mb-2" />
+                            <h2 className="text-2xl font-bold text-white">Your Personalized Study Packet</h2>
+                            <p className="text-white/70 mt-1">Topic: {exitTicket.target_concept}</p>
+                            <p className="text-sm text-gray-400 mt-1">
+                                {totalPracticeQuestions} homework questions • {exitTicket.flashcards?.length || 0} flashcards
+                            </p>
+                        </div>
 
-                            {/* Micro Lesson */}
-                            <div className="bg-sky-500/20 rounded-xl p-4 border border-sky-500/30">
-                                <h3 className="font-bold text-sky-300 mb-2 flex items-center gap-2">
-                                    <Sparkles className="h-5 w-5" /> Quick Review
-                                </h3>
-                                <p className="text-gray-200 text-sm">{exitTicket.micro_lesson}</p>
-                                {exitTicket.encouragement && (
-                                    <p className="text-cyan-300 text-sm mt-2 italic">{exitTicket.encouragement}</p>
-                                )}
-                            </div>
+                        {/* Section Tabs */}
+                        <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-xl">
+                            <button
+                                onClick={() => setStudyPacketSection("notes")}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                    studyPacketSection === "notes"
+                                        ? "bg-sky-600 text-white"
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                📚 Notes
+                            </button>
+                            <button
+                                onClick={() => setStudyPacketSection("homework")}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                    studyPacketSection === "homework"
+                                        ? "bg-purple-600 text-white"
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                ✏️ Homework ({totalPracticeQuestions})
+                            </button>
+                            <button
+                                onClick={() => setStudyPacketSection("review")}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                    studyPacketSection === "review"
+                                        ? "bg-emerald-600 text-white"
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                🃏 Cards
+                            </button>
+                        </div>
 
-                            {/* Follow-up Question */}
-                            <div className="bg-purple-500/20 rounded-xl p-4 border border-purple-500/30">
-                                <h3 className="font-bold text-purple-300 mb-2">Check Your Understanding</h3>
-                                <p className="text-white mb-3">{exitTicket.question_prompt}</p>
-                                <div className="space-y-2">
-                                    {exitTicket.question_options.map((opt, i) => {
-                                        const optLetter = opt.charAt(0);
-                                        const isSelected = exitTicketAnswer === optLetter;
-                                        const showResult = exitTicketResult !== null;
-                                        const isCorrect = exitTicket.correct_answer === optLetter;
-
-                                        return (
-                                            <button
-                                                key={i}
-                                                onClick={() => !exitTicket.is_completed && submitExitTicketAnswer(optLetter)}
-                                                disabled={exitTicket.is_completed}
-                                                className={`w-full text-left rounded-lg px-4 py-2 text-white text-sm transition-colors ${
-                                                    showResult
-                                                        ? isCorrect
-                                                            ? "bg-green-500/30 border border-green-500"
-                                                            : isSelected && !exitTicketResult?.is_correct
-                                                            ? "bg-red-500/30 border border-red-500"
-                                                            : "bg-white/10"
-                                                        : isSelected
-                                                        ? "bg-white/30 border border-white"
-                                                        : "bg-white/10 hover:bg-white/20"
-                                                } ${exitTicket.is_completed ? "cursor-default" : "cursor-pointer"}`}
-                                            >
-                                                {opt}
-                                            </button>
-                                        );
-                                    })}
+                        {/* STUDY NOTES SECTION */}
+                        {studyPacketSection === "notes" && (
+                            <div className="space-y-4">
+                                {/* Quick Review */}
+                                <div className="bg-sky-500/20 rounded-xl p-5 border border-sky-500/30">
+                                    <h3 className="font-bold text-sky-300 mb-3 flex items-center gap-2 text-lg">
+                                        <Sparkles className="h-5 w-5" /> Quick Review
+                                    </h3>
+                                    <p className="text-gray-200 leading-relaxed">{exitTicket.micro_lesson}</p>
+                                    {exitTicket.encouragement && (
+                                        <p className="text-cyan-300 mt-3 italic border-t border-sky-500/30 pt-3">{exitTicket.encouragement}</p>
+                                    )}
                                 </div>
 
-                                {/* Result feedback */}
-                                {exitTicketResult && (
-                                    <div className={`mt-3 p-3 rounded-lg ${
-                                        exitTicketResult.is_correct
-                                            ? "bg-green-500/20 border border-green-500/30"
-                                            : "bg-orange-500/20 border border-orange-500/30"
-                                    }`}>
-                                        {exitTicketResult.is_correct ? (
-                                            <p className="text-green-300 flex items-center gap-2">
-                                                <Check className="h-5 w-5" /> Excellent! You got it!
-                                            </p>
-                                        ) : (
+                                {/* Key Concepts */}
+                                {exitTicket.study_notes?.key_concepts && exitTicket.study_notes.key_concepts.length > 0 && (
+                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
+                                        <h3 className="font-bold text-purple-300 mb-3">🎯 Key Concepts</h3>
+                                        <ul className="space-y-2">
+                                            {exitTicket.study_notes.key_concepts.map((concept, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-2">
+                                                    <span className="text-purple-400 mt-1">•</span>
+                                                    <span>{concept}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* Common Mistakes */}
+                                {exitTicket.study_notes?.common_mistakes && exitTicket.study_notes.common_mistakes.length > 0 && (
+                                    <div className="bg-orange-500/20 rounded-xl p-5 border border-orange-500/30">
+                                        <h3 className="font-bold text-orange-300 mb-3">⚠️ Watch Out For</h3>
+                                        <ul className="space-y-2">
+                                            {exitTicket.study_notes.common_mistakes.map((mistake, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-2">
+                                                    <span className="text-orange-400 mt-1">✗</span>
+                                                    <span>{mistake}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* Strategies */}
+                                {exitTicket.study_notes?.strategies && exitTicket.study_notes.strategies.length > 0 && (
+                                    <div className="bg-emerald-500/20 rounded-xl p-5 border border-emerald-500/30">
+                                        <h3 className="font-bold text-emerald-300 mb-3">💡 Strategies</h3>
+                                        <ol className="space-y-2">
+                                            {exitTicket.study_notes.strategies.map((strategy, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-3">
+                                                    <span className="bg-emerald-500/30 text-emerald-300 rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
+                                                        {i + 1}
+                                                    </span>
+                                                    <span>{strategy}</span>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    </div>
+                                )}
+
+                                {/* Memory Tips */}
+                                {exitTicket.study_notes?.memory_tips && exitTicket.study_notes.memory_tips.length > 0 && (
+                                    <div className="bg-pink-500/20 rounded-xl p-5 border border-pink-500/30">
+                                        <h3 className="font-bold text-pink-300 mb-3">🧠 Memory Tips</h3>
+                                        <ul className="space-y-2">
+                                            {exitTicket.study_notes.memory_tips.map((tip, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-2">
+                                                    <span className="text-pink-400 mt-1">★</span>
+                                                    <span>{tip}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={() => setStudyPacketSection("homework")}
+                                    className="w-full rounded-xl bg-purple-600 px-6 py-4 font-bold text-white hover:bg-purple-500 transition-colors"
+                                >
+                                    Start Homework →
+                                </button>
+                            </div>
+                        )}
+
+                        {/* HOMEWORK SECTION */}
+                        {studyPacketSection === "homework" && (
+                            <div className="space-y-4">
+                                {totalPracticeQuestions > 0 && !practiceComplete && currentPracticeQuestion && (
+                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
+                                        <div className="flex items-center justify-between mb-4">
                                             <div>
-                                                <p className="text-orange-300">Not quite. The correct answer is {exitTicket.correct_answer}.</p>
-                                                {exitTicket.hint && (
-                                                    <p className="text-white/70 text-sm mt-2">
-                                                        <Sparkles className="inline h-4 w-4 mr-1" />
-                                                        {exitTicket.hint}
-                                                    </p>
+                                                <h3 className="font-bold text-purple-300">Question</h3>
+                                                {currentPracticeQuestion.difficulty && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                                        currentPracticeQuestion.difficulty === "foundation"
+                                                            ? "bg-green-500/30 text-green-300"
+                                                            : currentPracticeQuestion.difficulty === "core"
+                                                            ? "bg-purple-500/30 text-purple-300"
+                                                            : "bg-orange-500/30 text-orange-300"
+                                                    }`}>
+                                                        {currentPracticeQuestion.difficulty}
+                                                    </span>
                                                 )}
                                             </div>
+                                            <span className="text-purple-300 font-medium">
+                                                {practiceQuestionIndex + 1} / {totalPracticeQuestions}
+                                            </span>
+                                        </div>
+
+                                        <div className="h-2 bg-purple-900/50 rounded-full mb-5 overflow-hidden">
+                                            <div
+                                                className="h-full bg-purple-500 transition-all"
+                                                style={{ width: `${((practiceQuestionIndex + 1) / totalPracticeQuestions) * 100}%` }}
+                                            />
+                                        </div>
+
+                                        <p className="text-white mb-4 text-lg">{currentPracticeQuestion.prompt}</p>
+                                        <div className="space-y-2">
+                                            {currentPracticeQuestion.options.map((opt, i) => {
+                                                const optLetter = String.fromCharCode(65 + i);
+                                                const isSelected = currentPracticeAnswer?.answer === optLetter;
+                                                const showResult = !!currentPracticeAnswer;
+                                                const isCorrect = currentPracticeQuestion.correct_answer === optLetter;
+
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => !currentPracticeAnswer && submitPracticeAnswer(optLetter)}
+                                                        disabled={!!currentPracticeAnswer}
+                                                        className={`w-full text-left rounded-lg px-4 py-3 text-white transition-colors ${
+                                                            showResult
+                                                                ? isCorrect
+                                                                    ? "bg-green-500/30 border-2 border-green-500"
+                                                                    : isSelected
+                                                                    ? "bg-red-500/30 border-2 border-red-500"
+                                                                    : "bg-white/10"
+                                                                : "bg-white/10 hover:bg-white/20"
+                                                        }`}
+                                                    >
+                                                        {opt}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {currentPracticeAnswer && (
+                                            <>
+                                                <div className={`mt-4 p-4 rounded-lg ${
+                                                    currentPracticeAnswer.correct
+                                                        ? "bg-green-500/20 border border-green-500/30"
+                                                        : "bg-orange-500/20 border border-orange-500/30"
+                                                }`}>
+                                                    {currentPracticeAnswer.correct ? (
+                                                        <p className="text-green-300 flex items-center gap-2 font-medium">
+                                                            <Check className="h-5 w-5" /> Correct!
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-orange-300">Correct answer: {currentPracticeQuestion.correct_answer}</p>
+                                                    )}
+                                                    {currentPracticeQuestion.explanation && (
+                                                        <p className="text-gray-300 text-sm mt-2">{currentPracticeQuestion.explanation}</p>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => practiceQuestionIndex < totalPracticeQuestions - 1 && nextPracticeQuestion()}
+                                                    className="w-full mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-500"
+                                                >
+                                                    {practiceQuestionIndex < totalPracticeQuestions - 1 ? "Next →" : "See Results"}
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 )}
-                            </div>
 
-                            {/* Link to learning dashboard */}
+                                {practiceComplete && (
+                                    <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl p-6 border border-green-500/30 text-center">
+                                        <Trophy className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+                                        <h3 className="text-xl font-bold text-white">Homework Complete!</h3>
+                                        <p className="text-green-300 text-lg mt-2">
+                                            {practiceScore} / {totalPracticeQuestions} correct ({Math.round((practiceScore / totalPracticeQuestions) * 100)}%)
+                                        </p>
+                                        <div className="flex flex-wrap justify-center gap-2 mt-4">
+                                            {Object.entries(practiceAnswers).map(([idx, result]) => (
+                                                <div
+                                                    key={idx}
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
+                                                        result.correct
+                                                            ? "bg-green-500/30 text-green-300"
+                                                            : "bg-red-500/30 text-red-300"
+                                                    }`}
+                                                >
+                                                    {parseInt(idx) + 1}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {totalPracticeQuestions === 0 && (
+                                    <p className="text-center text-gray-400 py-8">No homework questions available.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* FLASHCARDS SECTION */}
+                        {studyPacketSection === "review" && (
+                            <div className="space-y-4">
+                                {exitTicket.flashcards && exitTicket.flashcards.length > 0 ? (
+                                    <>
+                                        <p className="text-center text-gray-400 mb-4">Click a card to reveal the answer</p>
+                                        {exitTicket.flashcards.map((card, i) => (
+                                            <FlashcardComponent key={i} front={card.front} back={card.back} index={i} />
+                                        ))}
+                                    </>
+                                ) : (
+                                    <p className="text-center text-gray-400 py-8">No flashcards available.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Done / Navigation */}
+                        <div className="mt-6 pt-4 border-t border-white/10 flex flex-col gap-3">
                             <Link
                                 href="/student/learning"
-                                className="flex items-center justify-center gap-2 bg-gray-900 rounded-xl p-4 border border-gray-800 text-white hover:bg-gray-800 transition-colors"
+                                className="flex items-center justify-center gap-2 bg-gray-800 rounded-xl p-4 text-white hover:bg-gray-700 transition-colors"
                             >
                                 <BookOpen className="h-5 w-5" />
-                                View All Your Exit Tickets
-                                <ExternalLink className="h-4 w-4" />
+                                View All Exit Tickets
                             </Link>
-                        </div>
-
-                        <div className="mt-6 flex flex-col gap-3 items-center">
                             <button
-                                onClick={() => router.push("/join")}
-                                className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors"
+                                onClick={() => router.push("/student")}
+                                className="rounded-xl bg-sky-600 px-6 py-3 font-bold text-white hover:bg-sky-500 transition-colors"
                             >
-                                Play Again
+                                Done
                             </button>
                         </div>
                     </div>
@@ -776,6 +1156,385 @@ export default function PlayGamePage() {
                                 setPostQuizStage("exit_ticket");
                             }}
                         />
+                    </div>
+                ) : postQuizStage === "exit_ticket" && exitTicketLoading ? (
+                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
+                        <div className="text-center">
+                            <Loader2 className="mx-auto h-12 w-12 animate-spin text-sky-400 mb-4" />
+                            <h2 className="text-xl font-bold text-white mb-2">Creating Your Study Packet</h2>
+                            <p className="text-gray-400">Generating personalized notes and homework based on your performance...</p>
+                        </div>
+                    </div>
+                ) : postQuizStage === "exit_ticket" && exitTicket ? (
+                    <div className="max-w-3xl mx-auto py-6 px-4">
+                        {/* Header */}
+                        <div className="text-center mb-6">
+                            <GraduationCap className="h-12 w-12 text-yellow-400 mx-auto mb-2" />
+                            <h2 className="text-2xl font-bold text-white">Your Personalized Study Packet</h2>
+                            <p className="text-white/70 mt-1">Topic: {exitTicket.target_concept}</p>
+                            <p className="text-sm text-gray-400 mt-1">
+                                {totalPracticeQuestions} homework questions • {exitTicket.flashcards?.length || 0} flashcards
+                            </p>
+                        </div>
+
+                        {/* Section Tabs */}
+                        <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-xl">
+                            <button
+                                onClick={() => setStudyPacketSection("notes")}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                    studyPacketSection === "notes"
+                                        ? "bg-sky-600 text-white"
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                📚 Study Notes
+                            </button>
+                            <button
+                                onClick={() => setStudyPacketSection("homework")}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                    studyPacketSection === "homework"
+                                        ? "bg-purple-600 text-white"
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                ✏️ Homework ({totalPracticeQuestions})
+                            </button>
+                            <button
+                                onClick={() => setStudyPacketSection("review")}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                    studyPacketSection === "review"
+                                        ? "bg-emerald-600 text-white"
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                🃏 Flashcards
+                            </button>
+                        </div>
+
+                        {/* STUDY NOTES SECTION */}
+                        {studyPacketSection === "notes" && (
+                            <div className="space-y-4">
+                                {/* Quick Review / Micro Lesson */}
+                                <div className="bg-sky-500/20 rounded-xl p-5 border border-sky-500/30">
+                                    <h3 className="font-bold text-sky-300 mb-3 flex items-center gap-2 text-lg">
+                                        <Sparkles className="h-5 w-5" /> Quick Review
+                                    </h3>
+                                    <p className="text-gray-200 leading-relaxed">{exitTicket.micro_lesson}</p>
+                                    {exitTicket.encouragement && (
+                                        <p className="text-cyan-300 mt-3 italic border-t border-sky-500/30 pt-3">{exitTicket.encouragement}</p>
+                                    )}
+                                </div>
+
+                                {/* Key Concepts */}
+                                {exitTicket.study_notes?.key_concepts && exitTicket.study_notes.key_concepts.length > 0 && (
+                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
+                                        <h3 className="font-bold text-purple-300 mb-3 flex items-center gap-2">
+                                            🎯 Key Concepts to Master
+                                        </h3>
+                                        <ul className="space-y-2">
+                                            {exitTicket.study_notes.key_concepts.map((concept, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-2">
+                                                    <span className="text-purple-400 mt-1">•</span>
+                                                    <span>{concept}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* Common Mistakes to Avoid */}
+                                {exitTicket.study_notes?.common_mistakes && exitTicket.study_notes.common_mistakes.length > 0 && (
+                                    <div className="bg-orange-500/20 rounded-xl p-5 border border-orange-500/30">
+                                        <h3 className="font-bold text-orange-300 mb-3 flex items-center gap-2">
+                                            ⚠️ Common Mistakes to Avoid
+                                        </h3>
+                                        <ul className="space-y-2">
+                                            {exitTicket.study_notes.common_mistakes.map((mistake, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-2">
+                                                    <span className="text-orange-400 mt-1">✗</span>
+                                                    <span>{mistake}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* Strategies */}
+                                {exitTicket.study_notes?.strategies && exitTicket.study_notes.strategies.length > 0 && (
+                                    <div className="bg-emerald-500/20 rounded-xl p-5 border border-emerald-500/30">
+                                        <h3 className="font-bold text-emerald-300 mb-3 flex items-center gap-2">
+                                            💡 Problem-Solving Strategies
+                                        </h3>
+                                        <ol className="space-y-2">
+                                            {exitTicket.study_notes.strategies.map((strategy, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-3">
+                                                    <span className="bg-emerald-500/30 text-emerald-300 rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
+                                                        {i + 1}
+                                                    </span>
+                                                    <span>{strategy}</span>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    </div>
+                                )}
+
+                                {/* Memory Tips */}
+                                {exitTicket.study_notes?.memory_tips && exitTicket.study_notes.memory_tips.length > 0 && (
+                                    <div className="bg-pink-500/20 rounded-xl p-5 border border-pink-500/30">
+                                        <h3 className="font-bold text-pink-300 mb-3 flex items-center gap-2">
+                                            🧠 Memory Tips
+                                        </h3>
+                                        <ul className="space-y-2">
+                                            {exitTicket.study_notes.memory_tips.map((tip, i) => (
+                                                <li key={i} className="text-gray-200 flex items-start gap-2">
+                                                    <span className="text-pink-400 mt-1">★</span>
+                                                    <span>{tip}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* Misconceptions if present */}
+                                {exitTicket.misconceptions && exitTicket.misconceptions.length > 0 && (
+                                    <div className="bg-red-500/20 rounded-xl p-5 border border-red-500/30">
+                                        <h3 className="font-bold text-red-300 mb-3 flex items-center gap-2">
+                                            🔍 Understanding Your Mistakes
+                                        </h3>
+                                        <div className="space-y-4">
+                                            {exitTicket.misconceptions.map((m, i) => (
+                                                <div key={i} className="bg-white/5 rounded-lg p-4">
+                                                    <p className="text-red-300 font-medium mb-2">{m.type}</p>
+                                                    <p className="text-gray-400 text-sm mb-2">
+                                                        <span className="text-red-400">What you thought:</span> {m.description}
+                                                    </p>
+                                                    <p className="text-gray-200 text-sm">
+                                                        <span className="text-green-400">Correct understanding:</span> {m.correction}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Continue to Homework button */}
+                                <button
+                                    onClick={() => setStudyPacketSection("homework")}
+                                    className="w-full rounded-xl bg-purple-600 px-6 py-4 font-bold text-white hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    Start Homework Questions →
+                                </button>
+                            </div>
+                        )}
+
+                        {/* HOMEWORK SECTION */}
+                        {studyPacketSection === "homework" && (
+                            <div className="space-y-4">
+                                {/* Practice Questions - Multi-question flow */}
+                                {totalPracticeQuestions > 0 && !practiceComplete && currentPracticeQuestion && (
+                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
+                                        {/* Progress indicator */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div>
+                                                <h3 className="font-bold text-purple-300">Homework Question</h3>
+                                                {currentPracticeQuestion.difficulty && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                                        currentPracticeQuestion.difficulty === "foundation"
+                                                            ? "bg-green-500/30 text-green-300"
+                                                            : currentPracticeQuestion.difficulty === "core"
+                                                            ? "bg-purple-500/30 text-purple-300"
+                                                            : "bg-orange-500/30 text-orange-300"
+                                                    }`}>
+                                                        {currentPracticeQuestion.difficulty}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-purple-300 text-sm font-medium">
+                                                {practiceQuestionIndex + 1} / {totalPracticeQuestions}
+                                            </span>
+                                        </div>
+
+                                        {/* Progress bar */}
+                                        <div className="h-2 bg-purple-900/50 rounded-full mb-5 overflow-hidden">
+                                            <div
+                                                className="h-full bg-purple-500 transition-all duration-300"
+                                                style={{ width: `${((practiceQuestionIndex + 1) / totalPracticeQuestions) * 100}%` }}
+                                            />
+                                        </div>
+
+                                        <p className="text-white mb-4 text-lg">{currentPracticeQuestion.prompt}</p>
+                                        <div className="space-y-2">
+                                            {currentPracticeQuestion.options.map((opt, i) => {
+                                                const optLetter = String.fromCharCode(65 + i);
+                                                const isSelected = currentPracticeAnswer?.answer === optLetter;
+                                                const showResult = !!currentPracticeAnswer;
+                                                const isCorrect = currentPracticeQuestion.correct_answer === optLetter;
+
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => !currentPracticeAnswer && submitPracticeAnswer(optLetter)}
+                                                        disabled={!!currentPracticeAnswer}
+                                                        className={`w-full text-left rounded-lg px-4 py-3 text-white transition-colors ${
+                                                            showResult
+                                                                ? isCorrect
+                                                                    ? "bg-green-500/30 border-2 border-green-500"
+                                                                    : isSelected && !currentPracticeAnswer?.correct
+                                                                    ? "bg-red-500/30 border-2 border-red-500"
+                                                                    : "bg-white/10 border border-white/10"
+                                                                : "bg-white/10 hover:bg-white/20 border border-white/10"
+                                                        } ${currentPracticeAnswer ? "cursor-default" : "cursor-pointer"}`}
+                                                    >
+                                                        {opt}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Result feedback */}
+                                        {currentPracticeAnswer && (
+                                            <div className={`mt-4 p-4 rounded-lg ${
+                                                currentPracticeAnswer.correct
+                                                    ? "bg-green-500/20 border border-green-500/30"
+                                                    : "bg-orange-500/20 border border-orange-500/30"
+                                            }`}>
+                                                {currentPracticeAnswer.correct ? (
+                                                    <p className="text-green-300 flex items-center gap-2 font-medium">
+                                                        <Check className="h-5 w-5" /> Correct!
+                                                    </p>
+                                                ) : (
+                                                    <div>
+                                                        <p className="text-orange-300 font-medium">Not quite. The correct answer is {currentPracticeQuestion.correct_answer}.</p>
+                                                        {currentPracticeQuestion.hint && (
+                                                            <p className="text-white/70 text-sm mt-2">
+                                                                <Sparkles className="inline h-4 w-4 mr-1" />
+                                                                <span className="font-medium">Hint:</span> {currentPracticeQuestion.hint}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {currentPracticeQuestion.explanation && (
+                                                    <p className="text-gray-300 text-sm mt-3 pt-3 border-t border-white/10">
+                                                        <span className="font-medium text-white">Explanation:</span> {currentPracticeQuestion.explanation}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Next Question button */}
+                                        {currentPracticeAnswer && (
+                                            <button
+                                                onClick={() => {
+                                                    if (practiceQuestionIndex < totalPracticeQuestions - 1) {
+                                                        nextPracticeQuestion();
+                                                    }
+                                                }}
+                                                className="w-full mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-500 transition-colors"
+                                            >
+                                                {practiceQuestionIndex < totalPracticeQuestions - 1
+                                                    ? `Next Question (${practiceQuestionIndex + 2}/${totalPracticeQuestions}) →`
+                                                    : "See Results"}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Practice Complete - Show results */}
+                                {practiceComplete && (
+                                    <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl p-6 border border-green-500/30">
+                                        <div className="text-center mb-6">
+                                            <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-green-500/20 mb-4">
+                                                <Trophy className="h-10 w-10 text-yellow-400" />
+                                            </div>
+                                            <h3 className="text-2xl font-bold text-white">Homework Complete!</h3>
+                                            <p className="text-green-300 text-xl mt-2">
+                                                {practiceScore} / {totalPracticeQuestions} correct ({Math.round((practiceScore / totalPracticeQuestions) * 100)}%)
+                                            </p>
+                                        </div>
+
+                                        {/* Score breakdown */}
+                                        <div className="flex flex-wrap justify-center gap-2 mb-6">
+                                            {Object.entries(practiceAnswers).map(([idx, result]) => (
+                                                <div
+                                                    key={idx}
+                                                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+                                                        result.correct
+                                                            ? "bg-green-500/30 text-green-300 border border-green-500"
+                                                            : "bg-red-500/30 text-red-300 border border-red-500"
+                                                    }`}
+                                                >
+                                                    {parseInt(idx) + 1}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Review Flashcards button */}
+                                        {exitTicket.flashcards && exitTicket.flashcards.length > 0 && (
+                                            <button
+                                                onClick={() => setStudyPacketSection("review")}
+                                                className="w-full rounded-xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-500 transition-colors mb-3"
+                                            >
+                                                Review Flashcards →
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Fallback if no practice questions */}
+                                {totalPracticeQuestions === 0 && (
+                                    <div className="text-center py-8">
+                                        <p className="text-gray-400">No homework questions available.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* FLASHCARDS SECTION */}
+                        {studyPacketSection === "review" && (
+                            <div className="space-y-4">
+                                {exitTicket.flashcards && exitTicket.flashcards.length > 0 ? (
+                                    <>
+                                        <div className="text-center mb-4">
+                                            <p className="text-gray-400">Click a card to reveal the answer</p>
+                                        </div>
+                                        {exitTicket.flashcards.map((card, i) => (
+                                            <FlashcardComponent key={i} front={card.front} back={card.back} index={i} />
+                                        ))}
+                                    </>
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <p className="text-gray-400">No flashcards available.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Done Button - visible when homework complete or in review section */}
+                        {(practiceComplete || studyPacketSection === "review") && (
+                            <div className="mt-6 pt-4 border-t border-white/10">
+                                <button
+                                    onClick={() => setPostQuizStage("complete")}
+                                    className="w-full rounded-xl bg-sky-600 px-6 py-4 text-lg font-bold text-white shadow-lg hover:bg-sky-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Check className="h-5 w-5" />
+                                    I'm Done Studying
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : postQuizStage === "exit_ticket" ? (
+                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
+                        <div className="text-center max-w-md">
+                            <Brain className="mx-auto h-12 w-12 text-gray-500 mb-4" />
+                            <h2 className="text-xl font-bold text-white mb-2">No Exit Ticket Available</h2>
+                            <p className="text-gray-400 mb-6">Unable to generate a personalized exit ticket at this time.</p>
+                            <button
+                                onClick={() => setPostQuizStage("practice")}
+                                className="rounded-full bg-sky-600 px-6 py-3 font-bold text-white hover:bg-sky-700"
+                            >
+                                Continue
+                            </button>
+                        </div>
                     </div>
                 ) : postQuizStage === "practice" ? (
                     <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
@@ -821,10 +1580,10 @@ export default function PlayGamePage() {
                                     Learning Dashboard
                                 </Link>
                                 <button
-                                    onClick={() => router.push("/join")}
+                                    onClick={() => router.push("/student")}
                                     className="rounded-xl border border-gray-700 px-6 py-3 font-medium text-gray-300 hover:bg-gray-800 flex items-center justify-center gap-2"
                                 >
-                                    Play Again
+                                    Done
                                 </button>
                             </div>
                         </div>
@@ -955,7 +1714,15 @@ export default function PlayGamePage() {
                                 correctAnswer={lastCorrectAnswer}
                                 isCorrect={false}
                                 confidence={confidence}
-                                onComplete={() => setShowPeerDiscussion(false)}
+                                onComplete={() => {
+                                    setShowPeerDiscussion(false);
+                                    // Mark that peer discussion occurred for exit ticket context
+                                    setStudentResponses(prev => prev.map((resp, idx) =>
+                                        idx === prev.length - 1
+                                            ? { ...resp, had_peer_discussion: true }
+                                            : resp
+                                    ));
+                                }}
                             />
                         </div>
                     )}
@@ -1008,7 +1775,7 @@ export default function PlayGamePage() {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => router.push("/join")}
+                                    onClick={handleQuizComplete}
                                     className="rounded-full bg-emerald-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-emerald-500 transition-colors"
                                 >
                                     Finish Quiz
@@ -1087,7 +1854,7 @@ export default function PlayGamePage() {
                             {shapes[Object.keys(game.current_question.options).indexOf(selectedAnswer)]}
                         </span>
                         <span className="font-bold text-white">
-                            {game.current_question.options[selectedAnswer]}
+                            <MathText text={game.current_question.options[selectedAnswer] || ""} />
                         </span>
                     </div>
                 </div>
@@ -1186,9 +1953,9 @@ export default function PlayGamePage() {
 
             {/* Question Card */}
             <div className="mb-6 rounded-2xl bg-white p-6 shadow-xl">
-                <p className="text-center text-xl font-bold text-gray-900">
-                    {game.current_question?.question_text}
-                </p>
+                <div className="text-center text-xl font-bold text-gray-900">
+                    <MathText text={game.current_question?.question_text || ""} />
+                </div>
             </div>
 
             {/* Answer Buttons */}
@@ -1200,17 +1967,17 @@ export default function PlayGamePage() {
                                 key={key}
                                 onClick={() => selectAnswer(key)}
                                 disabled={hasAnswered}
-                                className={`flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r ${colors[index]} p-5 text-white shadow-lg transition-all ${
+                                className={`flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r ${colors[index]} p-4 text-white shadow-lg transition-all ${
                                     hasAnswered && selectedAnswer === key
                                         ? "ring-4 ring-white scale-95"
                                         : "hover:scale-[1.02] active:scale-95"
                                 } ${hasAnswered ? "opacity-80" : ""}`}
                             >
-                                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-2xl">
+                                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-2xl flex-shrink-0">
                                     {shapes[index]}
                                 </span>
                                 <span className="flex-1 text-left text-lg font-bold">
-                                    {value}
+                                    <MathText text={value} />
                                 </span>
                             </button>
                         )

@@ -65,22 +65,34 @@ export default function StudentProfilePage() {
     const [activeTab, setActiveTab] = useState<"overview" | "misconceptions" | "review">("overview");
 
     useEffect(() => {
-        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        if (!token) {
+        // Try to get student name from various storage locations
+        const studentName = typeof window !== "undefined"
+            ? (localStorage.getItem("quizly_student_name") ||
+               sessionStorage.getItem("nickname") ||
+               sessionStorage.getItem("playerName"))
+            : null;
+
+        if (!studentName) {
             // For demo purposes, show mock data
             setProfile(getMockProfile());
             setLoading(false);
             return;
         }
 
-        fetchProfile(token);
+        fetchProfile(studentName);
     }, []);
 
-    const fetchProfile = async (token: string) => {
+    const fetchProfile = async (studentName: string) => {
         try {
-            const response = await fetch(`${API_URL}/students/profile`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            const response = await fetch(
+                `${API_URL}/student-learning/dashboard/${encodeURIComponent(studentName)}`,
+                { signal: controller.signal }
+            );
+            clearTimeout(timeoutId);
+
             if (response.ok) {
                 const data = await response.json();
                 setProfile(data);

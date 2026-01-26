@@ -5,13 +5,21 @@ Endpoints for the AI Game Host (Quizzy) to react to game events
 and provide explanations.
 """
 
-from fastapi import APIRouter, HTTPException
+from uuid import UUID
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 import json
 
 from ..services.game_host import game_host, HostEvent
+from ..services.insights_service import insights_service
+from ..database import get_db
+from ..models.game import GameSession, Player, Quiz, PlayerAnswer
+from ..db_models_learning import PeerDiscussionSession
 
 router = APIRouter(prefix="/host", tags=["game-host"])
 
@@ -203,7 +211,7 @@ async def explain_answer(data: ExplainRequest):
 
 @router.post("/insights")
 async def generate_insights(data: InsightsRequest):
-    """Generate AI insights for the teacher after a game."""
+    """Generate AI insights for the teacher after a game (legacy endpoint)."""
     insights = await game_host.generate_insights(
         quiz_title=data.quiz_title,
         questions=data.questions,
@@ -211,6 +219,120 @@ async def generate_insights(data: InsightsRequest):
         player_count=data.player_count
     )
     return {"insights": insights}
+
+
+@router.get("/insights/{game_id}")
+async def get_comprehensive_insights(
+    game_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate comprehensive AI insights for a game.
+
+    Uses full game data including:
+    - All player answers with confidence and reasoning
+    - Peer discussion sessions
+    - Per-question analysis
+    - Confidence calibration analysis
+    - Misconception clustering
+
+    Returns detailed, actionable insights for teachers.
+    """
+    # Fetch full game data
+    result = await db.execute(
+        select(GameSession)
+        .options(
+            selectinload(GameSession.players).selectinload(Player.answers),
+            selectinload(GameSession.quiz).selectinload(Quiz.questions)
+        )
+        .where(GameSession.id == game_id)
+    )
+    game = result.scalars().first()
+
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # Build game data dict
+    questions = sorted(game.quiz.questions, key=lambda q: q.order)
+    question_map = {str(q.id): q for q in questions}
+
+    # Build player data with answers
+    players_data = []
+    for player in game.players:
+        if not player.is_active:
+            continue
+
+        answers_data = []
+        for answer in player.answers:
+            q = question_map.get(str(answer.question_id))
+            answers_data.append({
+                "question_id": str(answer.question_id),
+                "question_text": q.question_text if q else "",
+                "answer": answer.answer,
+                "is_correct": answer.is_correct,
+                "confidence": answer.confidence or 50,
+                "reasoning": answer.reasoning or "",
+                "correct_answer": q.correct_answer if q else "",
+                "time_taken": (answer.response_time_ms or 0) / 1000,  # Convert ms to seconds
+            })
+
+        players_data.append({
+            "player_id": str(player.id),
+            "nickname": player.nickname,
+            "total_score": player.total_score,
+            "answers": answers_data,
+        })
+
+    # Build questions data
+    questions_data = [
+        {
+            "id": str(q.id),
+            "question_text": q.question_text,
+            "options": q.options,
+            "correct_answer": q.correct_answer,
+            "concept": "general",  # QuizQuestion doesn't have concept field
+            "explanation": q.explanation,
+        }
+        for q in questions
+    ]
+
+    game_data = {
+        "quiz_title": game.quiz.title,
+        "questions": questions_data,
+        "players": players_data,
+    }
+
+    # Fetch peer discussions for this game
+    peer_result = await db.execute(
+        select(PeerDiscussionSession)
+        .where(PeerDiscussionSession.game_id == game_id)
+    )
+    peer_sessions = peer_result.scalars().all()
+
+    peer_discussions = [
+        {
+            "student_name": s.student_name,
+            "question_text": s.question_text,
+            "student_answer": s.student_answer,
+            "was_correct": s.was_correct,
+            "summary": s.summary,
+            "key_insights": s.key_insights or [],
+            "misconceptions_identified": s.misconceptions_identified or [],
+            "understanding_improved": s.understanding_improved,
+            "discussion_quality": s.discussion_quality,
+            "message_count": s.message_count,
+            "status": s.status,
+        }
+        for s in peer_sessions
+    ]
+
+    # Generate comprehensive insights
+    insights = await insights_service.generate_comprehensive_insights(
+        game_data=game_data,
+        peer_discussions=peer_discussions if peer_discussions else None
+    )
+
+    return insights
 
 
 # ============================================================================

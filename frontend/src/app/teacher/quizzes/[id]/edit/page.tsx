@@ -87,6 +87,7 @@ export default function EditQuizPage() {
     });
     const [questions, setQuestions] = useState<QuestionData[]>([]);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [dragOverTextbox, setDragOverTextbox] = useState(false);
 
     const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -340,7 +341,15 @@ export default function EditQuizPage() {
         updateQuestion(id, { collapsed: !questions.find(q => q.id === id)?.collapsed });
     };
 
-    const handleDragStart = (index: number) => setDraggedIndex(index);
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index);
+        // Store question data for potential drop on textbox
+        const question = questions[index];
+        if (question) {
+            e.dataTransfer.setData("application/question", JSON.stringify(question));
+            e.dataTransfer.effectAllowed = "copyMove";
+        }
+    };
 
     const handleDragOver = (e: React.DragEvent, index: number) => {
         e.preventDefault();
@@ -355,7 +364,54 @@ export default function EditQuizPage() {
         setDraggedIndex(index);
     };
 
-    const handleDragEnd = () => setDraggedIndex(null);
+    const handleDragEnd = () => {
+        setDraggedIndex(null);
+        setDragOverTextbox(false);
+    };
+
+    const handleTextboxDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer.types.includes("application/question")) {
+            setDragOverTextbox(true);
+            e.dataTransfer.dropEffect = "copy";
+        }
+    };
+
+    const handleTextboxDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragOverTextbox(false);
+    };
+
+    const handleTextboxDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOverTextbox(false);
+        setDraggedIndex(null);
+
+        const questionData = e.dataTransfer.getData("application/question");
+        if (questionData) {
+            try {
+                const question = JSON.parse(questionData) as QuestionData;
+                // Format the question as reference text
+                let refText = `[Reference Question]\n"${question.question_text}"`;
+                if (question.question_type === "multiple_choice" && question.options) {
+                    const optionsText = Object.entries(question.options)
+                        .filter(([_, v]) => v)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(", ");
+                    refText += `\nOptions: ${optionsText}`;
+                    refText += `\nCorrect: ${question.correct_answer}`;
+                }
+                refText += "\n\n";
+
+                setChatInput(prev => prev + refText);
+                chatInputRef.current?.focus();
+            } catch (err) {
+                console.error("Failed to parse dropped question:", err);
+            }
+        }
+    };
 
     const saveQuiz = async () => {
         if (questions.length === 0) {
@@ -562,10 +618,10 @@ export default function EditQuizPage() {
                                 <div
                                     key={question.id}
                                     draggable
-                                    onDragStart={() => handleDragStart(index)}
+                                    onDragStart={(e) => handleDragStart(e, index)}
                                     onDragOver={(e) => handleDragOver(e, index)}
                                     onDragEnd={handleDragEnd}
-                                    className={`rounded-xl bg-white border transition-all ${
+                                    className={`rounded-xl bg-white border transition-all cursor-grab active:cursor-grabbing ${
                                         draggedIndex === index ? "opacity-50 border-purple-400" : "border-gray-200"
                                     }`}
                                 >
@@ -761,7 +817,16 @@ export default function EditQuizPage() {
                         </div>
                     )}
 
-                    <div className="flex gap-3 items-end bg-white rounded-2xl border border-gray-200 shadow-lg p-3">
+                    <div
+                        className={`flex gap-3 items-end bg-white rounded-2xl border shadow-lg p-3 transition-all ${
+                            dragOverTextbox
+                                ? "border-purple-400 ring-2 ring-purple-200 bg-purple-50"
+                                : "border-gray-200"
+                        }`}
+                        onDragOver={handleTextboxDragOver}
+                        onDragLeave={handleTextboxDragLeave}
+                        onDrop={handleTextboxDrop}
+                    >
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
@@ -778,7 +843,7 @@ export default function EditQuizPage() {
                         />
                         <textarea
                             ref={chatInputRef}
-                            placeholder="Add more questions with AI... (or paste an image)"
+                            placeholder={dragOverTextbox ? "Drop question here to reference it..." : "Add more questions with AI... (or paste an image)"}
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -800,7 +865,7 @@ export default function EditQuizPage() {
                     </div>
                     <p className="text-center text-xs text-gray-400 mt-2">
                         <Sparkles className="inline h-3 w-3 mr-1" />
-                        Use AI to add more questions
+                        Drag a question here to reference it, or type to add more with AI
                     </p>
                 </div>
             </div>

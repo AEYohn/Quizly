@@ -703,14 +703,16 @@ async def get_game_results(
         raise HTTPException(status_code=404, detail="Game not found")
 
     # For sync mode, results only available during "results" or "finished" phases
-    # For async mode, allow results access anytime the game has started
+    # For async mode, allow results access anytime there are player answers
     if game.sync_mode:
         if game.status not in ["results", "finished"]:
             raise HTTPException(status_code=400, detail="Results not available yet")
     else:
-        # Async mode: allow results once game has started (not in lobby)
-        if game.status == "lobby":
-            raise HTTPException(status_code=400, detail="Game has not started yet")
+        # Async mode: allow results if there are any player answers
+        # (In async mode, status might stay "lobby" but students can still play)
+        has_answers = any(len(p.answers) > 0 for p in game.players if p.is_active)
+        if not has_answers:
+            raise HTTPException(status_code=400, detail="No quiz responses yet")
 
     questions = sorted(game.quiz.questions, key=lambda q: q.order)
     active_players = [p for p in game.players if p.is_active]
@@ -1856,12 +1858,20 @@ async def leave_peer_queue(
 # Smart AI Peer Chat
 # ==============================================================================
 
+class SmartChatAttachment(BaseModel):
+    """Attachment for smart chat (image or PDF)."""
+    type: str  # "image" or "pdf"
+    name: str
+    data: str  # base64 encoded
+
+
 class SmartChatRequest(BaseModel):
     """Request for smart AI peer chat."""
     player_id: str
     question_index: int
     message: str
     context: Optional[Dict[str, Any]] = None  # {student_answer, is_correct, question, reasoning}
+    attachment: Optional[SmartChatAttachment] = None  # Optional image/PDF attachment
 
 
 class SmartChatResponse(BaseModel):
@@ -1935,6 +1945,15 @@ async def smart_peer_chat(
             "content": request.message
         })
 
+    # Prepare attachment if present
+    attachment_data = None
+    if request.attachment:
+        attachment_data = {
+            "type": request.attachment.type,
+            "name": request.attachment.name,
+            "data": request.attachment.data
+        }
+
     # Generate AI response
     response = await generate_smart_peer_response(
         question=question_data,
@@ -1944,7 +1963,8 @@ async def smart_peer_chat(
         is_correct=is_correct,
         chat_history=smart_chat_histories[history_key],
         player_id=request.player_id,
-        confidence=confidence
+        confidence=confidence,
+        attachment=attachment_data
     )
 
     # Add AI response to history
@@ -2026,6 +2046,9 @@ async def get_game_misconception_insights(
     questions = sorted(game.quiz.questions, key=lambda q: q.order)
     question_map = {str(q.id): q for q in questions}
 
+    # Import misconception analysis service
+    from ..services.misconception_service import analyze_wrong_answer
+
     # Collect all misconceptions
     all_misconceptions = []
     student_misconceptions = []
@@ -2037,23 +2060,64 @@ async def get_game_misconception_insights(
 
         player_misconceptions = []
         for answer in player.answers:
-            if answer.misconception_data and not answer.is_correct:
-                misconception = {
-                    "player_id": str(player.id),
-                    "player_name": player.nickname,
-                    "question_id": str(answer.question_id),
-                    "answer": answer.answer,
-                    "confidence": answer.confidence,
-                    "reasoning": answer.reasoning,
-                    **answer.misconception_data
-                }
-                all_misconceptions.append(answer.misconception_data)
-                player_misconceptions.append(misconception)
+            # Skip correct answers
+            if answer.is_correct:
+                continue
 
-                # Add to question breakdown
-                q_id = str(answer.question_id)
-                if q_id in question_misconceptions:
-                    question_misconceptions[q_id].append(misconception)
+            # Get the question for context
+            q = question_map.get(str(answer.question_id))
+            if not q:
+                continue
+
+            # Use stored misconception_data if available, otherwise generate on-the-fly
+            misconception_data = answer.misconception_data
+            if not misconception_data:
+                # Generate misconception analysis for this wrong answer
+                try:
+                    misconception_data = await analyze_wrong_answer(
+                        question={
+                            "question_text": q.question_text,
+                            "options": q.options,
+                            "explanation": q.explanation
+                        },
+                        student_answer=answer.answer,
+                        student_reasoning=answer.reasoning,
+                        correct_answer=q.correct_answer,
+                        options=q.options
+                    )
+                    # Store for future use
+                    answer.misconception_data = misconception_data
+                except Exception as e:
+                    print(f"Misconception analysis failed for answer {answer.id}: {e}")
+                    # Use fallback analysis
+                    misconception_data = {
+                        "misconception_type": "analysis_pending",
+                        "category": "unknown",
+                        "severity": "moderate",
+                        "description": f"Student answered {answer.answer}, correct was {q.correct_answer}",
+                        "root_cause": "Analysis not available",
+                        "evidence": [],
+                        "remediation": f"Review the question explanation",
+                        "related_concepts": [],
+                        "confidence": 0.0
+                    }
+
+            misconception = {
+                "player_id": str(player.id),
+                "player_name": player.nickname,
+                "question_id": str(answer.question_id),
+                "answer": answer.answer,
+                "confidence": answer.confidence,
+                "reasoning": answer.reasoning,
+                **misconception_data
+            }
+            all_misconceptions.append(misconception_data)
+            player_misconceptions.append(misconception)
+
+            # Add to question breakdown
+            q_id = str(answer.question_id)
+            if q_id in question_misconceptions:
+                question_misconceptions[q_id].append(misconception)
 
         if player_misconceptions:
             student_misconceptions.append({
@@ -2062,6 +2126,9 @@ async def get_game_misconception_insights(
                 "misconception_count": len(player_misconceptions),
                 "misconceptions": player_misconceptions
             })
+
+    # Commit any newly generated misconception data
+    await db.commit()
 
     # Aggregate misconception stats
     from ..services.misconception_service import get_class_misconception_summary

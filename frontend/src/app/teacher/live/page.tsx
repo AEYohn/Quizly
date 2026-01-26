@@ -66,15 +66,16 @@ export default function LiveDashboardPage() {
     };
 
     const getStatusBadge = (status: string, syncMode: boolean) => {
+        const defaultConfig = { color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", label: "In Lobby", icon: <Clock className="h-3 w-3" /> };
         const statusConfig: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
-            lobby: { color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", label: "In Lobby", icon: <Clock className="h-3 w-3" /> },
+            lobby: defaultConfig,
             playing: { color: "bg-green-500/20 text-green-400 border-green-500/30", label: "Live", icon: <Radio className="h-3 w-3 animate-pulse" /> },
             question: { color: "bg-green-500/20 text-green-400 border-green-500/30", label: "Live", icon: <Radio className="h-3 w-3 animate-pulse" /> },
             results: { color: "bg-blue-500/20 text-blue-400 border-blue-500/30", label: "Reviewing", icon: <BarChart3 className="h-3 w-3" /> },
             finished: { color: "bg-gray-500/20 text-gray-400 border-gray-500/30", label: "Finished", icon: <CheckCircle2 className="h-3 w-3" /> },
         };
 
-        const config = statusConfig[status] || statusConfig.lobby;
+        const config = statusConfig[status] || defaultConfig;
         return (
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border ${config.color}`}>
                 {config.icon}

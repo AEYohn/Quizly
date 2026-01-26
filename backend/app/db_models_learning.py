@@ -38,11 +38,23 @@ class ExitTicket(Base):
     micro_lesson: Mapped[str] = mapped_column(Text, nullable=False)
     encouragement: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Follow-up question
+    # Follow-up question (primary - backwards compatibility)
     question_prompt: Mapped[str] = mapped_column(Text, nullable=False)
     question_options: Mapped[dict] = mapped_column(JSON, default=list)  # ["A...", "B...", "C...", "D..."]
     correct_answer: Mapped[str] = mapped_column(String(10), nullable=False)
     hint: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Enhanced content - multiple practice questions
+    practice_questions: Mapped[dict] = mapped_column(JSON, default=list)  # [{prompt, options, correct_answer, hint, explanation}]
+
+    # Study notes - structured learning content
+    study_notes: Mapped[dict] = mapped_column(JSON, default=dict)  # {key_concepts, common_mistakes, strategies, memory_tips}
+
+    # Flashcards for key concepts
+    flashcards: Mapped[dict] = mapped_column(JSON, default=list)  # [{front, back}]
+
+    # Identified misconceptions
+    misconceptions: Mapped[dict] = mapped_column(JSON, default=list)  # [{type, description, correction}]
 
     # Student's response to follow-up
     student_answer: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -142,9 +154,67 @@ class AdaptiveLearningState(Base):
     session: Mapped[Optional["Session"]] = relationship()
 
 
+class PeerDiscussionSession(Base):
+    """
+    Track AI peer discussion sessions after wrong answers.
+    Stores full transcript and AI-generated summary for both student and teacher review.
+    """
+    __tablename__ = "peer_discussion_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)
+    player_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)  # Player in game
+    question_index: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Question context
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    question_options: Mapped[dict] = mapped_column(JSON, default=dict)
+    correct_answer: Mapped[str] = mapped_column(String(10), nullable=False)
+
+    # Student's position
+    student_answer: Mapped[str] = mapped_column(String(10), nullable=False)
+    student_confidence: Mapped[int] = mapped_column(Integer, default=50)
+    student_reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    was_correct: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Peer info (AI or human)
+    peer_type: Mapped[str] = mapped_column(String(20), default="ai")  # "ai" or "human"
+    peer_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    peer_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)
+
+    # Full conversation transcript
+    transcript: Mapped[dict] = mapped_column(JSON, default=list)  # [{sender, content, timestamp}]
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # AI-generated summary (generated when discussion ends)
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    key_insights: Mapped[dict] = mapped_column(JSON, default=list)  # List of insight strings
+    misconceptions_identified: Mapped[dict] = mapped_column(JSON, default=list)  # Specific misconceptions
+    learning_moments: Mapped[dict] = mapped_column(JSON, default=list)  # Key learning points
+    understanding_improved: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+
+    # Outcome
+    revealed_answer: Mapped[bool] = mapped_column(Boolean, default=False)
+    discussion_quality: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # excellent, good, fair, poor
+
+    # Status
+    status: Mapped[str] = mapped_column(String(50), default="ongoing")  # ongoing, completed, abandoned
+
+    # Metadata
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Relationships
+    student: Mapped[Optional["User"]] = relationship()
+
+
 class DebateSession(Base):
     """
     Track AI peer discussion sessions after wrong answers.
+    (Legacy model - kept for backwards compatibility)
     """
     __tablename__ = "debate_sessions"
 
@@ -185,6 +255,44 @@ class DebateSession(Base):
     student: Mapped[Optional["User"]] = relationship()
     session: Mapped[Optional["Session"]] = relationship()
     question: Mapped[Optional["Question"]] = relationship()
+
+
+class StudentAssignment(Base):
+    """
+    Practice assignments sent by teachers to specific students.
+    Generated from insights when a student needs extra practice.
+    """
+    __tablename__ = "student_assignments"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    student_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    teacher_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+    # Content
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Teacher's personal note
+    practice_questions: Mapped[dict] = mapped_column(JSON, default=list)  # [{prompt, options, correct_answer, explanation}]
+
+    # Source context
+    source_game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)
+    source_misconceptions: Mapped[dict] = mapped_column(JSON, default=list)  # What the student got wrong
+
+    # Status
+    status: Mapped[str] = mapped_column(String(50), default="pending")  # pending, in_progress, completed
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Results (when completed)
+    score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_questions: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    answers: Mapped[dict] = mapped_column(JSON, default=list)  # Student's responses
+
+    # Relationships
+    teacher: Mapped[Optional["User"]] = relationship()
 
 
 # Import User, Session, Question for type hints (avoiding circular imports)

@@ -7,21 +7,20 @@ import {
     Plus,
     Search,
     MoreVertical,
-    Play,
     Edit2,
     Trash2,
     Copy,
     FileQuestion,
     Code2,
     Users,
-    Calendar,
     X,
-    Settings,
-    Clock,
-    Filter,
     LayoutGrid,
     List,
-    Sparkles,
+    Share2,
+    BarChart3,
+    Check,
+    ExternalLink,
+    Loader2,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -36,6 +35,9 @@ interface Quiz {
     created_at: string;
     updated_at: string;
     type: "quiz";
+    // Active game info (if exists)
+    active_game_id?: string;
+    active_game_code?: string;
 }
 
 interface CodingChallenge {
@@ -52,16 +54,6 @@ interface CodingChallenge {
 
 type ContentItem = Quiz | CodingChallenge;
 
-interface GameSettings {
-    sync_mode: boolean;
-    timer_enabled: boolean;
-    default_time_limit: number;
-    show_correct_answer: boolean;
-    show_answer_distribution: boolean;
-    allow_retries: boolean;
-    peer_discussion_enabled: boolean;
-}
-
 export default function LibraryPage() {
     const router = useRouter();
     const [items, setItems] = useState<ContentItem[]>([]);
@@ -71,19 +63,13 @@ export default function LibraryPage() {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-    // Game settings modal state
-    const [showGameSettings, setShowGameSettings] = useState(false);
-    const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-    const [gameSettings, setGameSettings] = useState<GameSettings>({
-        sync_mode: false, // Async-first by default
-        timer_enabled: false,
-        default_time_limit: 30,
-        show_correct_answer: true,
-        show_answer_distribution: true,
-        allow_retries: true,
-        peer_discussion_enabled: true,
-    });
-    const [startingGame, setStartingGame] = useState(false);
+    // Share modal state
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareQuiz, setShareQuiz] = useState<Quiz | null>(null);
+    const [gameCode, setGameCode] = useState<string | null>(null);
+    const [gameId, setGameId] = useState<string | null>(null);
+    const [creatingGame, setCreatingGame] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         fetchContent();
@@ -147,17 +133,17 @@ export default function LibraryPage() {
         setOpenMenuId(null);
     };
 
-    const openGameSettingsModal = (itemId: string) => {
-        setSelectedItemId(itemId);
-        setShowGameSettings(true);
-    };
+    // Open share modal and create game session if needed
+    const openShareModal = async (quiz: Quiz) => {
+        setShareQuiz(quiz);
+        setShowShareModal(true);
+        setCreatingGame(true);
+        setCopied(false);
 
-    const startGame = async () => {
-        if (!selectedItemId) return;
-
-        setStartingGame(true);
         try {
             const token = localStorage.getItem("token");
+
+            // Create a new game session (async mode by default)
             const response = await fetch(`${API_URL}/games/`, {
                 method: "POST",
                 headers: {
@@ -165,24 +151,42 @@ export default function LibraryPage() {
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    quiz_id: selectedItemId,
-                    sync_mode: gameSettings.sync_mode,
-                    show_correct_answer: gameSettings.show_correct_answer,
-                    show_answer_distribution: gameSettings.show_answer_distribution,
+                    quiz_id: quiz.id,
+                    sync_mode: false, // Async-first
+                    show_correct_answer: true,
+                    show_answer_distribution: true,
                 }),
             });
+
             if (response.ok) {
                 const game = await response.json();
-                router.push(`/teacher/game/${game.id}/lobby`);
+                setGameCode(game.game_code);
+                setGameId(game.id);
             } else {
                 const error = await response.json();
-                alert(error.detail || "Failed to start game");
+                console.error("Failed to create game:", error);
             }
         } catch (error) {
-            console.error("Failed to start game:", error);
+            console.error("Failed to create game:", error);
         } finally {
-            setStartingGame(false);
-            setShowGameSettings(false);
+            setCreatingGame(false);
+        }
+    };
+
+    const copyCode = () => {
+        if (gameCode) {
+            navigator.clipboard.writeText(gameCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const copyJoinLink = () => {
+        if (gameId) {
+            const link = `${window.location.origin}/join?code=${gameCode}`;
+            navigator.clipboard.writeText(link);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
         }
     };
 
@@ -420,7 +424,7 @@ export default function LibraryPage() {
                                         </span>
                                         <span className="flex items-center gap-1">
                                             <Users className="h-4 w-4" />
-                                            {(item as Quiz).times_played} plays
+                                            {(item as Quiz).times_played || 0} plays
                                         </span>
                                     </>
                                 ) : (
@@ -437,20 +441,28 @@ export default function LibraryPage() {
                                 )}
                             </div>
 
-                            {/* Actions */}
+                            {/* Actions - Async-first UI */}
                             <div className="mt-4 flex gap-2">
                                 {item.type === "quiz" && (
-                                    <button
-                                        onClick={() => openGameSettingsModal(item.id)}
-                                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700"
-                                    >
-                                        <Play className="h-4 w-4" />
-                                        Start Game
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => openShareModal(item as Quiz)}
+                                            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 font-medium text-white transition-colors hover:bg-sky-700"
+                                        >
+                                            <Share2 className="h-4 w-4" />
+                                            Share
+                                        </button>
+                                        <Link
+                                            href={`/teacher/game/${item.id}/results`}
+                                            className="flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-gray-300 transition-colors hover:bg-gray-800"
+                                        >
+                                            <BarChart3 className="h-4 w-4" />
+                                        </Link>
+                                    </>
                                 )}
                                 <Link
                                     href={item.type === "quiz" ? `/teacher/quizzes/${item.id}/edit` : `/teacher/coding/${item.id}/edit`}
-                                    className="flex items-center justify-center rounded-lg border border-gray-700 px-4 py-2 text-gray-300 transition-colors hover:bg-gray-800"
+                                    className="flex items-center justify-center rounded-lg border border-gray-700 px-3 py-2 text-gray-300 transition-colors hover:bg-gray-800"
                                 >
                                     <Edit2 className="h-4 w-4" />
                                 </Link>
@@ -482,7 +494,7 @@ export default function LibraryPage() {
                                     {item.type === "quiz" ? (
                                         <>
                                             <span>{(item as Quiz).question_count} questions</span>
-                                            <span>{(item as Quiz).times_played} plays</span>
+                                            <span>{(item as Quiz).times_played || 0} plays</span>
                                         </>
                                     ) : (
                                         <>
@@ -500,149 +512,111 @@ export default function LibraryPage() {
 
                             <div className="flex items-center gap-2">
                                 {item.type === "quiz" && (
-                                    <button
-                                        onClick={() => openGameSettingsModal(item.id)}
-                                        className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
-                                    >
-                                        <Play className="h-4 w-4" />
-                                        Start
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => openShareModal(item as Quiz)}
+                                            className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
+                                        >
+                                            <Share2 className="h-4 w-4" />
+                                            Share
+                                        </button>
+                                        <Link
+                                            href={`/teacher/game/${item.id}/results`}
+                                            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
+                                        >
+                                            <BarChart3 className="h-4 w-4" />
+                                            Results
+                                        </Link>
+                                    </>
                                 )}
                                 <Link
                                     href={item.type === "quiz" ? `/teacher/quizzes/${item.id}/edit` : `/teacher/coding/${item.id}/edit`}
-                                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-700 hover:text-white"
+                                    className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
                                 >
                                     <Edit2 className="h-4 w-4" />
+                                    Edit
                                 </Link>
-                                <button
-                                    onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-700 hover:text-white"
-                                >
-                                    <MoreVertical className="h-4 w-4" />
-                                </button>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
 
-            {/* Game Settings Modal */}
-            {showGameSettings && (
+            {/* Share Modal */}
+            {showShareModal && shareQuiz && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-                    <div className="w-full max-w-lg rounded-2xl bg-gray-900 border border-gray-800 p-6 shadow-xl max-h-[90vh] overflow-auto">
-                        <div className="mb-6 flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-white">Game Settings</h2>
+                    <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-white">Share Quiz</h2>
                             <button
-                                onClick={() => setShowGameSettings(false)}
-                                className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white"
+                                onClick={() => {
+                                    setShowShareModal(false);
+                                    setShareQuiz(null);
+                                    setGameCode(null);
+                                    setGameId(null);
+                                }}
+                                className="text-gray-400 hover:text-white"
                             >
-                                <X className="h-5 w-5" />
+                                <X className="h-6 w-6" />
                             </button>
                         </div>
 
-                        <div className="space-y-4">
-                            {/* Async-first notice */}
-                            <div className="rounded-xl bg-sky-500/10 border border-sky-500/30 p-4 mb-4">
-                                <p className="text-sm text-sky-300 flex items-center gap-2">
-                                    <Sparkles className="h-4 w-4" />
-                                    Async-first: Students can start immediately and work at their own pace
-                                </p>
-                            </div>
+                        <div className="text-center">
+                            <h3 className="text-lg font-medium text-white mb-2">{shareQuiz.title}</h3>
+                            <p className="text-sm text-gray-400 mb-6">
+                                Students can join anytime and complete at their own pace
+                            </p>
 
-                            {/* Sync Mode Toggle */}
-                            <label className="flex items-start gap-4 rounded-xl border border-gray-700 p-4 cursor-pointer hover:bg-gray-800">
-                                <input
-                                    type="checkbox"
-                                    checked={gameSettings.sync_mode}
-                                    onChange={(e) => setGameSettings({ ...gameSettings, sync_mode: e.target.checked })}
-                                    className="mt-1 h-5 w-5 rounded border-gray-600 bg-gray-700 text-sky-500 focus:ring-sky-500"
-                                />
-                                <div className="flex-1">
-                                    <div className="font-medium text-white">
-                                        Live Synchronized Mode
+                            {creatingGame ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+                                </div>
+                            ) : gameCode ? (
+                                <>
+                                    {/* Game Code */}
+                                    <div className="mb-6">
+                                        <p className="text-sm text-gray-400 mb-2">Join Code</p>
+                                        <div className="flex items-center justify-center gap-3">
+                                            <span className="text-4xl font-mono font-bold tracking-widest text-sky-400">
+                                                {gameCode}
+                                            </span>
+                                            <button
+                                                onClick={copyCode}
+                                                className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                            >
+                                                {copied ? <Check className="h-5 w-5 text-green-400" /> : <Copy className="h-5 w-5" />}
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p className="mt-1 text-sm text-gray-400">
-                                        Teacher controls pacing. All students see the same question with timer.
-                                    </p>
-                                </div>
-                            </label>
 
-                            {/* Timer */}
-                            <label className="flex items-start gap-4 rounded-xl border border-gray-700 p-4 cursor-pointer hover:bg-gray-800">
-                                <input
-                                    type="checkbox"
-                                    checked={gameSettings.timer_enabled}
-                                    onChange={(e) => setGameSettings({ ...gameSettings, timer_enabled: e.target.checked })}
-                                    className="mt-1 h-5 w-5 rounded border-gray-600 bg-gray-700 text-sky-500 focus:ring-sky-500"
-                                />
-                                <div className="flex-1">
-                                    <div className="font-medium text-white flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-gray-400" />
-                                        Enable Timer
+                                    {/* Share Options */}
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={copyJoinLink}
+                                            className="w-full flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-3 font-medium text-white hover:bg-sky-700 transition-colors"
+                                        >
+                                            <ExternalLink className="h-5 w-5" />
+                                            Copy Join Link
+                                        </button>
+
+                                        <Link
+                                            href={`/teacher/game/${gameId}/results`}
+                                            className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-700 px-4 py-3 font-medium text-gray-300 hover:bg-gray-800 transition-colors"
+                                        >
+                                            <BarChart3 className="h-5 w-5" />
+                                            View Results
+                                        </Link>
                                     </div>
-                                    <p className="mt-1 text-sm text-gray-400">
-                                        Add time pressure to each question
-                                    </p>
-                                </div>
-                            </label>
 
-                            {/* Show Correct Answer */}
-                            <label className="flex items-start gap-4 rounded-xl border border-gray-700 p-4 cursor-pointer hover:bg-gray-800">
-                                <input
-                                    type="checkbox"
-                                    checked={gameSettings.show_correct_answer}
-                                    onChange={(e) => setGameSettings({ ...gameSettings, show_correct_answer: e.target.checked })}
-                                    className="mt-1 h-5 w-5 rounded border-gray-600 bg-gray-700 text-sky-500 focus:ring-sky-500"
-                                />
-                                <div className="flex-1">
-                                    <div className="font-medium text-white">Show Correct Answer</div>
-                                    <p className="mt-1 text-sm text-gray-400">
-                                        Reveal correct answer after each question
+                                    <p className="mt-6 text-xs text-gray-500">
+                                        Students go to <span className="text-sky-400">quizly.app/join</span> and enter the code
                                     </p>
+                                </>
+                            ) : (
+                                <div className="py-8 text-gray-400">
+                                    Failed to create share link. Please try again.
                                 </div>
-                            </label>
-
-                            {/* Peer Discussion */}
-                            <label className="flex items-start gap-4 rounded-xl border border-gray-700 p-4 cursor-pointer hover:bg-gray-800">
-                                <input
-                                    type="checkbox"
-                                    checked={gameSettings.peer_discussion_enabled}
-                                    onChange={(e) => setGameSettings({ ...gameSettings, peer_discussion_enabled: e.target.checked })}
-                                    className="mt-1 h-5 w-5 rounded border-gray-600 bg-gray-700 text-sky-500 focus:ring-sky-500"
-                                />
-                                <div className="flex-1">
-                                    <div className="font-medium text-white flex items-center gap-2">
-                                        <Sparkles className="h-4 w-4 text-amber-400" />
-                                        AI Peer Discussion
-                                    </div>
-                                    <p className="mt-1 text-sm text-gray-400">
-                                        Students get AI study buddy help for wrong answers
-                                    </p>
-                                </div>
-                            </label>
-                        </div>
-
-                        <div className="mt-6 flex gap-3">
-                            <button
-                                onClick={() => setShowGameSettings(false)}
-                                className="flex-1 rounded-lg border border-gray-700 px-4 py-3 font-medium text-gray-300 transition-colors hover:bg-gray-800"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={startGame}
-                                disabled={startingGame}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
-                            >
-                                {startingGame ? (
-                                    <span className="animate-pulse">Starting...</span>
-                                ) : (
-                                    <>
-                                        <Play className="h-5 w-5" />
-                                        Start Game
-                                    </>
-                                )}
-                            </button>
+                            )}
                         </div>
                     </div>
                 </div>
