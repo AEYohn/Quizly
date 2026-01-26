@@ -18,6 +18,9 @@ import {
     Share2,
     ExternalLink,
     Code,
+    ChevronDown,
+    ChevronUp,
+    Clock,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -64,6 +67,7 @@ export default function TeacherDashboard() {
     const [deletingQuiz, setDeletingQuiz] = useState<string | null>(null);
     const [deletingProblem, setDeletingProblem] = useState<string | null>(null);
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
+    const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -102,9 +106,24 @@ export default function TeacherDashboard() {
         setIsLoading(false);
     }
 
-    // Get or create async game for a quiz
+    // Get all games for a quiz, sorted by player count (most players first)
+    const getGamesForQuiz = (quizId: string): Game[] => {
+        return allGames
+            .filter(g => g.quiz_id === quizId)
+            .sort((a, b) => b.player_count - a.player_count);
+    };
+
+    // Get the best game for a quiz (most players, prefer non-finished)
     const getGameForQuiz = (quizId: string): Game | undefined => {
-        return allGames.find(g => g.quiz_id === quizId && g.status !== "finished");
+        const games = getGamesForQuiz(quizId);
+        // Prefer non-finished games with players
+        const activeWithPlayers = games.filter(g => g.status !== "finished" && g.player_count > 0);
+        if (activeWithPlayers.length > 0) return activeWithPlayers[0];
+        // Fall back to any non-finished game
+        const active = games.filter(g => g.status !== "finished");
+        if (active.length > 0) return active[0];
+        // Fall back to finished game with most players
+        return games[0];
     };
 
     const createGame = async (quizId: string) => {
@@ -412,6 +431,66 @@ export default function TeacherDashboard() {
                                             <span className="text-emerald-400">● Active</span>
                                         </div>
                                     )}
+
+                                    {/* Show all game sessions if multiple exist */}
+                                    {(() => {
+                                        const allQuizGames = getGamesForQuiz(quiz.id);
+                                        if (allQuizGames.length <= 1) return null;
+
+                                        return (
+                                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                                <button
+                                                    onClick={() => setExpandedQuiz(expandedQuiz === quiz.id ? null : quiz.id)}
+                                                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+                                                >
+                                                    <Clock className="h-4 w-4" />
+                                                    <span>{allQuizGames.length} game sessions</span>
+                                                    {expandedQuiz === quiz.id ? (
+                                                        <ChevronUp className="h-4 w-4" />
+                                                    ) : (
+                                                        <ChevronDown className="h-4 w-4" />
+                                                    )}
+                                                </button>
+
+                                                {expandedQuiz === quiz.id && (
+                                                    <div className="mt-3 space-y-2">
+                                                        {allQuizGames.map((g) => (
+                                                            <div
+                                                                key={g.id}
+                                                                className="flex items-center justify-between rounded-lg bg-gray-800/50 px-4 py-3"
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="font-mono text-sm text-sky-300">{g.game_code}</span>
+                                                                    <span className="text-xs text-gray-500">
+                                                                        {new Date(g.created_at).toLocaleDateString()}
+                                                                    </span>
+                                                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                        g.status === "finished"
+                                                                            ? "bg-gray-700 text-gray-400"
+                                                                            : "bg-emerald-500/20 text-emerald-400"
+                                                                    }`}>
+                                                                        {g.status}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-sm text-gray-400">
+                                                                        <Users className="h-4 w-4 inline mr-1" />
+                                                                        {g.player_count}
+                                                                    </span>
+                                                                    <Link
+                                                                        href={`/teacher/game/${g.id}/results`}
+                                                                        className="text-sm text-sky-400 hover:text-sky-300"
+                                                                    >
+                                                                        View Results →
+                                                                    </Link>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             );
                         })}

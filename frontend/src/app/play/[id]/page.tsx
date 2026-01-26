@@ -138,6 +138,9 @@ export default function PlayGamePage() {
     const [postQuizStage, setPostQuizStage] = useState<"summary" | "exit_ticket" | "practice" | "complete">("summary");
     // Track when quiz is manually completed to stop polling (use ref to avoid stale closure)
     const isQuizCompletedRef = useRef(false);
+    // Refs for volatile values to avoid polling useEffect dependency issues (initialized with defaults, synced in useEffect)
+    const gameStatusRef = useRef<string | undefined>(undefined);
+    const isConnectedRef = useRef<boolean>(false);
     const [analyticsData, setAnalyticsData] = useState<{
         quadrants?: { confident_correct: number; confident_incorrect: number; uncertain_correct: number; uncertain_incorrect: number };
         calibration?: { status: "overconfident" | "underconfident" | "well_calibrated"; gap: number; message: string };
@@ -450,6 +453,12 @@ export default function PlayGamePage() {
         }
     }, [game, asyncQuestionIndex, gameId]);
 
+    // Keep refs in sync with volatile values (to avoid polling useEffect dependency issues)
+    useEffect(() => {
+        gameStatusRef.current = game?.status;
+        isConnectedRef.current = isConnected;
+    }, [game?.status, isConnected]);
+
     useEffect(() => {
         if (!playerId) {
             router.push("/join");
@@ -463,9 +472,9 @@ export default function PlayGamePage() {
 
         fetchGame();
 
-        // Use WebSocket for real-time updates when connected
-        // Fall back to polling at reduced frequency when not connected
-        const pollInterval = isConnected ? 5000 : 1000;  // 5s with WS, 1s without
+        // Use fixed poll interval to avoid rapid re-polling from dependency changes
+        // Check current connection status via ref inside interval
+        const pollInterval = 3000;
 
         const interval = setInterval(() => {
             // Stop polling if quiz is completed (check ref)
@@ -474,13 +483,13 @@ export default function PlayGamePage() {
                 return;
             }
             fetchGame();
-            if (hasAnswered || game?.status === "results") {
+            if (hasAnswered || gameStatusRef.current === "results") {
                 fetchPlayerState();
             }
         }, pollInterval);
 
         return () => clearInterval(interval);
-    }, [fetchGame, fetchPlayerState, playerId, router, hasAnswered, game?.status, isConnected]);
+    }, [fetchGame, fetchPlayerState, playerId, router, hasAnswered]);
 
     // Timer initialization - only if timer is enabled in quiz settings
     useEffect(() => {
@@ -626,9 +635,19 @@ export default function PlayGamePage() {
                 const data = await response.json();
                 setExitTicket(data);
                 setShowExitTicket(true);
+            } else {
+                // Handle error response - parse error details if available
+                const error = await response.json().catch(() => ({ detail: "Unknown error" }));
+                console.error("Exit ticket error:", error);
+                // Set exit ticket to null but still show the view so user sees a fallback
+                setExitTicket(null);
+                setShowExitTicket(true);
             }
         } catch (error) {
             console.error("Failed to fetch exit ticket:", error);
+            // Ensure we have a defined state even on network failure
+            setExitTicket(null);
+            setShowExitTicket(true);
         } finally {
             setExitTicketLoading(false);
         }

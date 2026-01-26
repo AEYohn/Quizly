@@ -4,6 +4,54 @@ import { useState } from "react";
 import { Check, X, Lightbulb, BookOpen, ChevronDown, ChevronUp, Award, MessageCircle, Image, FileText, ClipboardList, Layers } from "lucide-react";
 import MathText from "./MathText";
 
+// Helper component that handles both markdown (bold, italic) and math rendering
+function MarkdownMath({ text }: { text: string }) {
+    if (!text) return null;
+
+    const parts: React.ReactNode[] = [];
+    let remaining = text;
+    let key = 0;
+
+    while (remaining.length > 0) {
+        // Check for bold first (**)
+        const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+        // Check for italic (single *)
+        const italicMatch = remaining.match(/(?<!\*)\*([^*]+)\*(?!\*)/);
+
+        if (boldMatch && (!italicMatch || boldMatch.index! <= italicMatch.index!)) {
+            // Add text before bold
+            if (boldMatch.index! > 0) {
+                parts.push(<MathText key={key++} text={remaining.slice(0, boldMatch.index)} />);
+            }
+            // Add bold text (with math support inside)
+            parts.push(
+                <strong key={key++} className="font-bold">
+                    <MathText text={boldMatch[1] || ""} />
+                </strong>
+            );
+            remaining = remaining.slice(boldMatch.index! + boldMatch[0].length);
+        } else if (italicMatch) {
+            // Add text before italic
+            if (italicMatch.index! > 0) {
+                parts.push(<MathText key={key++} text={remaining.slice(0, italicMatch.index)} />);
+            }
+            // Add italic text (with math support inside)
+            parts.push(
+                <em key={key++} className="italic">
+                    <MathText text={italicMatch[1] || ""} />
+                </em>
+            );
+            remaining = remaining.slice(italicMatch.index! + italicMatch[0].length);
+        } else {
+            // No more markdown, render remaining as MathText
+            parts.push(<MathText key={key++} text={remaining} />);
+            break;
+        }
+    }
+
+    return <>{parts}</>;
+}
+
 interface PeerDiscussionMessage {
     sender: string;
     content: string;
@@ -146,7 +194,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                             <span className="text-sm font-medium">Quick Lesson</span>
                         </div>
                         <p className="text-gray-300 text-sm leading-relaxed">
-                            <MathText text={ticket.micro_lesson || ""} />
+                            <MarkdownMath text={ticket.micro_lesson || ""} />
                         </p>
                         {ticket.encouragement && (
                             <p className="mt-2 text-sky-400 text-sm italic">{ticket.encouragement}</p>
@@ -215,7 +263,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                     {ticket.study_notes.key_concepts.map((concept, i) => (
                                                         <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
                                                             <span className="text-emerald-400 mt-1">•</span>
-                                                            <MathText text={concept || ""} />
+                                                            <MarkdownMath text={concept || ""} />
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -228,7 +276,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                     {ticket.study_notes.common_mistakes.map((mistake, i) => (
                                                         <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
                                                             <span className="text-red-400 mt-1">✗</span>
-                                                            <MathText text={mistake || ""} />
+                                                            <MarkdownMath text={mistake || ""} />
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -241,7 +289,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                     {ticket.study_notes.strategies.map((strategy, i) => (
                                                         <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
                                                             <span className="text-sky-400 mt-1">{i + 1}.</span>
-                                                            <MathText text={strategy || ""} />
+                                                            <MarkdownMath text={strategy || ""} />
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -254,7 +302,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                     {ticket.study_notes.memory_tips.map((tip, i) => (
                                                         <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
                                                             <span className="text-amber-400 mt-1">💡</span>
-                                                            <MathText text={tip || ""} />
+                                                            <MarkdownMath text={tip || ""} />
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -288,7 +336,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                         )}
                                                     </div>
                                                     <p className="text-white text-sm mb-3">
-                                                        <MathText text={q.prompt || ""} />
+                                                        <MarkdownMath text={q.prompt || ""} />
                                                     </p>
                                                     <div className="space-y-2">
                                                         {q.options.map((opt, optIndex) => {
@@ -319,7 +367,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                                             : "border-gray-700 bg-gray-900 text-gray-300 hover:border-gray-600"
                                                                     }`}
                                                                 >
-                                                                    <MathText text={opt || ""} />
+                                                                    <MarkdownMath text={opt || ""} />
                                                                 </button>
                                                             );
                                                         })}
@@ -328,7 +376,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                         <div className="mt-3 p-2 rounded bg-gray-900 border border-gray-700">
                                                             <p className="text-gray-400 text-xs mb-1">Explanation:</p>
                                                             <p className="text-gray-300 text-sm">
-                                                                <MathText text={q.explanation || ""} />
+                                                                <MarkdownMath text={q.explanation || ""} />
                                                             </p>
                                                         </div>
                                                     )}
@@ -354,7 +402,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                             {showFlashcardBack ? "ANSWER" : "QUESTION"} • Tap to flip
                                                         </p>
                                                         <p className="text-white font-medium">
-                                                            <MathText text={
+                                                            <MarkdownMath text={
                                                                 showFlashcardBack
                                                                     ? ticket.flashcards[currentFlashcard]?.back || ""
                                                                     : ticket.flashcards[currentFlashcard]?.front || ""
@@ -421,7 +469,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                     {msg.attachment_type === 'pdf' ? 'PDF' : 'Image'} attached
                                                 </div>
                                             )}
-                                            {msg.content}
+                                            <MarkdownMath text={msg.content || ""} />
                                         </div>
                                     </div>
                                 ))}
@@ -432,7 +480,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                     <ul className="text-xs text-gray-300 space-y-1">
                                         {ticket.peer_discussion.key_insights.map((insight, i) => (
                                             <li key={i} className="flex items-start gap-1">
-                                                <span className="text-emerald-400">•</span> {insight}
+                                                <span className="text-emerald-400">•</span> <MarkdownMath text={insight || ""} />
                                             </li>
                                         ))}
                                     </ul>
@@ -444,7 +492,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                     {/* Follow-up Question */}
                     <div className="space-y-3">
                         <p className="text-white font-medium">
-                            <MathText text={ticket.question_prompt || ""} />
+                            <MarkdownMath text={ticket.question_prompt || ""} />
                         </p>
 
                         <div className="space-y-2">
@@ -472,7 +520,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                         } ${isAnswered ? "cursor-default" : "cursor-pointer"}`}
                                     >
                                         <span className="text-sm">
-                                            <MathText text={option || ""} />
+                                            <MarkdownMath text={option || ""} />
                                         </span>
                                     </button>
                                 );
@@ -505,7 +553,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                                 <p className="text-amber-400 text-sm">
                                     <Lightbulb className="inline h-4 w-4 mr-1" />
-                                    <MathText text={ticket.hint || ""} />
+                                    <MarkdownMath text={ticket.hint || ""} />
                                 </p>
                             </div>
                         )}

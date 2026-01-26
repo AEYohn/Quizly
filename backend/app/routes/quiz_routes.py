@@ -280,11 +280,15 @@ async def list_quizzes(
         times_played = len(games)
         active_game = None
 
-        # Find the most recent game (prefer non-finished, then most recent)
+        # Find the best game to show (prioritize games with players, then most recent)
         if games:
-            # Sort by created_at descending
-            sorted_games = sorted(games, key=lambda g: g.created_at, reverse=True)
-            # Prefer active games over finished
+            # Sort by: 1) player count (descending), 2) created_at (descending)
+            sorted_games = sorted(
+                games,
+                key=lambda g: (len(g.players) if hasattr(g, 'players') and g.players else 0, g.created_at),
+                reverse=True
+            )
+            # Prefer non-finished games with the most players
             active_games = [g for g in sorted_games if g.status != "finished"]
             active_game = active_games[0] if active_games else sorted_games[0]
 
@@ -318,6 +322,45 @@ async def list_quizzes(
         ))
 
     return responses
+
+
+@router.get("/{quiz_id}/games")
+async def list_quiz_games(
+    quiz_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all game sessions for a quiz (game history)."""
+    from app.models.game import GameSession
+
+    # Verify quiz ownership
+    result = await db.execute(
+        select(Quiz).where(Quiz.id == quiz_id, Quiz.teacher_id == current_user.id)
+    )
+    quiz = result.scalar_one_or_none()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    # Get all games for this quiz with player counts
+    result = await db.execute(
+        select(GameSession)
+        .options(selectinload(GameSession.players))
+        .where(GameSession.quiz_id == quiz_id)
+        .order_by(GameSession.created_at.desc())
+    )
+    games = result.scalars().all()
+
+    return [
+        {
+            "id": str(g.id),
+            "game_code": g.game_code,
+            "status": g.status,
+            "player_count": len(g.players) if g.players else 0,
+            "created_at": g.created_at.isoformat(),
+            "sync_mode": g.sync_mode,
+        }
+        for g in games
+    ]
 
 
 @router.get("/public", response_model=List[QuizResponse])
