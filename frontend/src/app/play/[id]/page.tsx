@@ -410,8 +410,9 @@ export default function PlayGamePage() {
                     return;
                 }
 
-                // Check if question changed (for sync mode)
-                if (game && data.current_question_index !== game.current_question_index) {
+                // Check if question changed (for SYNC mode only - async mode manages its own state)
+                const isSyncMode = data.sync_mode !== false;
+                if (isSyncMode && game && data.current_question_index !== game.current_question_index) {
                     setSelectedAnswer(null);
                     setHasAnswered(false);
                     setQuestionStartTime(Date.now());
