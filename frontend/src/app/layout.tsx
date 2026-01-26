@@ -41,8 +41,12 @@ export default function RootLayout({
                 <meta name="theme-color" content="#030712" />
                 <meta name="msapplication-navbutton-color" content="#030712" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+                <style dangerouslySetInnerHTML={{ __html: `
+                    html, body, #__next { background: #030712 !important; }
+                    * { margin: 0; padding: 0; }
+                ` }} />
             </head>
-            <body className="min-h-dvh" style={{ backgroundColor: "#030712" }}>
+            <body className="min-h-dvh" style={{ backgroundColor: "#030712", margin: 0, padding: 0 }}>
                 <AuthProvider>{children}</AuthProvider>
             </body>
         </html>
