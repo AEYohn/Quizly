@@ -38,15 +38,37 @@ export default function RootLayout({
     return (
         <html lang="en" className={`${geist.variable}`} suppressHydrationWarning style={{ backgroundColor: "#030712" }}>
             <head>
-                <meta name="theme-color" content="#030712" />
-                <meta name="msapplication-navbutton-color" content="#030712" />
+                <meta name="theme-color" content="#030712" media="(prefers-color-scheme: dark)" />
+                <meta name="theme-color" content="#030712" media="(prefers-color-scheme: light)" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <style dangerouslySetInnerHTML={{ __html: `
-                    html, body, #__next { background: #030712 !important; }
-                    * { margin: 0; padding: 0; }
+                    html {
+                        background: #030712;
+                        height: 100%;
+                    }
+                    body {
+                        background: #030712;
+                        min-height: 100%;
+                        min-height: 100dvh;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    /* iOS Safari overscroll areas */
+                    @supports (-webkit-touch-callout: none) {
+                        body::before {
+                            content: "";
+                            position: fixed;
+                            top: -100vh;
+                            left: 0;
+                            right: 0;
+                            height: 200vh;
+                            background: #030712;
+                            z-index: -1;
+                        }
+                    }
                 ` }} />
             </head>
-            <body className="min-h-dvh" style={{ backgroundColor: "#030712", margin: 0, padding: 0 }}>
+            <body style={{ background: "#030712", margin: 0 }}>
                 <AuthProvider>{children}</AuthProvider>
             </body>
         </html>
