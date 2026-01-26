@@ -86,7 +86,7 @@ export default function LibraryPage() {
             const quizzes = quizzesRes.ok ? await quizzesRes.json() : [];
 
             // Fetch coding challenges
-            const codingRes = await fetch(`${API_URL}/coding/challenges/`, {
+            const codingRes = await fetch(`${API_URL}/coding/my`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const challenges = codingRes.ok ? await codingRes.json() : [];
@@ -112,7 +112,7 @@ export default function LibraryPage() {
             const token = localStorage.getItem("token");
             const endpoint = item.type === "quiz"
                 ? `${API_URL}/quizzes/${item.id}`
-                : `${API_URL}/coding/challenges/${item.id}`;
+                : `${API_URL}/coding/${item.id}`;
 
             const response = await fetch(endpoint, {
                 method: "DELETE",
