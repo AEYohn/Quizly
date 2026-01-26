@@ -33,7 +33,7 @@ interface PeerDiscussionProps {
     onComplete?: () => void;
     onInsightGained?: (insight: string) => void;
     onDiscussionComplete?: (data: DiscussionData) => void;
-    onRetry?: () => void;
+    onCorrectRetry?: () => void; // Called when student answers correctly on retry (no points, just proceed)
     showRetryInChat?: boolean;
 }
 
@@ -174,7 +174,7 @@ export default function PeerDiscussion({
     onComplete,
     onInsightGained,
     onDiscussionComplete,
-    onRetry,
+    onCorrectRetry,
     showRetryInChat = false
 }: PeerDiscussionProps) {
     const [matchStatus, setMatchStatus] = useState<"searching" | "matched" | "ai_fallback">("searching");
@@ -186,6 +186,7 @@ export default function PeerDiscussion({
     const [showInsight, setShowInsight] = useState(false);
     const [showQuestionContext, setShowQuestionContext] = useState(true);
     const [sessionId, setSessionId] = useState<string | null>(null);
+    const [showInlineRetry, setShowInlineRetry] = useState(false); // Show answer options inline in chat
     const [discussionSummary, setDiscussionSummary] = useState<{
         summary?: string;
         key_insights?: string[];
@@ -913,7 +914,7 @@ export default function PeerDiscussion({
                 )}
 
                 {/* Retry action embedded in chat */}
-                {showRetryInChat && onRetry && messages.length >= 2 && (
+                {showRetryInChat && onCorrectRetry && messages.length >= 2 && !showInlineRetry && !discussionComplete && (
                     <div className="mt-4 space-y-3">
                         <div className="bg-gray-700/50 rounded-2xl px-4 py-3">
                             <p className="text-sm text-gray-300 mb-3">
@@ -921,7 +922,7 @@ export default function PeerDiscussion({
                             </p>
                             <div className="flex flex-wrap gap-2">
                                 <button
-                                    onClick={onRetry}
+                                    onClick={() => setShowInlineRetry(true)}
                                     className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-sky-500/20"
                                 >
                                     <RefreshCw className="h-4 w-4" />
@@ -935,6 +936,75 @@ export default function PeerDiscussion({
                                     Check Understanding
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Inline retry - answer options in chat */}
+                {showInlineRetry && !discussionComplete && (
+                    <div className="mt-4">
+                        <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4">
+                            <p className="text-sky-300 text-sm font-medium mb-3">
+                                Select your answer:
+                            </p>
+                            <div className="space-y-2">
+                                {Object.entries(question.options).map(([key, value]) => {
+                                    const isWrongAnswer = key === studentAnswer;
+                                    return (
+                                        <button
+                                            key={key}
+                                            onClick={() => {
+                                                if (key === correctAnswer) {
+                                                    // Correct! Add success message and proceed
+                                                    const peerName = peerMatch?.ai_peer_name || "Quizzy";
+                                                    setMessages(prev => [...prev, {
+                                                        id: `success_${Date.now()}`,
+                                                        sender_id: "ai",
+                                                        sender_name: peerName,
+                                                        content: `That's right! ${key} is correct. Great job working through this! 🎉`,
+                                                        timestamp: Date.now() / 1000
+                                                    }]);
+                                                    setDiscussionComplete(true);
+                                                    setShowInlineRetry(false);
+                                                    // Call the callback to proceed (no points)
+                                                    setTimeout(() => {
+                                                        onCorrectRetry?.();
+                                                    }, 1500);
+                                                } else {
+                                                    // Wrong again - encourage more discussion
+                                                    const peerName = peerMatch?.ai_peer_name || "Quizzy";
+                                                    setMessages(prev => [...prev, {
+                                                        id: `retry_wrong_${Date.now()}`,
+                                                        sender_id: "ai",
+                                                        sender_name: peerName,
+                                                        content: `Not quite! Let's think about this more. Why did you choose "${value.slice(0, 40)}${value.length > 40 ? '...' : ''}"? What's your reasoning?`,
+                                                        timestamp: Date.now() / 1000
+                                                    }]);
+                                                    setShowInlineRetry(false);
+                                                }
+                                            }}
+                                            className={`w-full text-left p-3 rounded-xl border transition-all hover:scale-[1.01] ${
+                                                isWrongAnswer
+                                                    ? "bg-red-500/10 border-red-500/30 text-red-300 opacity-50"
+                                                    : "bg-gray-700/50 border-gray-600 text-white hover:border-sky-500/50 hover:bg-gray-700"
+                                            }`}
+                                            disabled={isWrongAnswer}
+                                        >
+                                            <span className="font-bold text-sky-400 mr-2">{key}.</span>
+                                            <span>{value}</span>
+                                            {isWrongAnswer && (
+                                                <span className="ml-2 text-xs text-red-400">(previous answer)</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button
+                                onClick={() => setShowInlineRetry(false)}
+                                className="mt-3 text-sm text-gray-400 hover:text-white transition-colors"
+                            >
+                                ← Keep discussing instead
+                            </button>
                         </div>
                     </div>
                 )}

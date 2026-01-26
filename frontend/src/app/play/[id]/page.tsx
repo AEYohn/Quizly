@@ -1755,12 +1755,20 @@ export default function PlayGamePage() {
                                     ));
                                 }}
                                 showRetryInChat={game?.sync_mode === false}
-                                onRetry={() => {
+                                onCorrectRetry={() => {
+                                    // Student got it right on retry - proceed without points
+                                    // Mark that peer discussion helped them understand
+                                    setStudentResponses(prev => prev.map((resp, idx) =>
+                                        idx === prev.length - 1
+                                            ? { ...resp, had_peer_discussion: true, corrected_via_discussion: true }
+                                            : resp
+                                    ));
+                                    // Move to next question
                                     setShowPeerDiscussion(false);
-                                    setHasAnswered(false);
-                                    setSelectedAnswer(null);
-                                    setShowConfirmStep(false);
-                                    setHostMessage("");
+                                    nextQuestion();
+                                    setConfidence(70);
+                                    setReasoning("");
+                                    setShowReasoning(false);
                                 }}
                             />
                         </div>
