@@ -413,27 +413,37 @@ export default function PlayGamePage() {
                     return;
                 }
 
-                // Check if question changed (for SYNC mode only - async mode manages its own state)
-                const isSyncMode = data.sync_mode !== false;
-                if (isSyncMode && game && data.current_question_index !== game.current_question_index) {
-                    setSelectedAnswer(null);
-                    setHasAnswered(false);
-                    setQuestionStartTime(Date.now());
-                    setHostMessage("");
-                    setShowExplanation(false);
-                    if (data.current_question) {
-                        setTimeLeft(data.current_question.time_limit);
+                // Only update game state if something meaningful changed
+                setGame(prevGame => {
+                    // Skip update if nothing changed (prevents unnecessary re-renders)
+                    if (prevGame &&
+                        prevGame.status === data.status &&
+                        prevGame.current_question_index === data.current_question_index) {
+                        return prevGame;
                     }
-                }
 
-                setGame(data);
+                    // Check if question changed (for SYNC mode only - async mode manages its own state)
+                    const isSyncMode = data.sync_mode !== false;
+                    if (isSyncMode && prevGame && data.current_question_index !== prevGame.current_question_index) {
+                        setSelectedAnswer(null);
+                        setHasAnswered(false);
+                        setQuestionStartTime(Date.now());
+                        setHostMessage("");
+                        setShowExplanation(false);
+                        if (data.current_question) {
+                            setTimeLeft(data.current_question.time_limit);
+                        }
+                    }
+
+                    return data;
+                });
             }
         } catch (error) {
             console.error("Failed to fetch game:", error);
         } finally {
             setLoading(false);
         }
-    }, [gameId, game, asyncQuestionIndex]);
+    }, [gameId, asyncQuestionIndex]);
 
     // Move to next question in async mode
     const nextQuestion = useCallback(() => {
@@ -1160,10 +1170,10 @@ export default function PlayGamePage() {
                         <PostQuizSummary
                             score={playerState?.score || 0}
                             totalQuestions={game.total_questions}
-                            correctAnswers={playerState?.correct_answers || Math.floor((playerState?.score || 0) / 100)}
+                            correctAnswers={Math.min(playerState?.correct_answers || 0, game.total_questions)}
                             rank={playerState?.rank}
                             totalPlayers={undefined}
-                            accuracy={game.total_questions > 0 ? Math.round(((playerState?.correct_answers || Math.floor((playerState?.score || 0) / 100)) / game.total_questions) * 100) : 0}
+                            accuracy={game.total_questions > 0 ? Math.min(100, Math.round((Math.min(playerState?.correct_answers || 0, game.total_questions) / game.total_questions) * 100)) : 0}
                             avgConfidence={analyticsData?.avgConfidence}
                             quadrants={analyticsData?.quadrants}
                             calibration={analyticsData?.calibration}
