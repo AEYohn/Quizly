@@ -10,13 +10,13 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..auth import get_current_user
 from ..db_models import User
-from ..models.game import Quiz, QuizQuestion
+from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer
 
 router = APIRouter()
 
@@ -498,19 +498,66 @@ async def delete_quiz(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete a quiz."""
+    """Delete a quiz and all related data."""
     result = await db.execute(select(Quiz).where(Quiz.id == quiz_id))
     quiz = result.scalars().first()
-    
+
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
-    
+
     if quiz.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the quiz owner can delete it")
-    
+
+    # Get all question IDs for this quiz
+    questions_result = await db.execute(
+        select(QuizQuestion.id).where(QuizQuestion.quiz_id == quiz_id)
+    )
+    question_ids = [q[0] for q in questions_result.fetchall()]
+
+    # Delete player_answers that reference these questions first
+    if question_ids:
+        await db.execute(
+            delete(PlayerAnswer).where(PlayerAnswer.question_id.in_(question_ids))
+        )
+
+    # Get all game sessions for this quiz
+    games_result = await db.execute(
+        select(GameSession.id).where(GameSession.quiz_id == quiz_id)
+    )
+    game_ids = [g[0] for g in games_result.fetchall()]
+
+    # Get all players for these games
+    if game_ids:
+        players_result = await db.execute(
+            select(Player.id).where(Player.game_id.in_(game_ids))
+        )
+        player_ids = [p[0] for p in players_result.fetchall()]
+
+        # Delete remaining player_answers by player
+        if player_ids:
+            await db.execute(
+                delete(PlayerAnswer).where(PlayerAnswer.player_id.in_(player_ids))
+            )
+
+        # Delete players
+        await db.execute(
+            delete(Player).where(Player.game_id.in_(game_ids))
+        )
+
+        # Delete game sessions
+        await db.execute(
+            delete(GameSession).where(GameSession.quiz_id == quiz_id)
+        )
+
+    # Delete quiz questions
+    await db.execute(
+        delete(QuizQuestion).where(QuizQuestion.quiz_id == quiz_id)
+    )
+
+    # Finally delete the quiz
     await db.delete(quiz)
     await db.commit()
-    
+
     return {"message": "Quiz deleted"}
 
 
