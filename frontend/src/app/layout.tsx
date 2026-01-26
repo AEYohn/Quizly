@@ -8,6 +8,13 @@ export const metadata: Metadata = {
     title: "Quizly",
     description: "AI-powered peer instruction platform",
     icons: [{ rel: "icon", url: "/favicon.ico" }],
+    themeColor: "#030712", // gray-950
+    viewport: {
+        width: "device-width",
+        initialScale: 1,
+        maximumScale: 1,
+        viewportFit: "cover",
+    },
 };
 
 const geist = Geist({
