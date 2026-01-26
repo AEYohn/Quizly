@@ -129,7 +129,7 @@ function JoinGameContent() {
     };
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 p-6">
+        <div className="flex min-h-dvh flex-col items-center justify-center bg-[#030712] p-6">
             {/* Logo */}
             <div className="mb-8 text-center">
                 <div className="mb-4 flex items-center justify-center gap-3">
@@ -232,7 +232,7 @@ function JoinGameContent() {
 export default function JoinGamePage() {
     return (
         <Suspense fallback={
-            <div className="flex min-h-screen items-center justify-center bg-gray-950">
+            <div className="flex min-h-dvh items-center justify-center bg-[#030712]">
                 <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
             </div>
         }>

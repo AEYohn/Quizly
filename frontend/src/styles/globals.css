@@ -1,46 +1,17 @@
 @import "tailwindcss";
 
-/* Global reset for mobile */
-*, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-/* Ensure full viewport coverage on mobile - iPhone safe areas */
-:root {
-    background-color: #030712;
+/* Force dark background everywhere */
+:root,
+html,
+body {
+    background-color: #030712 !important;
     color-scheme: dark;
 }
 
-html {
-    background: #030712 !important;
-    min-height: 100%;
-    min-height: -webkit-fill-available;
-    overflow-x: hidden;
-}
-
+/* Ensure body fills viewport */
 body {
-    background: #030712 !important;
-    min-height: 100%;
     min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    overflow-x: hidden;
-    /* Remove any default margins */
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-/* iOS Safari overscroll background */
-@supports (-webkit-touch-callout: none) {
-    html {
-        background: #030712 !important;
-        height: -webkit-fill-available;
-    }
-    body {
-        background: #030712 !important;
-        min-height: -webkit-fill-available;
-    }
+    margin: 0;
 }
 
 @theme {
