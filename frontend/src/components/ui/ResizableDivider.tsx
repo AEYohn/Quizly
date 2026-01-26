@@ -44,30 +44,28 @@ export function ResizableDivider({ direction, onResize, className = "" }: Resiza
     if (direction === "horizontal") {
         return (
             <div
-                className={`relative w-1 flex-shrink-0 cursor-col-resize group ${className}`}
+                className={`relative w-2 flex-shrink-0 cursor-col-resize group ${className}`}
                 onMouseDown={handleMouseDown}
+                style={{ touchAction: 'none' }}
             >
                 {/* Visible divider line */}
-                <div className={`absolute inset-0 transition-colors ${
-                    isDragging ? "bg-sky-500" : "bg-gray-700 group-hover:bg-sky-500/50"
+                <div className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 transition-colors ${
+                    isDragging ? "bg-sky-500" : "bg-gray-600 group-hover:bg-sky-500"
                 }`} />
-                {/* Wider invisible hit area */}
-                <div className="absolute inset-y-0 -left-1 -right-1" />
             </div>
         );
     }
 
     return (
         <div
-            className={`relative h-1 flex-shrink-0 cursor-row-resize group ${className}`}
+            className={`relative h-2 flex-shrink-0 cursor-row-resize group ${className}`}
             onMouseDown={handleMouseDown}
+            style={{ touchAction: 'none' }}
         >
             {/* Visible divider line */}
-            <div className={`absolute inset-0 transition-colors ${
-                isDragging ? "bg-sky-500" : "bg-gray-700 group-hover:bg-sky-500/50"
+            <div className={`absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 transition-colors ${
+                isDragging ? "bg-sky-500" : "bg-gray-600 group-hover:bg-sky-500"
             }`} />
-            {/* Wider invisible hit area */}
-            <div className="absolute inset-x-0 -top-1 -bottom-1" />
         </div>
     );
 }

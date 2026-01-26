@@ -51,31 +51,10 @@ const THEMES = [
     { id: "light", name: "Light" },
 ];
 
-// Parse JSON or key=value input to variable format
-function parseInputToVariables(input: string): ParsedVariable[] {
-    if (!input || input.trim() === "") return [];
-
+// Parse key=value format string into variables
+function parseKeyValueString(input: string): ParsedVariable[] {
     const variables: ParsedVariable[] = [];
 
-    // Try parsing as JSON first
-    try {
-        const parsed = JSON.parse(input);
-        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-            for (const [key, value] of Object.entries(parsed)) {
-                variables.push({
-                    name: key,
-                    value: JSON.stringify(value),
-                    type: getValueType(value),
-                });
-            }
-            return variables;
-        }
-    } catch {
-        // Not JSON, try key=value format
-    }
-
-    // Parse key=value format using regex that handles arrays properly
-    // Matches: name = value where value can be an array [...], number, string, or boolean
     // Pattern handles: nums = [1,2,3], target = 9 on the same line
     const pattern = /(\w+)\s*=\s*(\[(?:[^\[\]]*|\[(?:[^\[\]]*|\[[^\[\]]*\])*\])*\]|\{[^}]*\}|-?\d+(?:\.\d+)?|"[^"]*"|'[^']*'|true|false|null|True|False|None)/gi;
     let match;
@@ -102,7 +81,6 @@ function parseInputToVariables(input: string): ParsedVariable[] {
                 type: getValueType(parsed),
             });
         } catch {
-            // Treat as string if not valid JSON
             variables.push({
                 name,
                 value: `"${value}"`,
@@ -111,8 +89,49 @@ function parseInputToVariables(input: string): ParsedVariable[] {
         }
     }
 
+    return variables;
+}
+
+// Parse JSON or key=value input to variable format
+function parseInputToVariables(input: string): ParsedVariable[] {
+    if (!input || input.trim() === "") return [];
+
+    const variables: ParsedVariable[] = [];
+
+    // Try parsing as JSON first
+    try {
+        const parsed = JSON.parse(input);
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+            for (const [key, value] of Object.entries(parsed)) {
+                // Check if value is a string that contains more key=value pairs
+                // This handles malformed input like {"nums": "[1,2,3], target=6"}
+                if (typeof value === "string" && value.includes("=")) {
+                    const nestedVars = parseKeyValueString(`${key}=${value}`);
+                    if (nestedVars.length > 1) {
+                        variables.push(...nestedVars);
+                        continue;
+                    }
+                }
+                variables.push({
+                    name: key,
+                    value: JSON.stringify(value),
+                    type: getValueType(value),
+                });
+            }
+            return variables;
+        }
+    } catch {
+        // Not JSON, try key=value format
+    }
+
+    // Try key=value format
+    const keyValueVars = parseKeyValueString(input);
+    if (keyValueVars.length > 0) {
+        return keyValueVars;
+    }
+
     // If no variables found, treat the entire input as a single value
-    if (variables.length === 0 && input.trim()) {
+    if (input.trim()) {
         variables.push({
             name: "input",
             value: input.trim(),
