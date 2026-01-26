@@ -70,13 +70,17 @@ async def get_db():
             await session.close()
 
 
-async def run_migrations(conn):
+def run_migrations(conn):
     """Add missing columns to existing tables (for schema updates)."""
     from sqlalchemy import text
 
+    print("🔄 Running database migrations...")
+
     # Check if we're using PostgreSQL (skip for SQLite)
     dialect = conn.dialect.name
+    print(f"   Database dialect: {dialect}")
     if dialect != "postgresql":
+        print("   Skipping migrations (SQLite mode)")
         return
 
     # Columns to add to the quizzes table
@@ -131,6 +135,8 @@ async def run_migrations(conn):
                 print(f"Added column 'player_answers.{col_name}'")
         except Exception as e:
             print(f"Migration warning for player_answers.{col_name}: {e}")
+
+    print("✅ Migrations complete")
 
 
 async def init_db():
