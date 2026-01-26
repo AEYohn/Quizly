@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Send, Check, Trash2, Plus, MessageSquare } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -47,8 +47,6 @@ export function SendPracticeModal({
 
     // Generate preview when modal opens
     const generatePreview = async () => {
-        if (questions.length > 0) return; // Already generated
-
         setIsLoading(true);
         setError(null);
 
@@ -80,10 +78,26 @@ export function SendPracticeModal({
         }
     };
 
-    // Generate on open
-    if (isOpen && questions.length === 0 && !isLoading) {
-        generatePreview();
-    }
+    // Track if we've already generated to prevent duplicate calls
+    const hasGeneratedRef = useRef(false);
+
+    // Generate on open - using useEffect to prevent infinite render loops
+    useEffect(() => {
+        if (isOpen && !hasGeneratedRef.current) {
+            hasGeneratedRef.current = true;
+            generatePreview();
+        }
+        // Reset state when modal closes
+        if (!isOpen) {
+            hasGeneratedRef.current = false;
+            setQuestions([]);
+            setTitle("");
+            setNote("");
+            setError(null);
+            setSent(false);
+            setSelectedQuestions(new Set());
+        }
+    }, [isOpen]);
 
     const toggleQuestion = (index: number) => {
         const newSelected = new Set(selectedQuestions);
