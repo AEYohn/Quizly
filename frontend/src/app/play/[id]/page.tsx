@@ -562,17 +562,14 @@ export default function PlayGamePage() {
                     setStreak(prev => prev + 1);
                 } else {
                     setStreak(0);
-                    // Show peer discussion based on quiz settings
+                    // Show peer discussion for ALL wrong answers (unless explicitly disabled)
                     const peerEnabled = game.quiz_settings?.peer_discussion_enabled ?? true;
-                    const peerTrigger = game.quiz_settings?.peer_discussion_trigger ?? "high_confidence_wrong";
+                    const peerTrigger = game.quiz_settings?.peer_discussion_trigger ?? "always";
 
-                    if (peerEnabled) {
-                        if (peerTrigger === "always") {
-                            setShowPeerDiscussion(true);
-                        } else if (peerTrigger === "high_confidence_wrong" && confidence >= 60) {
-                            setShowPeerDiscussion(true);
-                        }
-                        // "never" - don't show peer discussion
+                    if (peerEnabled && peerTrigger !== "never") {
+                        // Always show peer discussion for wrong answers
+                        // Students must complete it before moving on
+                        setShowPeerDiscussion(true);
                     }
                 }
 
