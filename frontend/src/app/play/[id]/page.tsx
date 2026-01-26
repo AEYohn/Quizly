@@ -1757,8 +1757,8 @@ export default function PlayGamePage() {
                         )}
                     </div>
 
-                    {/* FOR ASYNC MODE: Show Next Question Button (always visible, even during peer discussion) */}
-                    {game?.sync_mode === false && (
+                    {/* FOR ASYNC MODE: Show Next Question Button (hidden during peer discussion) */}
+                    {game?.sync_mode === false && !showPeerDiscussion && (
                         <div className="mt-8">
                             {asyncQuestionIndex + 1 < game.total_questions ? (
                                 <button
