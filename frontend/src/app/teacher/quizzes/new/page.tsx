@@ -54,6 +54,7 @@ interface QuestionData {
     test_cases?: { input: string; expected_output: string }[];
     language?: string;
     collapsed?: boolean;
+    image_url?: string; // Base64 or URL for question image
 }
 
 interface UploadedFile {
@@ -1099,13 +1100,58 @@ export default function NewQuizPage() {
                                         {/* Question Content */}
                                         {!question.collapsed && (
                                             <div className="px-3 pb-3 space-y-3">
-                                                <textarea
-                                                    placeholder="Enter your question..."
-                                                    value={question.question_text}
-                                                    onChange={(e) => updateQuestion(question.id, { question_text: e.target.value })}
-                                                    className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none resize-none"
-                                                    rows={2}
-                                                />
+                                                <div className="space-y-2">
+                                                    <textarea
+                                                        placeholder="Enter your question..."
+                                                        value={question.question_text}
+                                                        onChange={(e) => updateQuestion(question.id, { question_text: e.target.value })}
+                                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none resize-none"
+                                                        rows={2}
+                                                    />
+
+                                                    {/* Image Upload */}
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-sm text-gray-400 hover:text-white hover:border-gray-600 cursor-pointer transition-colors">
+                                                            <Image className="h-4 w-4" />
+                                                            <span>{question.image_url ? "Change Image" : "Add Image"}</span>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (file) {
+                                                                        const reader = new FileReader();
+                                                                        reader.onload = (ev) => {
+                                                                            const base64 = ev.target?.result as string;
+                                                                            updateQuestion(question.id, { image_url: base64 });
+                                                                        };
+                                                                        reader.readAsDataURL(file);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </label>
+                                                        {question.image_url && (
+                                                            <button
+                                                                onClick={() => updateQuestion(question.id, { image_url: undefined })}
+                                                                className="p-1.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Image Preview */}
+                                                    {question.image_url && (
+                                                        <div className="relative rounded-lg overflow-hidden border border-gray-700 bg-gray-900">
+                                                            <img
+                                                                src={question.image_url}
+                                                                alt="Question image"
+                                                                className="max-h-48 w-full object-contain"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
 
                                                 {question.question_type === "multiple_choice" ? (
                                                     <div className="grid grid-cols-2 gap-2">

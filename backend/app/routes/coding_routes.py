@@ -273,8 +273,6 @@ async def generate_coding_problem(
 
 Language: {data.language}
 
-IMPORTANT: Test case inputs MUST be valid JSON objects with parameter names as keys.
-
 Return a JSON object with this exact structure:
 {{
     "title": "Problem Title",
@@ -283,10 +281,10 @@ Return a JSON object with this exact structure:
     "hints": ["hint 1", "hint 2"],
     "tags": ["array", "algorithm"],
     "starter_code": {{
-        "{data.language}": "def solution(nums, target):\\n    # Your code here\\n    pass"
+        "{data.language}": "def solution(nums: list[int], target: int) -> list[int]:\\n    # Your code here\\n    pass"
     }},
     "solution_code": {{
-        "{data.language}": "def solution(nums, target):\\n    # Complete solution"
+        "{data.language}": "def solution(nums: list[int], target: int) -> list[int]:\\n    # Complete working solution"
     }},
     "test_cases": [
         {{
@@ -297,8 +295,12 @@ Return a JSON object with this exact structure:
     ]
 }}
 
-CRITICAL: The "input" field must be a JSON object with parameter names matching the function signature.
-NOT a string like "nums=[1,2,3], target=6" - must be {{"nums": [1,2,3], "target": 6}}
+CRITICAL RULES:
+1. Function name MUST be "solution" - not twoSum, not two_sum, just "solution"
+2. "input" MUST be a JSON object with parameter names as keys matching function signature
+3. "expected_output" MUST be valid JSON (double quotes for strings, not single quotes)
+4. Starter code MUST include type hints (e.g., nums: list[int], target: int)
+5. Solution code MUST be complete, working, and return the correct output
 
 Generate {data.num_test_cases} test cases.
 Return ONLY valid JSON, no markdown code blocks."""
@@ -361,8 +363,20 @@ Return ONLY valid JSON, no markdown code blocks."""
     if data.validate_solution and result["solution_code"].get(data.language) and result["test_cases"]:
         try:
             from app.services.code_runner import code_runner
+            import re
 
             solution_code = result["solution_code"][data.language]
+
+            # Extract function name from solution code
+            func_name = "solution"  # default
+            if data.language == "python":
+                match = re.search(r'def\s+(\w+)\s*\(', solution_code)
+                if match:
+                    func_name = match.group(1)
+            elif data.language == "javascript":
+                match = re.search(r'function\s+(\w+)\s*\(', solution_code)
+                if match:
+                    func_name = match.group(1)
 
             # Prepare test cases - we only need inputs, we'll generate outputs
             test_cases_for_runner = [
@@ -379,6 +393,7 @@ Return ONLY valid JSON, no markdown code blocks."""
                 code=solution_code,
                 language=data.language,
                 test_cases=test_cases_for_runner,
+                function_name=func_name,
             )
 
             # Update test cases with actual outputs from the solution

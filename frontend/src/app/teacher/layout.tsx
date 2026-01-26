@@ -1,3 +1,5 @@
+"use client";
+
 import { Sidebar } from "~/components/ui/Sidebar";
 
 export default function TeacherLayout({
@@ -8,7 +10,12 @@ export default function TeacherLayout({
     return (
         <div className="min-h-screen bg-gray-950">
             <Sidebar />
-            <main className="ml-64 min-h-screen">{children}</main>
+            <main
+                className="min-h-screen transition-[margin-left] duration-200"
+                style={{ marginLeft: "var(--sidebar-width, 256px)" }}
+            >
+                {children}
+            </main>
         </div>
     );
 }

@@ -322,7 +322,8 @@ async def start_game(
         "question_type": first_question.question_type,
         "options": first_question.options,
         "time_limit": first_question.time_limit,
-        "points": first_question.points
+        "points": first_question.points,
+        "image_url": first_question.image_url
     })
     
     # Start synchronized timer if sync_mode is enabled
@@ -405,9 +406,10 @@ async def next_question(
                 "question_type": next_q.question_type,
                 "options": next_q.options,
                 "time_limit": next_q.time_limit,
-                "points": next_q.points
+                "points": next_q.points,
+                "image_url": next_q.image_url
             })
-            
+
             # Start timer if sync_mode
             if game.sync_mode:
                 await start_question_timer(game_id_str, next_q.time_limit, None)
@@ -422,7 +424,8 @@ async def next_question(
                     "question_type": next_q.question_type,
                     "options": next_q.options,
                     "time_limit": next_q.time_limit,
-                    "points": next_q.points
+                    "points": next_q.points,
+                    "image_url": next_q.image_url
                 }
             }
     

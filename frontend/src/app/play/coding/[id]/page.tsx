@@ -23,7 +23,7 @@ const CodeEditor = dynamic(
 );
 
 interface TestCase {
-    id: number;
+    id: string | number;
     input_data: string;
     expected_output: string;
     explanation?: string;
@@ -75,7 +75,12 @@ export default function CodingProblemPage({ params }: { params: Promise<{ id: st
     const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-    const [studentName] = useState(() => localStorage.getItem("quizly_student_name") || "Student");
+    const [studentName] = useState(() => {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("quizly_student_name") || "Student";
+        }
+        return "Student";
+    });
     const [leftPanelWidth, setLeftPanelWidth] = useState(45); // percentage
 
     const handleHorizontalResize = useCallback((delta: number) => {

@@ -57,6 +57,412 @@ interface TestCase {
     points: number;
 }
 
+interface Parameter {
+    name: string;
+    type: string;
+    description?: string;
+}
+
+const PARAM_TYPES = [
+    { value: "int", label: "Integer" },
+    { value: "float", label: "Float" },
+    { value: "string", label: "String" },
+    { value: "bool", label: "Boolean" },
+    { value: "list[int]", label: "List of Integers" },
+    { value: "list[str]", label: "List of Strings" },
+    { value: "list[float]", label: "List of Floats" },
+    { value: "list[list[int]]", label: "2D Integer Array" },
+];
+
+// Parse function parameters from code
+function parseParametersFromCode(code: string, language: string): Parameter[] {
+    const params: Parameter[] = [];
+
+    if (language === "python") {
+        // Match: def func_name(param1: type1, param2: type2) or def func_name(param1, param2)
+        const match = code.match(/def\s+\w+\s*\(([\s\S]*?)\)\s*(?:->[\s\S]*?)?:/);
+        if (match && match[1]) {
+            const paramStr = match[1];
+            // Split by comma, but handle nested brackets
+            const paramParts = paramStr.split(/,(?![^\[]*\])/);
+            for (const part of paramParts) {
+                const trimmed = part.trim();
+                if (!trimmed || trimmed === "self") continue;
+
+                // Check for type annotation: param: type
+                const annotationMatch = trimmed.match(/^(\w+)\s*:\s*(.+)$/);
+                if (annotationMatch && annotationMatch[1] && annotationMatch[2]) {
+                    params.push({
+                        name: annotationMatch[1],
+                        type: normalizeType(annotationMatch[2].trim(), language),
+                    });
+                } else {
+                    // No type annotation
+                    const nameMatch = trimmed.match(/^(\w+)/);
+                    if (nameMatch && nameMatch[1]) {
+                        params.push({ name: nameMatch[1], type: "string" });
+                    }
+                }
+            }
+        }
+    } else if (language === "javascript") {
+        // Match: function func_name(param1, param2) or (param1, param2) =>
+        const match = code.match(/(?:function\s+\w+|(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?)\s*\(([\s\S]*?)\)|^\s*\(([\s\S]*?)\)\s*=>/m);
+        if (match) {
+            const paramStr = match[1] || match[2];
+            if (paramStr) {
+                const paramParts = paramStr.split(",");
+                for (const part of paramParts) {
+                    const trimmed = part.trim();
+                    if (!trimmed) continue;
+                    const nameMatch = trimmed.match(/^(\w+)/);
+                    if (nameMatch && nameMatch[1]) {
+                        params.push({ name: nameMatch[1], type: "string" });
+                    }
+                }
+            }
+        }
+    } else if (language === "java") {
+        // Match: public ReturnType methodName(Type1 param1, Type2 param2)
+        const match = code.match(/(?:public|private|protected)?\s*(?:static)?\s*\w+\s+\w+\s*\(([\s\S]*?)\)/);
+        if (match && match[1]) {
+            const paramStr = match[1];
+            const paramParts = paramStr.split(",");
+            for (const part of paramParts) {
+                const trimmed = part.trim();
+                if (!trimmed) continue;
+                const typeNameMatch = trimmed.match(/^([\w\[\]<>]+)\s+(\w+)$/);
+                if (typeNameMatch && typeNameMatch[1] && typeNameMatch[2]) {
+                    params.push({
+                        name: typeNameMatch[2],
+                        type: normalizeType(typeNameMatch[1], language),
+                    });
+                }
+            }
+        }
+    } else if (language === "cpp") {
+        // Match: ReturnType functionName(Type1 param1, Type2 param2)
+        const match = code.match(/\w+\s+\w+\s*\(([\s\S]*?)\)\s*\{/);
+        if (match && match[1]) {
+            const paramStr = match[1];
+            const paramParts = paramStr.split(",");
+            for (const part of paramParts) {
+                const trimmed = part.trim();
+                if (!trimmed) continue;
+                // Handle: vector<int>& nums or int target
+                const typeNameMatch = trimmed.match(/^([\w<>&\*\s]+)\s+(\w+)$/);
+                if (typeNameMatch && typeNameMatch[1] && typeNameMatch[2]) {
+                    params.push({
+                        name: typeNameMatch[2],
+                        type: normalizeType(typeNameMatch[1].trim(), language),
+                    });
+                }
+            }
+        }
+    }
+
+    return params;
+}
+
+// Normalize type strings to our standard types
+function normalizeType(typeStr: string, language: string): string {
+    const t = typeStr.toLowerCase().replace(/\s+/g, "");
+
+    // Python types
+    if (t.includes("list[int]") || t.includes("list[integer]")) return "list[int]";
+    if (t.includes("list[str]") || t.includes("list[string]")) return "list[str]";
+    if (t.includes("list[float]")) return "list[float]";
+    if (t.includes("list[list[int]]")) return "list[list[int]]";
+    if (t === "int" || t === "integer") return "int";
+    if (t === "float" || t === "double") return "float";
+    if (t === "str" || t === "string") return "string";
+    if (t === "bool" || t === "boolean") return "bool";
+
+    // Java/C++ types
+    if (t.includes("int[]") || t.includes("vector<int>") || t.includes("list<integer>")) return "list[int]";
+    if (t.includes("string[]") || t.includes("vector<string>") || t.includes("list<string>")) return "list[str]";
+    if (t.includes("int[][]") || t.includes("vector<vector<int>>")) return "list[list[int]]";
+
+    return "string"; // default
+}
+
+// ParameterEditor component
+function ParameterEditor({
+    parameters,
+    parameterMode,
+    onParametersChange,
+    onModeChange,
+    onDetectFromCode,
+}: {
+    parameters: Parameter[];
+    parameterMode: "ai" | "manual";
+    onParametersChange: (params: Parameter[]) => void;
+    onModeChange: (mode: "ai" | "manual") => void;
+    onDetectFromCode: () => void;
+}) {
+    const addParameter = () => {
+        onParametersChange([...parameters, { name: "", type: "int" }]);
+    };
+
+    const removeParameter = (index: number) => {
+        onParametersChange(parameters.filter((_, i) => i !== index));
+    };
+
+    const updateParameter = (index: number, field: keyof Parameter, value: string) => {
+        const updated = [...parameters];
+        const param = updated[index];
+        if (param) {
+            updated[index] = { name: param.name, type: param.type, description: param.description, [field]: value };
+            onParametersChange(updated);
+        }
+    };
+
+    return (
+        <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+            <div className="flex items-center justify-between mb-3">
+                <label className="text-xs font-medium text-gray-400">Parameters</label>
+                <div className="flex items-center gap-2">
+                    {/* AI/Manual Toggle */}
+                    <div className="flex rounded-md border border-gray-700 bg-gray-800 p-0.5">
+                        <button
+                            onClick={() => onModeChange("ai")}
+                            className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                                parameterMode === "ai"
+                                    ? "bg-purple-600 text-white"
+                                    : "text-gray-400 hover:bg-gray-700"
+                            }`}
+                        >
+                            <Sparkles className="h-3 w-3" />
+                            AI
+                        </button>
+                        <button
+                            onClick={() => onModeChange("manual")}
+                            className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                                parameterMode === "manual"
+                                    ? "bg-gray-600 text-white"
+                                    : "text-gray-400 hover:bg-gray-700"
+                            }`}
+                        >
+                            <PenLine className="h-3 w-3" />
+                            Manual
+                        </button>
+                    </div>
+                    {parameterMode === "ai" && (
+                        <button
+                            onClick={onDetectFromCode}
+                            className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-purple-400 hover:bg-purple-900/30 transition-colors"
+                        >
+                            <Code2 className="h-3 w-3" />
+                            Detect from Code
+                        </button>
+                    )}
+                    {parameterMode === "manual" && (
+                        <button
+                            onClick={addParameter}
+                            className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-400 hover:bg-gray-700 transition-colors"
+                        >
+                            <Plus className="h-3 w-3" />
+                            Add
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {parameters.length === 0 ? (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                    {parameterMode === "ai"
+                        ? "Parameters will be detected from starter code"
+                        : "No parameters defined. Click 'Add' to create one."}
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {parameters.map((param, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={param.name}
+                                onChange={(e) => updateParameter(index, "name", e.target.value)}
+                                placeholder="name"
+                                disabled={parameterMode === "ai"}
+                                className={`w-28 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs font-mono text-gray-200 focus:border-purple-400 focus:outline-none ${
+                                    parameterMode === "ai" ? "opacity-60 cursor-not-allowed" : ""
+                                }`}
+                            />
+                            <select
+                                value={param.type}
+                                onChange={(e) => updateParameter(index, "type", e.target.value)}
+                                disabled={parameterMode === "ai"}
+                                className={`w-36 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-200 focus:border-purple-400 focus:outline-none ${
+                                    parameterMode === "ai" ? "opacity-60 cursor-not-allowed" : ""
+                                }`}
+                            >
+                                {PARAM_TYPES.map((t) => (
+                                    <option key={t.value} value={t.value}>
+                                        {t.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <input
+                                type="text"
+                                value={param.description || ""}
+                                onChange={(e) => updateParameter(index, "description", e.target.value)}
+                                placeholder="Description (optional)"
+                                disabled={parameterMode === "ai"}
+                                className={`flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-200 focus:border-purple-400 focus:outline-none ${
+                                    parameterMode === "ai" ? "opacity-60 cursor-not-allowed" : ""
+                                }`}
+                            />
+                            {parameterMode === "manual" && (
+                                <button
+                                    onClick={() => removeParameter(index)}
+                                    className="p-1 text-gray-500 hover:text-red-400 rounded hover:bg-red-900/30"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// StructuredTestCaseEditor component
+function StructuredTestCaseEditor({
+    testCase,
+    index,
+    parameters,
+    onUpdate,
+    onRemove,
+}: {
+    testCase: TestCase;
+    index: number;
+    parameters: Parameter[];
+    onUpdate: (field: keyof TestCase, value: any) => void;
+    onRemove: () => void;
+}) {
+    // Parse input_data JSON to get structured inputs
+    const parseInputData = (inputData: string): Record<string, string> => {
+        try {
+            const parsed = JSON.parse(inputData);
+            if (typeof parsed === "object" && parsed !== null) {
+                const result: Record<string, string> = {};
+                for (const [key, value] of Object.entries(parsed)) {
+                    result[key] = typeof value === "string" ? value : JSON.stringify(value);
+                }
+                return result;
+            }
+        } catch {
+            // Try to parse old format or malformed JSON
+        }
+        return {};
+    };
+
+    // Convert structured inputs back to JSON string
+    const serializeInputData = (inputs: Record<string, string>): string => {
+        const result: Record<string, any> = {};
+        for (const [key, value] of Object.entries(inputs)) {
+            try {
+                result[key] = JSON.parse(value);
+            } catch {
+                result[key] = value;
+            }
+        }
+        return JSON.stringify(result);
+    };
+
+    const inputs = parseInputData(testCase.input_data);
+
+    const updateInput = (paramName: string, value: string) => {
+        const newInputs = { ...inputs, [paramName]: value };
+        onUpdate("input_data", serializeInputData(newInputs));
+    };
+
+    // Initialize missing parameters with empty values
+    const getInputValue = (paramName: string): string => {
+        return inputs[paramName] ?? "";
+    };
+
+    return (
+        <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+            <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-gray-400">Test {index + 1}</span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => onUpdate("is_hidden", !testCase.is_hidden)}
+                        className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
+                            testCase.is_hidden
+                                ? "bg-gray-700 text-gray-400"
+                                : "bg-green-900/50 text-green-400"
+                        }`}
+                    >
+                        {testCase.is_hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                        {testCase.is_hidden ? "Hidden" : "Visible"}
+                    </button>
+                    <button onClick={onRemove} className="text-gray-500 hover:text-red-400">
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+
+            {parameters.length > 0 ? (
+                <div className="space-y-2">
+                    {parameters.map((param) => (
+                        <div key={param.name} className="flex items-center gap-2">
+                            <label className="w-24 text-xs font-mono text-gray-400 text-right">
+                                {param.name} =
+                            </label>
+                            <input
+                                type="text"
+                                value={getInputValue(param.name)}
+                                onChange={(e) => updateInput(param.name, e.target.value)}
+                                placeholder={param.type.startsWith("list") ? "e.g. [1, 2, 3]" : param.type === "int" ? "e.g. 42" : param.type === "string" ? 'e.g. "hello"' : "value"}
+                                className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none"
+                            />
+                            <span className="text-[10px] text-gray-500 w-20">{param.type}</span>
+                        </div>
+                    ))}
+                    <div className="flex items-center gap-2 pt-1 border-t border-gray-800">
+                        <label className="w-24 text-xs font-mono text-green-400 text-right">
+                            Expected =
+                        </label>
+                        <input
+                            type="text"
+                            value={testCase.expected_output}
+                            onChange={(e) => onUpdate("expected_output", e.target.value)}
+                            placeholder="Expected output"
+                            className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none"
+                        />
+                    </div>
+                </div>
+            ) : (
+                // Fallback to original layout when no parameters defined
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <label className="text-[10px] text-gray-500 uppercase">Input</label>
+                        <textarea
+                            value={testCase.input_data}
+                            onChange={(e) => onUpdate("input_data", e.target.value)}
+                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
+                            rows={2}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-gray-500 uppercase">Expected Output</label>
+                        <textarea
+                            value={testCase.expected_output}
+                            onChange={(e) => onUpdate("expected_output", e.target.value)}
+                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
+                            rows={2}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 interface ProblemData {
     id: string;
     title: string;
@@ -67,6 +473,8 @@ interface ProblemData {
     starter_code: { [key: string]: string };
     solution_code: { [key: string]: string };
     test_cases: TestCase[];
+    parameters: Parameter[];
+    parameterMode: "ai" | "manual";
     language: string;
     collapsed: boolean;
 }
@@ -250,8 +658,76 @@ export default function NewCodingProblemPage() {
         }
     };
 
+    // Infer type from a JavaScript value
+    const inferTypeFromValue = (value: unknown): string => {
+        if (Array.isArray(value)) {
+            if (value.length === 0) return "list[int]";
+            const first = value[0];
+            if (Array.isArray(first)) return "list[list[int]]";
+            if (typeof first === "number") return "list[int]";
+            if (typeof first === "string") return "list[str]";
+            return "list[int]";
+        }
+        if (typeof value === "number") return Number.isInteger(value) ? "int" : "float";
+        if (typeof value === "boolean") return "bool";
+        if (typeof value === "string") return "string";
+        return "string";
+    };
+
     const parseGeneratedProblem = (data: any): ProblemData | null => {
         if (!data.title && !data.description) return null;
+
+        // Extract starter code for the selected language
+        const starterCode = data.starter_code || { [language]: `def solution():\n    # Write your code here\n    pass` };
+        const codeForLanguage = starterCode[language] || Object.values(starterCode)[0] || "";
+
+        // Parse parameters from starter code
+        let detectedParams = parseParametersFromCode(codeForLanguage, language);
+
+        // Convert test cases to structured JSON format if not already
+        const testCases = (data.test_cases || []).map((tc: any, i: number) => {
+            let inputData = tc.input || tc.input_data || "";
+            // If input is already JSON object format, use it directly
+            if (typeof inputData === "object") {
+                inputData = JSON.stringify(inputData);
+            }
+            return {
+                input_data: inputData,
+                expected_output: typeof tc.expected_output === "object"
+                    ? JSON.stringify(tc.expected_output)
+                    : String(tc.expected_output ?? tc.output ?? ""),
+                explanation: tc.explanation || "",
+                is_hidden: i >= 2,
+                is_example: i < 2,
+                points: 20,
+            };
+        });
+
+        // If parameters have no type hints (all "string"), infer types from first test case
+        const allStringTypes = detectedParams.length > 0 && detectedParams.every(p => p.type === "string");
+        if (allStringTypes && data.test_cases && data.test_cases[0]) {
+            const firstInput = data.test_cases[0].input || data.test_cases[0].input_data;
+            if (typeof firstInput === "object" && firstInput !== null) {
+                // Infer types from actual test case data
+                detectedParams = detectedParams.map(param => ({
+                    ...param,
+                    type: firstInput[param.name] !== undefined
+                        ? inferTypeFromValue(firstInput[param.name])
+                        : param.type
+                }));
+            }
+        }
+
+        // If no parameters detected from code but we have test case data, create params from test data
+        if (detectedParams.length === 0 && data.test_cases && data.test_cases[0]) {
+            const firstInput = data.test_cases[0].input || data.test_cases[0].input_data;
+            if (typeof firstInput === "object" && firstInput !== null) {
+                detectedParams = Object.entries(firstInput).map(([name, value]) => ({
+                    name,
+                    type: inferTypeFromValue(value),
+                }));
+            }
+        }
 
         return {
             id: generateId(),
@@ -260,16 +736,11 @@ export default function NewCodingProblemPage() {
             difficulty: data.difficulty || difficulty,
             constraints: data.constraints || "",
             hints: data.hints || [],
-            starter_code: data.starter_code || { [language]: `def solution():\n    # Write your code here\n    pass` },
+            starter_code: starterCode,
             solution_code: data.solution_code || { [language]: "" },
-            test_cases: (data.test_cases || []).map((tc: any, i: number) => ({
-                input_data: tc.input || tc.input_data || "",
-                expected_output: tc.expected_output || tc.output || "",
-                explanation: tc.explanation || "",
-                is_hidden: i >= 2,
-                is_example: i < 2,
-                points: 20,
-            })),
+            test_cases: testCases,
+            parameters: detectedParams,
+            parameterMode: "ai",
             language: language,
             collapsed: false,
         };
@@ -286,13 +757,25 @@ export default function NewCodingProblemPage() {
             starter_code: { [language]: `def solution():\n    # Write your code here\n    pass` },
             solution_code: { [language]: "" },
             test_cases: [
-                { input_data: "", expected_output: "", explanation: "", is_hidden: false, is_example: true, points: 20 },
+                { input_data: "{}", expected_output: "", explanation: "", is_hidden: false, is_example: true, points: 20 },
             ],
+            parameters: [],
+            parameterMode: "manual",
             language: language,
             collapsed: false,
         };
         setProblems([...problems, newProblem]);
         setTimeout(() => problemsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    };
+
+    // Helper to detect parameters from a problem's starter code
+    const detectParametersFromCode = (problemId: string) => {
+        const problem = problems.find(p => p.id === problemId);
+        if (!problem) return;
+
+        const codeForLanguage = problem.starter_code[problem.language] || "";
+        const detectedParams = parseParametersFromCode(codeForLanguage, problem.language);
+        updateProblem(problemId, { parameters: detectedParams });
     };
 
     const deleteProblem = (id: string) => {
@@ -323,10 +806,11 @@ export default function NewCodingProblemPage() {
         const problem = problems.find(p => p.id === problemId);
         if (!problem) return;
 
+        // Initialize with empty JSON object for structured inputs
         updateProblem(problemId, {
             test_cases: [
                 ...problem.test_cases,
-                { input_data: "", expected_output: "", explanation: "", is_hidden: true, is_example: false, points: 20 },
+                { input_data: "{}", expected_output: "", explanation: "", is_hidden: true, is_example: false, points: 20 },
             ],
         });
     };
@@ -376,6 +860,21 @@ export default function NewCodingProblemPage() {
             });
 
             if (response.ok) {
+                // Show success message
+                const result = await response.json();
+
+                // Add success message to chat if in AI mode
+                if (mode === "ai") {
+                    setMessages(prev => [...prev, {
+                        id: generateId(),
+                        role: "ai",
+                        content: `✓ Saved "${problem.title}" successfully! You can find it in your coding problems library.`,
+                        timestamp: new Date(),
+                    }]);
+                } else {
+                    alert(`Saved "${problem.title}" successfully!`);
+                }
+
                 // Remove from list after saving
                 setProblems(prev => prev.filter(p => p.id !== problem.id));
                 if (problems.length === 1) {
@@ -801,6 +1300,15 @@ export default function NewCodingProblemPage() {
                                                     </div>
                                                 </div>
 
+                                                {/* Parameters */}
+                                                <ParameterEditor
+                                                    parameters={problem.parameters}
+                                                    parameterMode={problem.parameterMode}
+                                                    onParametersChange={(params) => updateProblem(problem.id, { parameters: params })}
+                                                    onModeChange={(mode) => updateProblem(problem.id, { parameterMode: mode })}
+                                                    onDetectFromCode={() => detectParametersFromCode(problem.id)}
+                                                />
+
                                                 {/* Test Cases */}
                                                 <div>
                                                     <label className="text-xs font-medium text-gray-400 mb-2 block">
@@ -808,55 +1316,14 @@ export default function NewCodingProblemPage() {
                                                     </label>
                                                     <div className="space-y-2">
                                                         {problem.test_cases.map((tc, index) => (
-                                                            <div
+                                                            <StructuredTestCaseEditor
                                                                 key={index}
-                                                                className="rounded-lg border border-gray-700 bg-gray-900 p-3"
-                                                            >
-                                                                <div className="flex items-center justify-between mb-2">
-                                                                    <span className="text-xs font-medium text-gray-400">
-                                                                        Test {index + 1}
-                                                                    </span>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <button
-                                                                            onClick={() => updateTestCase(problem.id, index, "is_hidden", !tc.is_hidden)}
-                                                                            className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
-                                                                                tc.is_hidden
-                                                                                    ? "bg-gray-700 text-gray-400"
-                                                                                    : "bg-green-900/50 text-green-400"
-                                                                            }`}
-                                                                        >
-                                                                            {tc.is_hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                                                            {tc.is_hidden ? "Hidden" : "Visible"}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => removeTestCase(problem.id, index)}
-                                                                            className="text-gray-500 hover:text-red-400"
-                                                                        >
-                                                                            <X className="h-4 w-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-2">
-                                                                    <div>
-                                                                        <label className="text-[10px] text-gray-500 uppercase">Input</label>
-                                                                        <textarea
-                                                                            value={tc.input_data}
-                                                                            onChange={(e) => updateTestCase(problem.id, index, "input_data", e.target.value)}
-                                                                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
-                                                                            rows={2}
-                                                                        />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="text-[10px] text-gray-500 uppercase">Expected Output</label>
-                                                                        <textarea
-                                                                            value={tc.expected_output}
-                                                                            onChange={(e) => updateTestCase(problem.id, index, "expected_output", e.target.value)}
-                                                                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
-                                                                            rows={2}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                                testCase={tc}
+                                                                index={index}
+                                                                parameters={problem.parameters}
+                                                                onUpdate={(field, value) => updateTestCase(problem.id, index, field, value)}
+                                                                onRemove={() => removeTestCase(problem.id, index)}
+                                                            />
                                                         ))}
                                                         <button
                                                             onClick={() => addTestCase(problem.id)}

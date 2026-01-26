@@ -35,7 +35,11 @@ async def player_websocket(
     - player_joined: Another player joined (for lobby)
     - host_disconnected: Host has left the game
     """
-    await manager.connect_player(websocket, game_id, player_id)
+    try:
+        await manager.connect_player(websocket, game_id, player_id)
+    except Exception as e:
+        print(f"Failed to connect player WebSocket: {e}")
+        return
 
     # Query player nickname from DB
     player_nickname = None
@@ -68,24 +72,36 @@ async def player_websocket(
             "avatar": player_avatar,
             "player_count": manager.get_player_count(game_id)
         })
-        
+
         # Keep connection alive and handle incoming messages
         while True:
-            data = await websocket.receive_text()
-            message = json.loads(data)
-            
-            # Handle player messages (e.g., answer submission could go through here)
-            if message.get("type") == "ping":
-                await manager.send_to_player(websocket, {"type": "pong"})
-    
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+
+                # Handle player messages (e.g., answer submission could go through here)
+                if message.get("type") == "ping":
+                    await manager.send_to_player(websocket, {"type": "pong"})
+            except Exception as e:
+                # Connection may have been closed unexpectedly
+                print(f"WebSocket receive error: {e}")
+                break
+
     except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
         manager.disconnect(websocket, game_id)
         # Notify host of disconnection
-        await manager.send_to_host(game_id, {
-            "type": "player_disconnected",
-            "player_id": player_id,
-            "player_count": manager.get_player_count(game_id)
-        })
+        try:
+            await manager.send_to_host(game_id, {
+                "type": "player_disconnected",
+                "player_id": player_id,
+                "player_count": manager.get_player_count(game_id)
+            })
+        except Exception:
+            pass
 
 
 @router.websocket("/ws/game/{game_id}/host")

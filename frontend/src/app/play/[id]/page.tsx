@@ -45,6 +45,7 @@ interface GameState {
         options: { [key: string]: string };
         time_limit: number;
         points: number;
+        image_url?: string;
     };
 }
 
@@ -722,6 +723,9 @@ export default function PlayGamePage() {
     const handleQuizComplete = async () => {
         // Mark quiz as completed to stop polling (set ref immediately)
         isQuizCompletedRef.current = true;
+
+        // Fetch final player state to get accurate correct_answers count
+        await fetchPlayerState();
 
         // Optionally notify backend that player finished (for analytics)
         try {
@@ -1750,25 +1754,15 @@ export default function PlayGamePage() {
                                             : resp
                                     ));
                                 }}
+                                showRetryInChat={game?.sync_mode === false}
+                                onRetry={() => {
+                                    setShowPeerDiscussion(false);
+                                    setHasAnswered(false);
+                                    setSelectedAnswer(null);
+                                    setShowConfirmStep(false);
+                                    setHostMessage("");
+                                }}
                             />
-                            {/* Try Again button - must get it right to proceed */}
-                            {game?.sync_mode === false && (
-                                <div className="mt-4 text-center">
-                                    <button
-                                        onClick={() => {
-                                            setShowPeerDiscussion(false);
-                                            setHasAnswered(false);
-                                            setSelectedAnswer(null);
-                                            setShowConfirmStep(false);
-                                            setHostMessage("");
-                                        }}
-                                        className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors"
-                                    >
-                                        Try Again
-                                    </button>
-                                    <p className="mt-2 text-sm text-gray-400">Answer correctly to continue</p>
-                                </div>
-                            )}
                         </div>
                     )}
 
@@ -2017,6 +2011,16 @@ export default function PlayGamePage() {
 
             {/* Question Card */}
             <div className="mb-6 rounded-2xl bg-white p-6 shadow-xl">
+                {/* Question Image */}
+                {game.current_question?.image_url && (
+                    <div className="mb-4 flex justify-center">
+                        <img
+                            src={game.current_question.image_url}
+                            alt="Question"
+                            className="max-h-48 rounded-lg object-contain"
+                        />
+                    </div>
+                )}
                 <div className="text-center text-xl font-bold text-gray-900">
                     <MathText text={game.current_question?.question_text || ""} />
                 </div>

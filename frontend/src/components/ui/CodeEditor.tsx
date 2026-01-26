@@ -13,11 +13,27 @@ interface TestCase {
     is_hidden?: boolean;
 }
 
+type VariableType = "int" | "float" | "string" | "bool" | "list[int]" | "list[str]" | "list[float]" | "list[list[int]]" | "list" | "object";
+
 interface ParsedVariable {
     name: string;
     value: string;
-    type: "array" | "number" | "string" | "boolean" | "object";
+    type: VariableType;
 }
+
+// Type badge colors
+const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+    "int": { bg: "bg-blue-500/20", text: "text-blue-400" },
+    "float": { bg: "bg-blue-500/20", text: "text-blue-400" },
+    "string": { bg: "bg-green-500/20", text: "text-green-400" },
+    "bool": { bg: "bg-orange-500/20", text: "text-orange-400" },
+    "list[int]": { bg: "bg-purple-500/20", text: "text-purple-400" },
+    "list[str]": { bg: "bg-purple-500/20", text: "text-purple-400" },
+    "list[float]": { bg: "bg-purple-500/20", text: "text-purple-400" },
+    "list[list[int]]": { bg: "bg-pink-500/20", text: "text-pink-400" },
+    "list": { bg: "bg-purple-500/20", text: "text-purple-400" },
+    "object": { bg: "bg-gray-500/20", text: "text-gray-400" },
+};
 
 interface EditableTestCase {
     id: number;
@@ -142,10 +158,28 @@ function parseInputToVariables(input: string): ParsedVariable[] {
     return variables;
 }
 
-function getValueType(value: unknown): ParsedVariable["type"] {
-    if (Array.isArray(value)) return "array";
-    if (typeof value === "number") return "number";
-    if (typeof value === "boolean") return "boolean";
+function getValueType(value: unknown): VariableType {
+    if (Array.isArray(value)) {
+        if (value.length === 0) return "list";
+        const first = value[0];
+        // Check for 2D array
+        if (Array.isArray(first)) {
+            if (first.length === 0 || typeof first[0] === "number") return "list[list[int]]";
+            return "list";
+        }
+        // Check element types
+        if (typeof first === "number") {
+            // Check if any element is a float
+            const hasFloat = value.some(v => typeof v === "number" && !Number.isInteger(v));
+            return hasFloat ? "list[float]" : "list[int]";
+        }
+        if (typeof first === "string") return "list[str]";
+        return "list";
+    }
+    if (typeof value === "number") {
+        return Number.isInteger(value) ? "int" : "float";
+    }
+    if (typeof value === "boolean") return "bool";
     if (typeof value === "object" && value !== null) return "object";
     return "string";
 }
@@ -246,10 +280,17 @@ export function CodeEditor({
 
     // Add custom test case
     const handleAddTestCase = useCallback(() => {
+        const getDefaultValue = (type: VariableType): string => {
+            if (type.startsWith("list")) return "[]";
+            if (type === "int" || type === "float") return "0";
+            if (type === "bool") return "false";
+            return '""';
+        };
+
         const templateVariables = editableTestCases[0]?.variables.map(v => ({
             ...v,
-            value: v.type === "array" ? "[]" : v.type === "number" ? "0" : '""',
-        })) || [{ name: "input", value: '""', type: "string" as const }];
+            value: getDefaultValue(v.type),
+        })) || [{ name: "input", value: '""', type: "string" as VariableType }];
 
         setEditableTestCases(prev => [
             ...prev,
@@ -556,21 +597,30 @@ export function CodeEditor({
 
                             {/* Selected Test Case Content - LeetCode Style */}
                             {editableTestCases[selectedTestCaseIndex] && (
-                                <div className="space-y-3">
-                                    {editableTestCases[selectedTestCaseIndex].variables.map((variable, varIndex) => (
-                                        <div key={varIndex}>
-                                            <label className="block text-xs text-gray-500 mb-1">
-                                                {variable.name} =
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={variable.value}
-                                                onChange={(e) => handleVariableChange(selectedTestCaseIndex, varIndex, e.target.value)}
-                                                className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-white font-mono focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                                                placeholder={`Enter ${variable.name}`}
-                                            />
-                                        </div>
-                                    ))}
+                                <div className="space-y-4">
+                                    {editableTestCases[selectedTestCaseIndex].variables.map((variable, varIndex) => {
+                                        const defaultColor = { bg: "bg-gray-500/20", text: "text-gray-400" };
+                                        const typeColor = TYPE_COLORS[variable.type] ?? defaultColor;
+                                        return (
+                                            <div key={varIndex}>
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <span className="text-sm font-medium text-gray-300">
+                                                        {variable.name}
+                                                    </span>
+                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${typeColor.bg} ${typeColor.text}`}>
+                                                        {variable.type}
+                                                    </span>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={variable.value}
+                                                    onChange={(e) => handleVariableChange(selectedTestCaseIndex, varIndex, e.target.value)}
+                                                    className="w-full rounded-lg bg-gray-900 border border-gray-700 px-3 py-2.5 text-sm text-white font-mono focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                                    placeholder={`Enter ${variable.name}`}
+                                                />
+                                            </div>
+                                        );
+                                    })}
                                     {editableTestCases[selectedTestCaseIndex].variables.length === 0 && (
                                         <p className="text-sm text-gray-500">No input variables</p>
                                     )}

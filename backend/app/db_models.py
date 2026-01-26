@@ -224,6 +224,8 @@ class Question(Base):
     starter_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     test_cases: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # List of test cases for code questions
     language: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # Programming language for code questions
+    # Media fields
+    image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Base64 or URL for question image
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     
     # Relationships

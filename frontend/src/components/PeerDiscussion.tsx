@@ -33,6 +33,8 @@ interface PeerDiscussionProps {
     onComplete?: () => void;
     onInsightGained?: (insight: string) => void;
     onDiscussionComplete?: (data: DiscussionData) => void;
+    onRetry?: () => void;
+    showRetryInChat?: boolean;
 }
 
 interface Attachment {
@@ -171,7 +173,9 @@ export default function PeerDiscussion({
     confidence,
     onComplete,
     onInsightGained,
-    onDiscussionComplete
+    onDiscussionComplete,
+    onRetry,
+    showRetryInChat = false
 }: PeerDiscussionProps) {
     const [matchStatus, setMatchStatus] = useState<"searching" | "matched" | "ai_fallback">("searching");
     const [peerMatch, setPeerMatch] = useState<PeerMatch | null>(null);
@@ -803,24 +807,46 @@ export default function PeerDiscussion({
                     )}
                 </button>
                 {showQuestionContext && (
-                    <div className="px-4 pb-3 space-y-2">
+                    <div className="px-4 pb-3 space-y-3">
                         <p className="text-white text-sm font-medium">{question.question_text}</p>
-                        <div className="grid grid-cols-2 gap-2">
-                            {Object.entries(question.options).map(([key, value]) => (
-                                <div
-                                    key={key}
-                                    className={`text-xs px-2 py-1.5 rounded-lg ${
-                                        key === studentAnswer
-                                            ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
-                                            : "bg-gray-700 text-gray-300"
-                                    }`}
-                                >
-                                    <span className="font-bold">{key}:</span> {value}
-                                    {key === studentAnswer && (
-                                        <span className="ml-1 text-[10px] opacity-70">(your answer)</span>
-                                    )}
-                                </div>
-                            ))}
+                        <div className="flex flex-col gap-2">
+                            {Object.entries(question.options).map(([key, value]) => {
+                                const isWrongAnswer = key === studentAnswer && !isCorrect;
+                                const isCorrectAnswer = key === correctAnswer;
+                                return (
+                                    <div
+                                        key={key}
+                                        className={`flex items-center gap-3 text-sm px-3 py-2.5 rounded-lg border ${
+                                            isWrongAnswer
+                                                ? "bg-red-500/10 border-red-500/30 text-red-300"
+                                                : isCorrectAnswer
+                                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                                                : "bg-gray-700/50 border-gray-600 text-gray-300"
+                                        }`}
+                                    >
+                                        <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+                                            isWrongAnswer
+                                                ? "bg-red-500/20"
+                                                : isCorrectAnswer
+                                                ? "bg-emerald-500/20"
+                                                : "bg-gray-600"
+                                        }`}>
+                                            {key}
+                                        </span>
+                                        <span className="flex-1">{value}</span>
+                                        {isWrongAnswer && (
+                                            <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 font-medium uppercase">
+                                                Your answer
+                                            </span>
+                                        )}
+                                        {isCorrectAnswer && (
+                                            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium uppercase">
+                                                Correct
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -871,6 +897,44 @@ export default function PeerDiscussion({
                     <div className="flex justify-start">
                         <div className="bg-gray-700 rounded-2xl px-4 py-2">
                             <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Visual hint to type below - shows when last message is from AI and user hasn't responded */}
+                {!sending && messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId && !showRetryInChat && (
+                    <div className="flex justify-center mt-4 animate-bounce">
+                        <div className="flex items-center gap-1 text-sky-400 text-xs bg-sky-500/10 px-3 py-1.5 rounded-full">
+                            <ChevronDown className="h-3 w-3" />
+                            <span>Type your reply below</span>
+                            <ChevronDown className="h-3 w-3" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Retry action embedded in chat */}
+                {showRetryInChat && onRetry && messages.length >= 2 && (
+                    <div className="mt-4 space-y-3">
+                        <div className="bg-gray-700/50 rounded-2xl px-4 py-3">
+                            <p className="text-sm text-gray-300 mb-3">
+                                Ready to try again? You can also keep chatting if you have more questions.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={onRetry}
+                                    className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-sky-500/20"
+                                >
+                                    <RefreshCw className="h-4 w-4" />
+                                    Try Again
+                                </button>
+                                <button
+                                    onClick={() => setShowMasteryCheck(true)}
+                                    className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-white font-medium px-4 py-2.5 rounded-xl transition-colors"
+                                >
+                                    <Lightbulb className="h-4 w-4" />
+                                    Check Understanding
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1000,8 +1064,12 @@ export default function PeerDiscussion({
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                             onPaste={handlePaste}
-                            placeholder={pendingAttachment ? "Add a message..." : "Share your thoughts..."}
-                            className="flex-1 bg-gray-700 rounded-full px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                            placeholder={pendingAttachment ? "Add a message..." : messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId ? `Reply to ${messages[messages.length - 1]?.sender_name || "your peer"}...` : "Share your thoughts..."}
+                            className={`flex-1 bg-gray-700 rounded-full px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all ${
+                                !sending && messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId
+                                    ? "ring-2 ring-sky-500/40 animate-pulse"
+                                    : ""
+                            }`}
                         />
                         <button
                             onClick={sendMessage}
@@ -1013,9 +1081,11 @@ export default function PeerDiscussion({
                     </div>
                     <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-gray-500">
-                            {isRealPeer
-                                ? "Chat with your peer to understand the concept better"
-                                : "Paste or attach images of your work"
+                            {messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId
+                                ? "💬 Type in the box above to respond"
+                                : isRealPeer
+                                    ? "Chat with your peer to understand the concept better"
+                                    : "Paste or attach images of your work"
                             }
                         </p>
                         {!isCorrect && messages.filter(m => m.sender_id === playerId).length >= 2 && (

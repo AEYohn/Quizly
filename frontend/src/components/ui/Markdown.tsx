@@ -1,6 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import { MermaidDiagram } from "@/components/MermaidDiagram";
 
 interface MarkdownProps {
     children: string;
@@ -26,9 +27,19 @@ export function Markdown({ children, className = "" }: MarkdownProps) {
                     // Italic/emphasis
                     em: ({ children }) => <em className="italic text-gray-200">{children}</em>,
                     
-                    // Code blocks
+                    // Code blocks with Mermaid support
                     code: ({ className, children, ...props }) => {
                         const isInline = !className;
+
+                        // Check for mermaid diagram
+                        const match = /language-(\w+)/.exec(className || "");
+                        const language = match ? match[1] : "";
+
+                        if (language === "mermaid") {
+                            const chart = String(children).replace(/\n$/, "");
+                            return <MermaidDiagram chart={chart} className="my-4" />;
+                        }
+
                         if (isInline) {
                             return (
                                 <code className="bg-gray-800 text-emerald-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>

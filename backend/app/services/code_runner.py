@@ -894,18 +894,30 @@ using namespace std;
                 except:
                     pass
     
+    def _normalize_python_to_json(self, s: str) -> str:
+        """Convert Python repr output to valid JSON."""
+        import re
+        result = s
+        # Handle Python True/False/None
+        result = re.sub(r'\bTrue\b', 'true', result)
+        result = re.sub(r'\bFalse\b', 'false', result)
+        result = re.sub(r'\bNone\b', 'null', result)
+        # Replace single quotes with double quotes for string literals
+        result = re.sub(r"'([^']*)'", r'"\1"', result)
+        return result
+
     def _compare_outputs(self, actual: str, expected: str) -> bool:
         """
         Compare outputs with normalization.
-        Handles JSON, numbers, strings, arrays.
+        Handles JSON, numbers, strings, arrays, Python repr format.
         """
         actual = actual.strip()
         expected = expected.strip()
-        
+
         # Direct string match
         if actual == expected:
             return True
-        
+
         # Try JSON comparison (handles array/object formatting differences)
         try:
             actual_json = json.loads(actual)
@@ -913,7 +925,23 @@ using namespace std;
             return actual_json == expected_json
         except:
             pass
-        
+
+        # Try normalizing Python output to JSON and compare
+        try:
+            actual_normalized = self._normalize_python_to_json(actual)
+            expected_normalized = self._normalize_python_to_json(expected)
+
+            # Direct match after normalization
+            if actual_normalized == expected_normalized:
+                return True
+
+            # JSON comparison after normalization
+            actual_json = json.loads(actual_normalized)
+            expected_json = json.loads(expected_normalized)
+            return actual_json == expected_json
+        except:
+            pass
+
         # Try numeric comparison (handles float precision)
         try:
             actual_num = float(actual)
@@ -921,7 +949,7 @@ using namespace std;
             return abs(actual_num - expected_num) < 1e-6
         except:
             pass
-        
+
         # Case-insensitive string comparison as fallback
         return actual.lower() == expected.lower()
 
