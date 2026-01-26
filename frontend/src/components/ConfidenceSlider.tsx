@@ -11,97 +11,65 @@ interface ConfidenceSliderProps {
 }
 
 const confidenceLevels = [
-    { min: 0, max: 25, label: "Just guessing", emoji: "🤔", color: "from-red-400 to-red-500" },
-    { min: 26, max: 50, label: "Not sure", emoji: "😕", color: "from-orange-400 to-orange-500" },
-    { min: 51, max: 75, label: "Fairly confident", emoji: "🙂", color: "from-yellow-400 to-yellow-500" },
-    { min: 76, max: 100, label: "Very confident", emoji: "😎", color: "from-green-400 to-green-500" },
+    { value: 25, label: "Guessing", emoji: "🎲", color: "bg-red-500", hoverColor: "hover:bg-red-400", ringColor: "ring-red-400" },
+    { value: 50, label: "Not sure", emoji: "🤔", color: "bg-orange-500", hoverColor: "hover:bg-orange-400", ringColor: "ring-orange-400" },
+    { value: 75, label: "Pretty sure", emoji: "🙂", color: "bg-yellow-500", hoverColor: "hover:bg-yellow-400", ringColor: "ring-yellow-400" },
+    { value: 100, label: "Certain", emoji: "😎", color: "bg-green-500", hoverColor: "hover:bg-green-400", ringColor: "ring-green-400" },
 ];
 
 function getConfidenceLevel(value: number) {
-    return confidenceLevels.find(level => value >= level.min && value <= level.max) ?? confidenceLevels[0]!;
+    // Find the closest level
+    return confidenceLevels.reduce((prev, curr) =>
+        Math.abs(curr.value - value) < Math.abs(prev.value - value) ? curr : prev
+    );
 }
 
 export default function ConfidenceSlider({
     value,
     onChange,
     disabled = false,
-    showLabels = true,
-    size = "md"
 }: ConfidenceSliderProps) {
-    const [localValue, setLocalValue] = useState(value);
-    const level = getConfidenceLevel(localValue);
+    const [selected, setSelected] = useState(() => getConfidenceLevel(value));
 
     useEffect(() => {
-        setLocalValue(value);
+        setSelected(getConfidenceLevel(value));
     }, [value]);
 
-    const handleChange = (newValue: number) => {
-        setLocalValue(newValue);
-        onChange(newValue);
-    };
-
-    const sizeClasses = {
-        sm: "h-2",
-        md: "h-3",
-        lg: "h-4"
-    };
-
-    const thumbSize = {
-        sm: "w-4 h-4",
-        md: "w-6 h-6",
-        lg: "w-8 h-8"
+    const handleSelect = (level: typeof confidenceLevels[0]) => {
+        if (disabled) return;
+        setSelected(level);
+        onChange(level.value);
     };
 
     return (
         <div className="w-full">
-            {/* Confidence level display */}
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <span className="text-2xl">{level.emoji}</span>
-                    <span className="font-medium text-white/90">{level.label}</span>
-                </div>
-                <span className={`font-bold text-lg px-3 py-1 rounded-full bg-gradient-to-r ${level.color}`}>
-                    {localValue}%
-                </span>
+            {/* Button grid */}
+            <div className="grid grid-cols-4 gap-2">
+                {confidenceLevels.map((level) => {
+                    const isSelected = selected.value === level.value;
+                    return (
+                        <button
+                            key={level.value}
+                            onClick={() => handleSelect(level)}
+                            disabled={disabled}
+                            className={`
+                                flex flex-col items-center justify-center p-3 rounded-xl
+                                transition-all duration-200
+                                ${isSelected
+                                    ? `${level.color} ring-2 ${level.ringColor} ring-offset-2 ring-offset-gray-900 scale-105`
+                                    : `bg-white/10 ${level.hoverColor} hover:bg-opacity-20`
+                                }
+                                ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                            `}
+                        >
+                            <span className="text-2xl mb-1">{level.emoji}</span>
+                            <span className={`text-xs font-medium ${isSelected ? "text-white" : "text-white/80"}`}>
+                                {level.label}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
-
-            {/* Slider container */}
-            <div className="relative">
-                {/* Background track */}
-                <div className={`w-full ${sizeClasses[size]} rounded-full bg-white/20 overflow-hidden`}>
-                    {/* Filled portion */}
-                    <div
-                        className={`h-full rounded-full bg-gradient-to-r ${level.color} transition-all duration-150`}
-                        style={{ width: `${localValue}%` }}
-                    />
-                </div>
-
-                {/* Actual slider input */}
-                <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={localValue}
-                    onChange={(e) => handleChange(parseInt(e.target.value))}
-                    disabled={disabled}
-                    className={`absolute inset-0 w-full opacity-0 cursor-pointer ${disabled ? "cursor-not-allowed" : ""}`}
-                    style={{ height: "100%" }}
-                />
-
-                {/* Custom thumb indicator */}
-                <div
-                    className={`absolute top-1/2 -translate-y-1/2 ${thumbSize[size]} rounded-full bg-white shadow-lg border-2 border-white/50 transition-all duration-150 pointer-events-none`}
-                    style={{ left: `calc(${localValue}% - ${size === "sm" ? "8px" : size === "md" ? "12px" : "16px"})` }}
-                />
-            </div>
-
-            {/* Labels below slider */}
-            {showLabels && (
-                <div className="flex justify-between mt-2 text-xs text-white/60">
-                    <span>Guessing</span>
-                    <span>Very Sure</span>
-                </div>
-            )}
         </div>
     );
 }
@@ -112,28 +80,31 @@ export function ConfidenceSliderCompact({
     onChange,
     disabled = false
 }: Omit<ConfidenceSliderProps, "showLabels" | "size">) {
-    const level = getConfidenceLevel(value);
+    const selected = getConfidenceLevel(value);
 
     return (
-        <div className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-2">
-            <span className="text-lg">{level.emoji}</span>
-            <input
-                type="range"
-                min="0"
-                max="100"
-                value={value}
-                onChange={(e) => onChange(parseInt(e.target.value))}
-                disabled={disabled}
-                className="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer
-                    [&::-webkit-slider-thumb]:appearance-none
-                    [&::-webkit-slider-thumb]:w-4
-                    [&::-webkit-slider-thumb]:h-4
-                    [&::-webkit-slider-thumb]:rounded-full
-                    [&::-webkit-slider-thumb]:bg-white
-                    [&::-webkit-slider-thumb]:shadow-md
-                    [&::-webkit-slider-thumb]:cursor-pointer"
-            />
-            <span className="font-medium text-white min-w-[3rem] text-right">{value}%</span>
+        <div className="flex items-center gap-2">
+            {confidenceLevels.map((level) => {
+                const isSelected = selected.value === level.value;
+                return (
+                    <button
+                        key={level.value}
+                        onClick={() => !disabled && onChange(level.value)}
+                        disabled={disabled}
+                        className={`
+                            p-2 rounded-lg transition-all
+                            ${isSelected
+                                ? `${level.color} ring-2 ${level.ringColor}`
+                                : "bg-white/10 hover:bg-white/20"
+                            }
+                            ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                        `}
+                        title={level.label}
+                    >
+                        <span className="text-lg">{level.emoji}</span>
+                    </button>
+                );
+            })}
         </div>
     );
 }

@@ -1928,7 +1928,7 @@ export default function PlayGamePage() {
                     </div>
                 </div>
 
-                {/* Confidence Slider */}
+                {/* Confidence Selection */}
                 <div className="mb-6 rounded-2xl bg-gray-900 p-6 border border-gray-800">
                     <div className="flex items-center gap-2 mb-4">
                         <Brain className="h-5 w-5 text-white" />
@@ -1937,7 +1937,6 @@ export default function PlayGamePage() {
                     <ConfidenceSlider
                         value={confidence}
                         onChange={setConfidence}
-                        showLabels={true}
                     />
                 </div>
 
