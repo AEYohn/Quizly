@@ -954,11 +954,14 @@ async def get_player_state(
     last_answer = None
     if player.answers:
         last_answer = sorted(player.answers, key=lambda a: a.submitted_at, reverse=True)[0]
-    
+
+    # Calculate correct_answers from actual answers (more reliable than pre-computed counter)
+    actual_correct = sum(1 for a in player.answers if a.is_correct)
+
     return {
         "score": player.total_score,
         "rank": rank,
-        "correct_answers": player.correct_answers,
+        "correct_answers": actual_correct,  # Use calculated value, not potentially stale counter
         "current_streak": player.current_streak,
         "last_answer_correct": last_answer.is_correct if last_answer else None,
         "last_answer_points": last_answer.points_earned if last_answer else 0
@@ -1219,6 +1222,207 @@ async def get_player_analytics(
             "focus_areas": "misconception_correction" if len(misconceptions) > 0 else "knowledge_building",
             "learning_style": "confident_learner" if avg_confidence >= 70 else "careful_learner"
         }
+    }
+
+
+@router.get("/{game_id}/class-analytics")
+async def get_class_analytics(
+    game_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get comprehensive class-level analytics for a game.
+    Aggregates data across all players for teacher dashboard.
+    """
+    result = await db.execute(
+        select(GameSession)
+        .options(
+            selectinload(GameSession.players).selectinload(Player.answers),
+            selectinload(GameSession.quiz).selectinload(Quiz.questions)
+        )
+        .where(GameSession.id == game_id)
+    )
+    game = result.scalars().first()
+
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    questions = sorted(game.quiz.questions, key=lambda q: q.order)
+    active_players = [p for p in game.players if p.is_active]
+
+    if not active_players:
+        return {
+            "game_id": str(game_id),
+            "quiz_title": game.quiz.title,
+            "game_code": game.game_code,
+            "total_players": 0,
+            "class_accuracy": 0,
+            "class_avg_confidence": 0,
+            "calibration_summary": {"well_calibrated": 0, "overconfident": 0, "underconfident": 0},
+            "misconception_clusters": [],
+            "intervention_alerts": [],
+            "question_performance": [],
+            "student_performance": []
+        }
+
+    # Calculate class-level metrics
+    total_correct = sum(p.correct_answers for p in active_players)
+    total_answers = sum(len(p.answers) for p in active_players)
+    class_accuracy = (total_correct / total_answers * 100) if total_answers > 0 else 0
+
+    # Aggregate confidence data
+    all_confidences = []
+    calibration_summary = {"well_calibrated": 0, "overconfident": 0, "underconfident": 0}
+    student_performance = []
+
+    for player in active_players:
+        player_answers = player.answers
+        player_total = len(player_answers)
+        player_accuracy = (player.correct_answers / player_total * 100) if player_total > 0 else 0
+
+        confidences = [a.confidence for a in player_answers if a.confidence is not None]
+        avg_conf = sum(confidences) / len(confidences) if confidences else 50
+        all_confidences.extend(confidences)
+
+        # Determine calibration status
+        calibration_gap = avg_conf - player_accuracy
+        if calibration_gap > 20:
+            cal_status = "overconfident"
+            calibration_summary["overconfident"] += 1
+        elif calibration_gap < -20:
+            cal_status = "underconfident"
+            calibration_summary["underconfident"] += 1
+        else:
+            cal_status = "well_calibrated"
+            calibration_summary["well_calibrated"] += 1
+
+        # Count misconceptions (high confidence + wrong)
+        misconception_count = sum(
+            1 for a in player_answers
+            if not a.is_correct and a.confidence is not None and a.confidence >= 70
+        )
+
+        student_performance.append({
+            "player_id": str(player.id),
+            "nickname": player.nickname,
+            "score": player.total_score,
+            "accuracy": round(player_accuracy, 1),
+            "avg_confidence": round(avg_conf, 1),
+            "calibration_status": cal_status,
+            "misconception_count": misconception_count
+        })
+
+    class_avg_confidence = sum(all_confidences) / len(all_confidences) if all_confidences else 0
+
+    # Question-level performance
+    question_performance = []
+    misconception_clusters = []
+
+    for idx, q in enumerate(questions):
+        q_answers = []
+        answer_dist = {"A": 0, "B": 0, "C": 0, "D": 0}
+        confidences = []
+        times = []
+        wrong_by_answer = {}  # Track which wrong answers are most common
+
+        for player in active_players:
+            for a in player.answers:
+                if a.question_id == q.id:
+                    q_answers.append(a)
+                    if a.answer in answer_dist:
+                        answer_dist[a.answer] += 1
+                    if a.confidence is not None:
+                        confidences.append(a.confidence)
+                    if a.response_time_ms:
+                        times.append(a.response_time_ms)
+
+                    # Track wrong answers with high confidence (misconceptions)
+                    if not a.is_correct and a.confidence is not None and a.confidence >= 70:
+                        if a.answer not in wrong_by_answer:
+                            wrong_by_answer[a.answer] = {
+                                "count": 0,
+                                "students": [],
+                                "reasonings": []
+                            }
+                        wrong_by_answer[a.answer]["count"] += 1
+                        wrong_by_answer[a.answer]["students"].append(player.nickname)
+                        if a.reasoning:
+                            wrong_by_answer[a.answer]["reasonings"].append(a.reasoning)
+
+        correct_count = sum(1 for a in q_answers if a.is_correct)
+        correct_rate = (correct_count / len(q_answers) * 100) if q_answers else 0
+
+        question_performance.append({
+            "question_index": idx,
+            "question_text": q.question_text,
+            "correct_rate": round(correct_rate, 1),
+            "avg_confidence": round(sum(confidences) / len(confidences), 1) if confidences else 0,
+            "avg_time_ms": round(sum(times) / len(times)) if times else 0,
+            "answer_distribution": answer_dist
+        })
+
+        # Build misconception clusters for this question
+        for wrong_ans, data in wrong_by_answer.items():
+            if data["count"] >= 2:  # At least 2 students with same wrong answer
+                percentage = round(data["count"] / len(active_players) * 100)
+                misconception_clusters.append({
+                    "question_text": q.question_text,
+                    "question_index": idx,
+                    "wrong_answer": wrong_ans,
+                    "count": data["count"],
+                    "percentage": percentage,
+                    "students": data["students"],
+                    "common_reasoning": list(set(data["reasonings"]))[:3]  # Top 3 unique reasonings
+                })
+
+    # Generate intervention alerts
+    intervention_alerts = []
+
+    # Alert: Many misconceptions on a question
+    for cluster in misconception_clusters:
+        if cluster["percentage"] >= 25:
+            intervention_alerts.append({
+                "type": "misconception",
+                "severity": "high" if cluster["percentage"] >= 40 else "medium",
+                "message": f"{cluster['percentage']}% of class has misconception on Q{cluster['question_index'] + 1}",
+                "affected_students": cluster["students"],
+                "suggested_action": f"Review: {cluster['question_text'][:50]}..."
+            })
+
+    # Alert: Low performers
+    low_performers = [s for s in student_performance if s["accuracy"] < 50]
+    if low_performers:
+        intervention_alerts.append({
+            "type": "low_performance",
+            "severity": "high" if len(low_performers) >= 3 else "medium",
+            "message": f"{len(low_performers)} student{'s' if len(low_performers) > 1 else ''} scoring below 50%",
+            "affected_students": [s["nickname"] for s in low_performers],
+            "suggested_action": "Consider one-on-one review session"
+        })
+
+    # Alert: Overconfident students
+    overconfident = [s for s in student_performance if s["calibration_status"] == "overconfident"]
+    if len(overconfident) >= 3:
+        intervention_alerts.append({
+            "type": "calibration",
+            "severity": "medium",
+            "message": f"{len(overconfident)} students showing overconfidence",
+            "affected_students": [s["nickname"] for s in overconfident],
+            "suggested_action": "Discuss metacognitive strategies"
+        })
+
+    return {
+        "game_id": str(game_id),
+        "quiz_title": game.quiz.title,
+        "game_code": game.game_code,
+        "total_players": len(active_players),
+        "class_accuracy": round(class_accuracy, 1),
+        "class_avg_confidence": round(class_avg_confidence, 1),
+        "calibration_summary": calibration_summary,
+        "misconception_clusters": misconception_clusters,
+        "intervention_alerts": intervention_alerts,
+        "question_performance": question_performance,
+        "student_performance": student_performance
     }
 
 

@@ -123,8 +123,16 @@ function TeacherAnalyticsContent() {
     const fetchAnalytics = async (gameId: string) => {
         setLoading(true);
         try {
-            // For demo, use mock data. In production, fetch from API
-            setAnalytics(getMockAnalytics(gameId));
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/games/${gameId}/class-analytics`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAnalytics(data);
+            } else {
+                console.error("Failed to fetch analytics:", response.status);
+            }
         } catch (err) {
             console.error("Failed to fetch analytics:", err);
         } finally {
@@ -650,104 +658,3 @@ function CalibrationBar({
     );
 }
 
-function getMockAnalytics(gameId: string): GameAnalytics {
-    return {
-        game_id: gameId,
-        quiz_title: "Python Basics Quiz",
-        game_code: "ABC123",
-        total_players: 24,
-        class_accuracy: 72,
-        class_avg_confidence: 68,
-        calibration_summary: {
-            well_calibrated: 14,
-            overconfident: 7,
-            underconfident: 3
-        },
-        misconception_clusters: [
-            {
-                question_text: "What is the output of print(type([]))?",
-                question_index: 2,
-                wrong_answer: "B",
-                count: 8,
-                percentage: 33,
-                students: ["Alex", "Jordan", "Sam", "Casey", "Riley", "Morgan", "Taylor", "Drew"],
-                common_reasoning: [
-                    "Confused empty list with tuple",
-                    "Thought brackets indicate dictionary"
-                ]
-            },
-            {
-                question_text: "Which is true about Python variables?",
-                question_index: 5,
-                wrong_answer: "C",
-                count: 6,
-                percentage: 25,
-                students: ["Alex", "Jordan", "Sam", "Casey", "Riley", "Morgan"],
-                common_reasoning: [
-                    "Confused with statically typed languages",
-                    "Believed explicit type declaration is required"
-                ]
-            }
-        ],
-        intervention_alerts: [
-            {
-                type: "misconception",
-                severity: "high",
-                message: "33% of class has misconception about Python data types",
-                affected_students: ["Alex", "Jordan", "Sam", "Casey", "Riley", "Morgan", "Taylor", "Drew"],
-                suggested_action: "Re-teach Python data types with hands-on examples"
-            },
-            {
-                type: "low_performance",
-                severity: "medium",
-                message: "3 students scoring below 50%",
-                affected_students: ["Alex", "Jordan", "Sam"],
-                suggested_action: "Consider one-on-one review session"
-            }
-        ],
-        question_performance: [
-            {
-                question_index: 0,
-                question_text: "What is Python?",
-                correct_rate: 95,
-                avg_confidence: 88,
-                avg_time_ms: 4500,
-                answer_distribution: { A: 23, B: 0, C: 1, D: 0 }
-            },
-            {
-                question_index: 1,
-                question_text: "How do you create a variable in Python?",
-                correct_rate: 85,
-                avg_confidence: 75,
-                avg_time_ms: 6200,
-                answer_distribution: { A: 20, B: 2, C: 1, D: 1 }
-            },
-            {
-                question_index: 2,
-                question_text: "What is the output of print(type([]))?",
-                correct_rate: 58,
-                avg_confidence: 72,
-                avg_time_ms: 8100,
-                answer_distribution: { A: 14, B: 8, C: 1, D: 1 }
-            },
-            {
-                question_index: 3,
-                question_text: "What does 'len' function do?",
-                correct_rate: 88,
-                avg_confidence: 82,
-                avg_time_ms: 5400,
-                answer_distribution: { A: 21, B: 2, C: 0, D: 1 }
-            }
-        ],
-        student_performance: [
-            { player_id: "1", nickname: "Alex", score: 2100, accuracy: 45, avg_confidence: 78, calibration_status: "overconfident", misconception_count: 2 },
-            { player_id: "2", nickname: "Jordan", score: 2500, accuracy: 55, avg_confidence: 65, calibration_status: "well_calibrated", misconception_count: 1 },
-            { player_id: "3", nickname: "Sam", score: 1800, accuracy: 40, avg_confidence: 82, calibration_status: "overconfident", misconception_count: 3 },
-            { player_id: "4", nickname: "Casey", score: 4200, accuracy: 90, avg_confidence: 85, calibration_status: "well_calibrated", misconception_count: 0 },
-            { player_id: "5", nickname: "Riley", score: 3800, accuracy: 80, avg_confidence: 72, calibration_status: "well_calibrated", misconception_count: 0 },
-            { player_id: "6", nickname: "Morgan", score: 3500, accuracy: 75, avg_confidence: 58, calibration_status: "underconfident", misconception_count: 1 },
-            { player_id: "7", nickname: "Taylor", score: 4000, accuracy: 85, avg_confidence: 80, calibration_status: "well_calibrated", misconception_count: 0 },
-            { player_id: "8", nickname: "Drew", score: 3200, accuracy: 70, avg_confidence: 68, calibration_status: "well_calibrated", misconception_count: 1 }
-        ]
-    };
-}
