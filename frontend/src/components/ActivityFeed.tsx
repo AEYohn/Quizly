@@ -50,12 +50,12 @@ interface ExitTicket {
 }
 
 interface CompletedGame {
-    id: string;
+    game_id: string;
     quiz_title: string;
     score: number;
-    rank?: number;
-    total_players?: number;
-    completed_at: string;
+    total_questions?: number;
+    played_at: string;
+    nickname?: string;
 }
 
 interface PendingAssignment {
@@ -137,7 +137,7 @@ export function ActivityFeed({ studentName, token, initialLimit = 5 }: ActivityF
                     allActivities.push({
                         type: "completed_game",
                         data: game,
-                        date: game.completed_at,
+                        date: game.played_at,
                     });
                 });
             }
@@ -326,8 +326,11 @@ export function ActivityFeed({ studentName, token, initialLimit = 5 }: ActivityF
 
                 if (activity.type === "completed_game") {
                     const game = activity.data;
+                    const scorePercent = game.total_questions
+                        ? Math.round((game.score / game.total_questions) * 100)
+                        : 0;
                     return (
-                        <div key={`game-${game.id}`} className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
+                        <div key={`game-${game.game_id}`} className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
@@ -339,20 +342,20 @@ export function ActivityFeed({ studentName, token, initialLimit = 5 }: ActivityF
                                                 Game Complete
                                             </span>
                                             <span className="text-xs text-gray-500">
-                                                {formatRelativeTime(game.completed_at)}
+                                                {formatRelativeTime(game.played_at)}
                                             </span>
                                         </div>
                                         <h3 className="font-medium text-white mt-1">{game.quiz_title}</h3>
                                         <div className="flex items-center gap-3 mt-1 text-sm text-gray-400">
-                                            <span className="text-emerald-400 font-medium">{game.score}%</span>
-                                            {game.rank && game.total_players && (
-                                                <span>#{game.rank} of {game.total_players}</span>
+                                            <span className="text-emerald-400 font-medium">{scorePercent}%</span>
+                                            {game.total_questions && (
+                                                <span>{game.score}/{game.total_questions} correct</span>
                                             )}
                                         </div>
                                     </div>
                                 </div>
                                 <Link
-                                    href={`/results/${game.id}`}
+                                    href={`/play/${game.game_id}`}
                                     className="px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 text-sm hover:bg-gray-700 hover:text-white"
                                 >
                                     View Results
