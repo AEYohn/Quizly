@@ -14,7 +14,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..auth import get_current_user
+from ..auth_clerk import get_current_user_clerk as get_current_user
 from ..db_models import User
 from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer, generate_game_code
 from ..websocket_manager import manager, active_timers, GameTimer
@@ -182,6 +182,73 @@ async def create_game(
         player_count=0,
         created_at=game.created_at.isoformat()
     )
+
+
+# ==============================================================================
+# Public Endpoints (no auth required)
+# ==============================================================================
+
+@router.get("/lobby")
+async def get_lobby_games(
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all games currently in lobby status."""
+    result = await db.execute(
+        select(GameSession)
+        .options(
+            selectinload(GameSession.quiz),
+            selectinload(GameSession.players)
+        )
+        .where(GameSession.status == "lobby")
+        .order_by(GameSession.created_at.desc())
+        .limit(20)
+    )
+    games = result.scalars().all()
+
+    return [
+        {
+            "id": str(g.id),
+            "game_code": g.game_code,
+            "quiz_title": g.quiz.title if g.quiz else "Unknown",
+            "player_count": len(g.players) if g.players else 0,
+            "created_at": g.created_at.isoformat() if g.created_at else None
+        }
+        for g in games
+    ]
+
+
+@router.get("/history/{student_name}")
+async def get_student_game_history(
+    student_name: str,
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get game history for a student by nickname."""
+    # Find players with this nickname, eager load game -> quiz -> questions
+    result = await db.execute(
+        select(Player)
+        .options(
+            selectinload(Player.game)
+            .selectinload(GameSession.quiz)
+            .selectinload(Quiz.questions)
+        )
+        .where(Player.nickname.ilike(student_name))
+        .order_by(Player.joined_at.desc())
+        .limit(limit)
+    )
+    players = result.scalars().all()
+
+    return [
+        {
+            "game_id": str(p.game_id),
+            "quiz_title": p.game.quiz.title if p.game and p.game.quiz else "Unknown",
+            "score": p.correct_answers,
+            "total_questions": len(p.game.quiz.questions) if p.game and p.game.quiz and p.game.quiz.questions else 0,
+            "played_at": p.joined_at.isoformat() if p.joined_at else None,
+            "nickname": p.nickname
+        }
+        for p in players if p.game
+    ]
 
 
 @router.get("/{game_id}")
@@ -480,21 +547,35 @@ async def join_game(
     
     if not game:
         raise HTTPException(status_code=404, detail="Game not found or already started")
-    
-    # Check if nickname is taken
+
+    # Check if nickname already exists - allow rejoin
+    existing_player = None
     for p in game.players:
-        if p.nickname.lower() == join_data.nickname.lower() and p.is_active:
-            raise HTTPException(status_code=400, detail="Nickname already taken")
-    
-    # Create player
-    player = Player(
-        game_id=game.id,
-        nickname=join_data.nickname,
-        avatar=join_data.avatar
-    )
-    db.add(player)
-    await db.commit()
-    await db.refresh(player)
+        if p.nickname.lower() == join_data.nickname.lower():
+            if p.is_active:
+                # Player already active - allow rejoin (e.g., page refresh)
+                existing_player = p
+                break
+            else:
+                # Reactivate inactive player
+                p.is_active = True
+                existing_player = p
+                break
+
+    if existing_player:
+        await db.commit()
+        await db.refresh(existing_player)
+        player = existing_player
+    else:
+        # Create new player
+        player = Player(
+            game_id=game.id,
+            nickname=join_data.nickname,
+            avatar=join_data.avatar
+        )
+        db.add(player)
+        await db.commit()
+        await db.refresh(player)
 
     # Notify host via WebSocket that a new player joined
     # This is critical - without this, the host's lobby won't see the player
@@ -513,6 +594,108 @@ async def join_game(
         "nickname": player.nickname,
         "avatar": player.avatar
     }
+
+
+@router.post("/{game_id}/join")
+async def join_game_by_id(
+    game_id: UUID,
+    join_data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Join a game by ID (alternative to joining by game code)."""
+    # Find game by ID
+    result = await db.execute(
+        select(GameSession)
+        .options(selectinload(GameSession.players))
+        .where(
+            GameSession.id == game_id,
+            GameSession.status == "lobby"
+        )
+    )
+    game = result.scalars().first()
+
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found or already started")
+
+    nickname = join_data.get("nickname", "Player")
+    avatar = join_data.get("avatar", "🎓")
+
+    # Check if nickname already exists - allow rejoin
+    existing_player = None
+    for p in game.players:
+        if p.nickname.lower() == nickname.lower():
+            if p.is_active:
+                # Player already active - allow rejoin (e.g., page refresh)
+                existing_player = p
+                break
+            else:
+                # Reactivate inactive player
+                p.is_active = True
+                existing_player = p
+                break
+
+    if existing_player:
+        await db.commit()
+        await db.refresh(existing_player)
+        player = existing_player
+    else:
+        # Create new player
+        player = Player(
+            game_id=game.id,
+            nickname=nickname,
+            avatar=avatar
+        )
+        db.add(player)
+        await db.commit()
+        await db.refresh(player)
+
+    # Notify host via WebSocket
+    await manager.send_to_host(str(game.id), {
+        "type": "player_connected",
+        "player_id": str(player.id),
+        "nickname": player.nickname,
+        "avatar": player.avatar,
+        "player_count": len([p for p in game.players if p.is_active]) + 1
+    })
+
+    return {
+        "player_id": str(player.id),
+        "game_id": str(game.id),
+        "nickname": player.nickname,
+        "avatar": player.avatar
+    }
+
+
+@router.get("/quiz/{quiz_id}/active")
+async def get_active_game_for_quiz(
+    quiz_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get active (lobby) game session for a quiz, if one exists."""
+    from uuid import UUID
+    try:
+        result = await db.execute(
+            select(GameSession)
+            .where(
+                GameSession.quiz_id == UUID(quiz_id),
+                GameSession.status == "lobby"
+            )
+            .order_by(GameSession.created_at.desc())
+            .limit(1)
+        )
+        game = result.scalars().first()
+
+        if not game:
+            return None
+
+        return {
+            "id": str(game.id),
+            "game_code": game.game_code,
+            "status": game.status,
+            "created_at": game.created_at.isoformat() if game.created_at else None
+        }
+    except Exception:
+        return None
 
 
 @router.get("/code/{game_code}")
@@ -989,6 +1172,45 @@ async def get_player_state(
         "current_streak": player.current_streak,
         "last_answer_correct": last_answer.is_correct if last_answer else None,
         "last_answer_points": last_answer.points_earned if last_answer else 0
+    }
+
+
+@router.post("/{game_id}/player-finish")
+async def mark_player_finished(
+    game_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Mark a player as finished with the quiz (for analytics tracking)."""
+    player_id_str = data.get("player_id")
+    if not player_id_str:
+        raise HTTPException(status_code=400, detail="Missing player_id")
+
+    try:
+        player_id = UUID(player_id_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid player_id format")
+
+    # Get player
+    result = await db.execute(
+        select(Player)
+        .where(Player.id == player_id, Player.game_id == game_id)
+    )
+    player = result.scalars().first()
+
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    # Mark player as finished (update finished_at timestamp if the field exists)
+    # For now, we just acknowledge the request for analytics purposes
+    # The player's answers are already recorded
+
+    return {
+        "success": True,
+        "player_id": str(player.id),
+        "nickname": player.nickname,
+        "final_score": player.total_score,
+        "correct_answers": player.correct_answers
     }
 
 
@@ -2107,6 +2329,8 @@ class SmartChatResponse(BaseModel):
     name: str
     message: str
     follow_up_question: Optional[str] = None
+    ready_for_check: bool = False  # True when student should try the question again
+    ask_if_ready: bool = False  # True when AI gave lesson and asks if ready to try again
 
 
 # In-memory chat history storage per player/question (consider Redis for production)
@@ -2209,7 +2433,9 @@ async def smart_peer_chat(
     return SmartChatResponse(
         name=response["name"],
         message=response["message"],
-        follow_up_question=response.get("follow_up_question")
+        follow_up_question=response.get("follow_up_question"),
+        ready_for_check=response.get("ready_for_check", False),
+        ask_if_ready=response.get("ask_if_ready", False)
     )
 
 

@@ -186,6 +186,7 @@ export default function PlayGamePage() {
     // Multi-question practice state
     const [practiceQuestionIndex, setPracticeQuestionIndex] = useState(0);
     const [practiceAnswers, setPracticeAnswers] = useState<Record<number, { answer: string; correct: boolean }>>({});
+    const [expandedResultQuestion, setExpandedResultQuestion] = useState<number | null>(null);
 
     // Track student responses for exit ticket generation
     const [studentResponses, setStudentResponses] = useState<Array<{
@@ -1220,27 +1221,69 @@ export default function PlayGamePage() {
 
                                 {/* Practice Complete - Show results */}
                                 {practiceComplete && (
-                                    <div className="text-center py-6">
-                                        <h3 className="text-xl font-bold text-white mb-2">Complete</h3>
-                                        <p className="text-gray-400 text-lg">
-                                            {practiceScore} / {totalPracticeQuestions} correct
-                                        </p>
+                                    <div className="py-6">
+                                        <div className="text-center">
+                                            <h3 className="text-xl font-bold text-white mb-2">Complete</h3>
+                                            <p className="text-gray-400 text-lg">
+                                                {practiceScore} / {totalPracticeQuestions} correct
+                                            </p>
+                                        </div>
 
-                                        {/* Score breakdown */}
+                                        {/* Score breakdown - clickable circles */}
                                         <div className="flex flex-wrap justify-center gap-2 my-6">
                                             {Object.entries(practiceAnswers).map(([idx, result]) => (
-                                                <div
+                                                <button
                                                     key={idx}
-                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
+                                                    onClick={() => setExpandedResultQuestion(
+                                                        expandedResultQuestion === parseInt(idx) ? null : parseInt(idx)
+                                                    )}
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
                                                         result.correct
-                                                            ? "bg-gray-300 text-gray-900"
-                                                            : "bg-gray-800 text-gray-500"
-                                                    }`}
+                                                            ? "bg-gray-300 text-gray-900 hover:bg-white"
+                                                            : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                                                    } ${expandedResultQuestion === parseInt(idx) ? "ring-2 ring-white ring-offset-2 ring-offset-gray-950" : ""}`}
                                                 >
                                                     {parseInt(idx) + 1}
-                                                </div>
+                                                </button>
                                             ))}
                                         </div>
+                                        <p className="text-center text-xs text-gray-500 mb-4">Tap a question to see details</p>
+
+                                        {/* Expanded question details */}
+                                        {expandedResultQuestion !== null && exitTicket.practice_questions && (
+                                            <div className="mb-6 p-4 rounded-xl bg-gray-900 border border-gray-800">
+                                                {(() => {
+                                                    const q = exitTicket.practice_questions[expandedResultQuestion];
+                                                    const answer = practiceAnswers[expandedResultQuestion];
+                                                    if (!q || !answer) return null;
+                                                    return (
+                                                        <>
+                                                            <p className="text-sm text-gray-400 mb-2">Question {expandedResultQuestion + 1}</p>
+                                                            <p className="text-white font-medium mb-3">{q.prompt}</p>
+                                                            <div className="space-y-2 text-sm">
+                                                                <p>
+                                                                    <span className="text-gray-400">Your answer: </span>
+                                                                    <span className={answer.correct ? "text-emerald-400" : "text-red-400"}>
+                                                                        {answer.answer}
+                                                                    </span>
+                                                                </p>
+                                                                {!answer.correct && (
+                                                                    <p>
+                                                                        <span className="text-gray-400">Correct answer: </span>
+                                                                        <span className="text-emerald-400">{q.correct_answer}</span>
+                                                                    </p>
+                                                                )}
+                                                                {q.explanation && (
+                                                                    <p className="text-gray-400 mt-3 pt-3 border-t border-gray-800">
+                                                                        {q.explanation}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
 
                                         {/* Review Flashcards button */}
                                         {exitTicket.flashcards && exitTicket.flashcards.length > 0 && (
@@ -1297,7 +1340,7 @@ export default function PlayGamePage() {
                             ) : (
                                 <>
                                     <Link
-                                        href="/student/learning"
+                                        href="/student/dashboard"
                                         className="flex items-center justify-center gap-2 bg-gray-800 rounded-xl p-4 text-white hover:bg-gray-700 transition-colors"
                                     >
                                         <BookOpen className="h-5 w-5" />
@@ -1595,27 +1638,69 @@ export default function PlayGamePage() {
 
                                 {/* Practice Complete - Show results */}
                                 {practiceComplete && (
-                                    <div className="text-center py-6">
-                                        <h3 className="text-xl font-bold text-white mb-2">Complete</h3>
-                                        <p className="text-gray-400 text-lg">
-                                            {practiceScore} / {totalPracticeQuestions} correct
-                                        </p>
+                                    <div className="py-6">
+                                        <div className="text-center">
+                                            <h3 className="text-xl font-bold text-white mb-2">Complete</h3>
+                                            <p className="text-gray-400 text-lg">
+                                                {practiceScore} / {totalPracticeQuestions} correct
+                                            </p>
+                                        </div>
 
-                                        {/* Score breakdown */}
+                                        {/* Score breakdown - clickable circles */}
                                         <div className="flex flex-wrap justify-center gap-2 my-6">
                                             {Object.entries(practiceAnswers).map(([idx, result]) => (
-                                                <div
+                                                <button
                                                     key={idx}
-                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
+                                                    onClick={() => setExpandedResultQuestion(
+                                                        expandedResultQuestion === parseInt(idx) ? null : parseInt(idx)
+                                                    )}
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
                                                         result.correct
-                                                            ? "bg-gray-300 text-gray-900"
-                                                            : "bg-gray-800 text-gray-500"
-                                                    }`}
+                                                            ? "bg-gray-300 text-gray-900 hover:bg-white"
+                                                            : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                                                    } ${expandedResultQuestion === parseInt(idx) ? "ring-2 ring-white ring-offset-2 ring-offset-gray-950" : ""}`}
                                                 >
                                                     {parseInt(idx) + 1}
-                                                </div>
+                                                </button>
                                             ))}
                                         </div>
+                                        <p className="text-center text-xs text-gray-500 mb-4">Tap a question to see details</p>
+
+                                        {/* Expanded question details */}
+                                        {expandedResultQuestion !== null && exitTicket.practice_questions && (
+                                            <div className="mb-6 p-4 rounded-xl bg-gray-900 border border-gray-800">
+                                                {(() => {
+                                                    const q = exitTicket.practice_questions[expandedResultQuestion];
+                                                    const answer = practiceAnswers[expandedResultQuestion];
+                                                    if (!q || !answer) return null;
+                                                    return (
+                                                        <>
+                                                            <p className="text-sm text-gray-400 mb-2">Question {expandedResultQuestion + 1}</p>
+                                                            <p className="text-white font-medium mb-3">{q.prompt}</p>
+                                                            <div className="space-y-2 text-sm">
+                                                                <p>
+                                                                    <span className="text-gray-400">Your answer: </span>
+                                                                    <span className={answer.correct ? "text-emerald-400" : "text-red-400"}>
+                                                                        {answer.answer}
+                                                                    </span>
+                                                                </p>
+                                                                {!answer.correct && (
+                                                                    <p>
+                                                                        <span className="text-gray-400">Correct answer: </span>
+                                                                        <span className="text-emerald-400">{q.correct_answer}</span>
+                                                                    </p>
+                                                                )}
+                                                                {q.explanation && (
+                                                                    <p className="text-gray-400 mt-3 pt-3 border-t border-gray-800">
+                                                                        {q.explanation}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
 
                                         {/* Review Flashcards button */}
                                         {exitTicket.flashcards && exitTicket.flashcards.length > 0 && (
@@ -1808,7 +1893,7 @@ export default function PlayGamePage() {
                                 Download Results
                             </button>
                             <Link
-                                href="/student/learning"
+                                href="/student/dashboard"
                                 className="rounded-full bg-purple-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
                             >
                                 <BookOpen className="h-5 w-5" />
