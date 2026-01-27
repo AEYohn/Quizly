@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3, GraduationCap, Download, BookOpen, ExternalLink } from "lucide-react";
+import { Clock, Trophy, Loader2, Check, X, Sparkles, Zap, Star, ChevronDown, ChevronUp, Brain, MessageCircle, BarChart3, GraduationCap, Download, BookOpen, ExternalLink, LogOut, FileText, Pencil, AlertCircle, Lightbulb, UserPlus, Target } from "lucide-react";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { useGameSocket } from "~/lib/useGameSocket";
 import ConfidenceSlider from "~/components/ConfidenceSlider";
 import PeerDiscussion from "~/components/PeerDiscussion";
@@ -66,29 +67,17 @@ function FlashcardComponent({ front, back, index }: { front: string; back: strin
             onClick={() => setIsFlipped(!isFlipped)}
             className="cursor-pointer"
         >
-            <div className={`relative rounded-xl p-5 transition-all duration-300 ${
+            <div className={`relative rounded-lg p-4 transition-all duration-200 ${
                 isFlipped
-                    ? "bg-emerald-500/20 border border-emerald-500/30"
-                    : "bg-white/10 border border-white/20 hover:bg-white/15"
+                    ? "bg-gray-800 border border-gray-700"
+                    : "bg-gray-900 border border-gray-800 hover:border-gray-700"
             }`}>
-                <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 bg-white/20 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-medium">
-                        {index + 1}
-                    </span>
-                    <div className="flex-1">
-                        <p className={`font-medium ${isFlipped ? "text-emerald-300" : "text-white"}`}>
-                            {front}
-                        </p>
-                        {isFlipped && (
-                            <div className="mt-3 pt-3 border-t border-emerald-500/30">
-                                <p className="text-gray-200">{back}</p>
-                            </div>
-                        )}
-                        {!isFlipped && (
-                            <p className="text-gray-500 text-sm mt-2">Click to reveal answer</p>
-                        )}
+                <p className="text-white">{front}</p>
+                {isFlipped && (
+                    <div className="mt-3 pt-3 border-t border-gray-700">
+                        <p className="text-gray-400">{back}</p>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
@@ -98,6 +87,7 @@ export default function PlayGamePage() {
     const params = useParams();
     const router = useRouter();
     const gameId = params.id as string;
+    const { isSignedIn } = useUser();
 
     const [game, setGame] = useState<GameState | null>(null);
     const [playerState, setPlayerState] = useState<PlayerState | null>(null);
@@ -106,15 +96,13 @@ export default function PlayGamePage() {
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [questionStartTime, setQuestionStartTime] = useState<number>(0);
+    const [localCorrectCount, setLocalCorrectCount] = useState(0);
+    // Track last answer correctness locally (not overwritten by backend fetch)
+    const [lastAnswerWasCorrect, setLastAnswerWasCorrect] = useState<boolean | null>(null);
 
     // Async mode: track current question index independently
-    const [asyncQuestionIndex, setAsyncQuestionIndex] = useState<number>(() => {
-        if (typeof window !== "undefined") {
-            const saved = sessionStorage.getItem(`quiz_progress_${gameId}`);
-            return saved ? parseInt(saved, 10) : 0;
-        }
-        return 0;
-    });
+    // Initialize to 0, then restore from sessionStorage once we have playerId
+    const [asyncQuestionIndex, setAsyncQuestionIndex] = useState<number>(0);
 
     // AI Host state
     const [hostMessage, setHostMessage] = useState<string>("");
@@ -220,6 +208,31 @@ export default function PlayGamePage() {
         ? sessionStorage.getItem("nickname")
         : null;
 
+    // Handle exit quiz - go to dashboard if signed in, join page if guest
+    const handleExitQuiz = () => {
+        if (isSignedIn) {
+            router.push("/student/dashboard");
+        } else {
+            router.push("/join");
+        }
+    };
+
+    // Handle sign-up for students - pre-set role and redirect
+    const handleStudentSignUp = () => {
+        console.log("[Play Page] handleStudentSignUp called", { playerId, gameId });
+        localStorage.setItem("quizly_pending_role", "student");
+        // Store guest data for linking after sign-up
+        if (playerId) {
+            localStorage.setItem("quizly_pending_player_id", playerId);
+            console.log("[Play Page] Stored pending player_id:", playerId);
+        } else {
+            console.log("[Play Page] No playerId to store!");
+        }
+        localStorage.setItem("quizly_pending_game_id", gameId);
+        console.log("[Play Page] Stored pending game_id:", gameId);
+        router.push("/sign-up");
+    };
+
     // Back navigation handler - warn user if they try to leave during quiz
     useEffect(() => {
         const handlePopState = (e: PopStateEvent) => {
@@ -230,7 +243,7 @@ export default function PlayGamePage() {
                     "Are you sure you want to leave the quiz? Your progress will be saved but you'll exit the current session."
                 );
                 if (confirmLeave) {
-                    router.push("/student");
+                    router.push(isSignedIn ? "/student/dashboard" : "/");
                 } else {
                     // Push state back to prevent actual navigation
                     window.history.pushState(null, "", window.location.href);
@@ -252,7 +265,7 @@ export default function PlayGamePage() {
     const { isConnected, timeRemaining: wsTimeRemaining } = useGameSocket({
         gameId,
         playerId: playerId || undefined,
-        enabled: !!playerId && game?.sync_mode !== false,
+        enabled: !!playerId && game?.sync_mode === true,
         onGameStarted: () => {
             // Game started - fetch latest state
             fetchGame();
@@ -277,6 +290,7 @@ export default function PlayGamePage() {
             setHostMessage("");
             setShowExplanation(false);
             setTimeLeft(data.time_limit);
+            setLastAnswerWasCorrect(null);
             // Reset adaptive learning state
             setConfidence(70);
             setReasoning("");
@@ -378,7 +392,7 @@ export default function PlayGamePage() {
         }
     }, [playerId, nickname]);
 
-    // Fetch player state
+    // Fetch player state - preserve local last_answer_correct to avoid race condition
     const fetchPlayerState = useCallback(async () => {
         if (!playerId) return;
 
@@ -388,7 +402,12 @@ export default function PlayGamePage() {
             );
             if (response.ok) {
                 const data = await response.json();
-                setPlayerState(data);
+                // Preserve local last_answer_correct if it's set (backend might not have it)
+                setPlayerState(prev => ({
+                    ...data,
+                    last_answer_correct: prev?.last_answer_correct ?? data.last_answer_correct ?? null,
+                    last_answer_points: prev?.last_answer_points ?? data.last_answer_points ?? 0,
+                }));
             }
         } catch (error) {
             console.error("Failed to fetch player state:", error);
@@ -431,6 +450,7 @@ export default function PlayGamePage() {
                         setQuestionStartTime(Date.now());
                         setHostMessage("");
                         setShowExplanation(false);
+                        setLastAnswerWasCorrect(null);
                         if (data.current_question) {
                             setTimeLeft(data.current_question.time_limit);
                         }
@@ -452,23 +472,55 @@ export default function PlayGamePage() {
         const nextIndex = asyncQuestionIndex + 1;
         if (nextIndex < game.total_questions) {
             setAsyncQuestionIndex(nextIndex);
-            // Save progress to sessionStorage
-            if (typeof window !== "undefined") {
-                sessionStorage.setItem(`quiz_progress_${gameId}`, nextIndex.toString());
+            // Save progress to sessionStorage (tied to player session)
+            if (typeof window !== "undefined" && playerId) {
+                sessionStorage.setItem(`quiz_progress_${gameId}_${playerId}`, nextIndex.toString());
             }
             setSelectedAnswer(null);
             setHasAnswered(false);
             setHostMessage("");
             setShowExplanation(false);
             setQuestionStartTime(Date.now());
+            setLastAnswerWasCorrect(null); // Reset for next question
         }
-    }, [game, asyncQuestionIndex, gameId]);
+    }, [game, asyncQuestionIndex, gameId, playerId]);
 
     // Keep refs in sync with volatile values (to avoid polling useEffect dependency issues)
     useEffect(() => {
         gameStatusRef.current = game?.status;
         isConnectedRef.current = isConnected;
     }, [game?.status, isConnected]);
+
+    // Check for completed quiz state on mount (survives back navigation)
+    // Key includes both gameId AND playerId so replaying with new session works
+    useEffect(() => {
+        if (typeof window !== "undefined" && gameId && playerId) {
+            const wasCompleted = sessionStorage.getItem(`quiz_completed_${gameId}_${playerId}`);
+            if (wasCompleted === "true") {
+                // If they've completed this quiz session, redirect to appropriate place
+                // Don't show 0/0 summary - just take them to their dashboard or join page
+                if (isSignedIn) {
+                    router.push("/student/dashboard");
+                } else {
+                    router.push("/join");
+                }
+                return;
+            }
+        }
+    }, [gameId, playerId, isSignedIn, router]);
+
+    // Restore quiz progress from sessionStorage (tied to player session)
+    useEffect(() => {
+        if (typeof window !== "undefined" && gameId && playerId) {
+            const saved = sessionStorage.getItem(`quiz_progress_${gameId}_${playerId}`);
+            if (saved) {
+                const savedIndex = parseInt(saved, 10);
+                if (!isNaN(savedIndex) && savedIndex > 0) {
+                    setAsyncQuestionIndex(savedIndex);
+                }
+            }
+        }
+    }, [gameId, playerId]);
 
     useEffect(() => {
         if (!playerId) {
@@ -578,9 +630,10 @@ export default function PlayGamePage() {
                     had_peer_discussion: false, // Will be updated if peer discussion occurs
                 }]);
 
-                // Update streak
+                // Update streak and local correct count
                 if (isCorrect) {
                     setStreak(prev => prev + 1);
+                    setLocalCorrectCount(prev => prev + 1);
                 } else {
                     setStreak(0);
                     // In async mode, ALWAYS show peer discussion for wrong answers
@@ -606,6 +659,9 @@ export default function PlayGamePage() {
                     rank: prev?.rank || 1,
                 }));
 
+                // Track correctness locally (won't be overwritten by backend fetch)
+                setLastAnswerWasCorrect(isCorrect);
+
                 // Fetch AI host reaction with correct answer from backend
                 fetchHostReaction(
                     isCorrect,
@@ -616,10 +672,15 @@ export default function PlayGamePage() {
                     timeTaken
                 );
             } else {
-                setHostMessage("Answer submitted!");
+                // API returned error - allow retry
+                console.error("Answer API error, status:", response.status);
+                setHostMessage("Something went wrong. Please try again.");
+                setHasAnswered(false); // Allow retry
             }
         } catch (error) {
             console.error("Failed to submit answer:", error);
+            setHostMessage("Network error. Please try again.");
+            setHasAnswered(false); // Allow retry
         }
     };
 
@@ -726,6 +787,12 @@ export default function PlayGamePage() {
     const handleQuizComplete = async () => {
         // Mark quiz as completed to stop polling (set ref immediately)
         isQuizCompletedRef.current = true;
+
+        // Persist completion status to sessionStorage to survive page refreshes/back navigation
+        // Key includes playerId so replaying with a new session works
+        if (typeof window !== "undefined" && playerId) {
+            sessionStorage.setItem(`quiz_completed_${gameId}_${playerId}`, "true");
+        }
 
         // Fetch final player state to get accurate correct_answers count
         await fetchPlayerState();
@@ -883,79 +950,108 @@ export default function PlayGamePage() {
                     </div>
                 ) : showExitTicket && exitTicket ? (
                     <div className="max-w-3xl mx-auto py-6 px-4">
-                        <button
-                            onClick={() => setShowExitTicket(false)}
-                            className="mb-4 text-gray-400 hover:text-white flex items-center gap-2"
-                        >
-                            ← Back to Results
-                        </button>
+                        {/* Header Bar */}
+                        <div className="flex items-center justify-between mb-4">
+                            <button
+                                onClick={() => setShowExitTicket(false)}
+                                className="text-gray-500 hover:text-white flex items-center gap-2 transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                            {!isSignedIn && (
+                                <button
+                                    onClick={handleStudentSignUp}
+                                    className="flex items-center gap-2 bg-gray-200 hover:bg-white text-gray-900 text-sm font-medium px-4 py-2 rounded-full transition-colors"
+                                >
+                                    <UserPlus className="h-4 w-4" />
+                                    Save this packet
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Sign-up CTA Banner for guests */}
+                        {!isSignedIn && (
+                            <div className="mb-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
+                                <p className="text-white font-medium mb-1">Want to keep this study packet?</p>
+                                <p className="text-gray-400 text-sm mb-3">Create a free account to save your progress and access your study materials anytime.</p>
+                                <button
+                                    onClick={handleStudentSignUp}
+                                    className="inline-flex items-center gap-2 bg-gray-200 text-gray-900 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-white transition-colors"
+                                >
+                                    Sign up free
+                                </button>
+                            </div>
+                        )}
 
                         {/* Header */}
                         <div className="text-center mb-6">
-                            <GraduationCap className="h-12 w-12 text-yellow-400 mx-auto mb-2" />
-                            <h2 className="text-2xl font-bold text-white">Your Personalized Study Packet</h2>
-                            <p className="text-white/70 mt-1">Topic: {exitTicket.target_concept}</p>
-                            <p className="text-sm text-gray-400 mt-1">
-                                {totalPracticeQuestions} homework questions • {exitTicket.flashcards?.length || 0} flashcards
-                            </p>
+                            <h2 className="text-2xl font-bold text-white">Study Packet</h2>
+                            <p className="text-gray-400 mt-1">{exitTicket.target_concept}</p>
                         </div>
 
-                        {/* Section Tabs */}
-                        <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-xl">
+                        {/* Section Tabs - Monochrome */}
+                        <div className="flex gap-1 mb-6 bg-gray-900 p-1 rounded-xl border border-gray-800">
                             <button
                                 onClick={() => setStudyPacketSection("notes")}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                                     studyPacketSection === "notes"
-                                        ? "bg-sky-600 text-white"
-                                        : "text-gray-400 hover:text-white"
+                                        ? "bg-white text-gray-900"
+                                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                                 }`}
                             >
-                                📚 Notes
+                                <FileText className="h-4 w-4" />
+                                Notes
                             </button>
                             <button
                                 onClick={() => setStudyPacketSection("homework")}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                                     studyPacketSection === "homework"
-                                        ? "bg-purple-600 text-white"
-                                        : "text-gray-400 hover:text-white"
+                                        ? "bg-white text-gray-900"
+                                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                                 }`}
                             >
-                                ✏️ Homework ({totalPracticeQuestions})
+                                <Pencil className="h-4 w-4" />
+                                Homework {totalPracticeQuestions > 0 && <span className="text-xs opacity-60">{totalPracticeQuestions}</span>}
                             </button>
                             <button
                                 onClick={() => setStudyPacketSection("review")}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                                     studyPacketSection === "review"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-gray-400 hover:text-white"
+                                        ? "bg-white text-gray-900"
+                                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                                 }`}
                             >
-                                🃏 Cards
+                                <BookOpen className="h-4 w-4" />
+                                Flashcards
                             </button>
                         </div>
 
-                        {/* STUDY NOTES SECTION */}
+                        {/* STUDY NOTES SECTION - Card-based design */}
                         {studyPacketSection === "notes" && (
                             <div className="space-y-4">
-                                {/* Quick Review */}
-                                <div className="bg-sky-500/20 rounded-xl p-5 border border-sky-500/30">
-                                    <h3 className="font-bold text-sky-300 mb-3 flex items-center gap-2 text-lg">
-                                        <Sparkles className="h-5 w-5" /> Quick Review
+                                {/* Quick Summary Card */}
+                                <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                    <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4" />
+                                        Summary
                                     </h3>
-                                    <p className="text-gray-200 leading-relaxed">{exitTicket.micro_lesson}</p>
+                                    <p className="text-gray-300 leading-relaxed text-[15px]">{exitTicket.micro_lesson}</p>
                                     {exitTicket.encouragement && (
-                                        <p className="text-cyan-300 mt-3 italic border-t border-sky-500/30 pt-3">{exitTicket.encouragement}</p>
+                                        <p className="text-gray-500 mt-3 text-sm italic">{exitTicket.encouragement}</p>
                                     )}
                                 </div>
 
-                                {/* Key Concepts */}
+                                {/* Key Concepts Card */}
                                 {exitTicket.study_notes?.key_concepts && exitTicket.study_notes.key_concepts.length > 0 && (
-                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
-                                        <h3 className="font-bold text-purple-300 mb-3">🎯 Key Concepts</h3>
-                                        <ul className="space-y-2">
+                                    <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                            <BookOpen className="h-4 w-4" />
+                                            Key Concepts
+                                        </h3>
+                                        <ul className="space-y-3">
                                             {exitTicket.study_notes.key_concepts.map((concept, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-2">
-                                                    <span className="text-purple-400 mt-1">•</span>
+                                                <li key={i} className="text-gray-300 flex items-start gap-3 text-[15px]">
+                                                    <span className="text-white bg-gray-800 rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">{i + 1}</span>
                                                     <span>{concept}</span>
                                                 </li>
                                             ))}
@@ -963,14 +1059,17 @@ export default function PlayGamePage() {
                                     </div>
                                 )}
 
-                                {/* Common Mistakes */}
+                                {/* Watch Out For Card */}
                                 {exitTicket.study_notes?.common_mistakes && exitTicket.study_notes.common_mistakes.length > 0 && (
-                                    <div className="bg-orange-500/20 rounded-xl p-5 border border-orange-500/30">
-                                        <h3 className="font-bold text-orange-300 mb-3">⚠️ Watch Out For</h3>
-                                        <ul className="space-y-2">
+                                    <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                            <AlertCircle className="h-4 w-4" />
+                                            Watch Out For
+                                        </h3>
+                                        <ul className="space-y-3">
                                             {exitTicket.study_notes.common_mistakes.map((mistake, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-2">
-                                                    <span className="text-orange-400 mt-1">✗</span>
+                                                <li key={i} className="text-gray-300 flex items-start gap-3 text-[15px]">
+                                                    <X className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
                                                     <span>{mistake}</span>
                                                 </li>
                                             ))}
@@ -978,16 +1077,17 @@ export default function PlayGamePage() {
                                     </div>
                                 )}
 
-                                {/* Strategies */}
+                                {/* Strategies Card */}
                                 {exitTicket.study_notes?.strategies && exitTicket.study_notes.strategies.length > 0 && (
-                                    <div className="bg-emerald-500/20 rounded-xl p-5 border border-emerald-500/30">
-                                        <h3 className="font-bold text-emerald-300 mb-3">💡 Strategies</h3>
-                                        <ol className="space-y-2">
+                                    <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                            <Target className="h-4 w-4" />
+                                            Strategies
+                                        </h3>
+                                        <ol className="space-y-3">
                                             {exitTicket.study_notes.strategies.map((strategy, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-3">
-                                                    <span className="bg-emerald-500/30 text-emerald-300 rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
-                                                        {i + 1}
-                                                    </span>
+                                                <li key={i} className="text-gray-300 flex items-start gap-3 text-[15px]">
+                                                    <span className="text-white bg-gray-800 rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">{i + 1}</span>
                                                     <span>{strategy}</span>
                                                 </li>
                                             ))}
@@ -995,14 +1095,17 @@ export default function PlayGamePage() {
                                     </div>
                                 )}
 
-                                {/* Memory Tips */}
+                                {/* Memory Tips Card */}
                                 {exitTicket.study_notes?.memory_tips && exitTicket.study_notes.memory_tips.length > 0 && (
-                                    <div className="bg-pink-500/20 rounded-xl p-5 border border-pink-500/30">
-                                        <h3 className="font-bold text-pink-300 mb-3">🧠 Memory Tips</h3>
-                                        <ul className="space-y-2">
+                                    <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                            <Lightbulb className="h-4 w-4" />
+                                            Memory Tips
+                                        </h3>
+                                        <ul className="space-y-3">
                                             {exitTicket.study_notes.memory_tips.map((tip, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-2">
-                                                    <span className="text-pink-400 mt-1">★</span>
+                                                <li key={i} className="text-gray-300 flex items-start gap-3 text-[15px]">
+                                                    <span className="text-gray-500 mt-0.5">•</span>
                                                     <span>{tip}</span>
                                                 </li>
                                             ))}
@@ -1010,48 +1113,37 @@ export default function PlayGamePage() {
                                     </div>
                                 )}
 
-                                <button
-                                    onClick={() => setStudyPacketSection("homework")}
-                                    className="w-full rounded-xl bg-purple-600 px-6 py-4 font-bold text-white hover:bg-purple-500 transition-colors"
-                                >
-                                    Start Homework →
-                                </button>
+                                {/* Action Buttons */}
+                                <div className="pt-2 space-y-3">
+                                    <button
+                                        onClick={() => setStudyPacketSection("homework")}
+                                        className="w-full rounded-xl bg-white text-gray-900 px-6 py-4 font-semibold hover:bg-gray-100 transition-colors"
+                                    >
+                                        Start Homework →
+                                    </button>
+                                </div>
                             </div>
                         )}
 
-                        {/* HOMEWORK SECTION */}
+                        {/* HOMEWORK SECTION - Monochrome */}
                         {studyPacketSection === "homework" && (
                             <div className="space-y-4">
                                 {totalPracticeQuestions > 0 && !practiceComplete && currentPracticeQuestion && (
-                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
+                                    <div>
+                                        {/* Progress indicator */}
                                         <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h3 className="font-bold text-purple-300">Question</h3>
-                                                {currentPracticeQuestion.difficulty && (
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                        currentPracticeQuestion.difficulty === "foundation"
-                                                            ? "bg-green-500/30 text-green-300"
-                                                            : currentPracticeQuestion.difficulty === "core"
-                                                            ? "bg-purple-500/30 text-purple-300"
-                                                            : "bg-orange-500/30 text-orange-300"
-                                                    }`}>
-                                                        {currentPracticeQuestion.difficulty}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-purple-300 font-medium">
-                                                {practiceQuestionIndex + 1} / {totalPracticeQuestions}
-                                            </span>
+                                            <span className="text-gray-400 text-sm">Question {practiceQuestionIndex + 1} of {totalPracticeQuestions}</span>
                                         </div>
 
-                                        <div className="h-2 bg-purple-900/50 rounded-full mb-5 overflow-hidden">
+                                        {/* Progress bar */}
+                                        <div className="h-1.5 bg-gray-800 rounded-full mb-6 overflow-hidden">
                                             <div
-                                                className="h-full bg-purple-500 transition-all"
+                                                className="h-full bg-gray-400 transition-all duration-300"
                                                 style={{ width: `${((practiceQuestionIndex + 1) / totalPracticeQuestions) * 100}%` }}
                                             />
                                         </div>
 
-                                        <p className="text-white mb-4 text-lg">{currentPracticeQuestion.prompt}</p>
+                                        <p className="text-white mb-5 text-lg">{currentPracticeQuestion.prompt}</p>
                                         <div className="space-y-2">
                                             {currentPracticeQuestion.options.map((opt, i) => {
                                                 const optLetter = String.fromCharCode(65 + i);
@@ -1064,15 +1156,15 @@ export default function PlayGamePage() {
                                                         key={i}
                                                         onClick={() => !currentPracticeAnswer && submitPracticeAnswer(optLetter)}
                                                         disabled={!!currentPracticeAnswer}
-                                                        className={`w-full text-left rounded-lg px-4 py-3 text-white transition-colors ${
+                                                        className={`w-full text-left rounded-lg px-4 py-3 transition-colors ${
                                                             showResult
                                                                 ? isCorrect
-                                                                    ? "bg-green-500/30 border-2 border-green-500"
-                                                                    : isSelected
-                                                                    ? "bg-red-500/30 border-2 border-red-500"
-                                                                    : "bg-white/10"
-                                                                : "bg-white/10 hover:bg-white/20"
-                                                        }`}
+                                                                    ? "bg-gray-200 text-gray-900 font-medium"
+                                                                    : isSelected && !currentPracticeAnswer?.correct
+                                                                    ? "bg-gray-800 text-gray-500 line-through"
+                                                                    : "bg-gray-900 text-gray-400 border border-gray-800"
+                                                                : "bg-gray-900 text-gray-200 hover:bg-gray-800 border border-gray-800"
+                                                        } ${currentPracticeAnswer ? "cursor-default" : "cursor-pointer"}`}
                                                     >
                                                         {opt}
                                                     </button>
@@ -1080,56 +1172,80 @@ export default function PlayGamePage() {
                                             })}
                                         </div>
 
+                                        {/* Result feedback */}
                                         {currentPracticeAnswer && (
-                                            <>
-                                                <div className={`mt-4 p-4 rounded-lg ${
-                                                    currentPracticeAnswer.correct
-                                                        ? "bg-green-500/20 border border-green-500/30"
-                                                        : "bg-orange-500/20 border border-orange-500/30"
-                                                }`}>
-                                                    {currentPracticeAnswer.correct ? (
-                                                        <p className="text-green-300 flex items-center gap-2 font-medium">
-                                                            <Check className="h-5 w-5" /> Correct!
-                                                        </p>
-                                                    ) : (
-                                                        <p className="text-orange-300">Correct answer: {currentPracticeQuestion.correct_answer}</p>
-                                                    )}
-                                                    {currentPracticeQuestion.explanation && (
-                                                        <p className="text-gray-300 text-sm mt-2">{currentPracticeQuestion.explanation}</p>
-                                                    )}
-                                                </div>
-                                                <button
-                                                    onClick={() => practiceQuestionIndex < totalPracticeQuestions - 1 && nextPracticeQuestion()}
-                                                    className="w-full mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-500"
-                                                >
-                                                    {practiceQuestionIndex < totalPracticeQuestions - 1 ? "Next →" : "See Results"}
-                                                </button>
-                                            </>
+                                            <div className="mt-4 p-4 rounded-lg bg-gray-900 border border-gray-800">
+                                                {currentPracticeAnswer.correct ? (
+                                                    <p className="text-white flex items-center gap-2 font-medium">
+                                                        <Check className="h-5 w-5" /> Correct
+                                                    </p>
+                                                ) : (
+                                                    <div>
+                                                        <p className="text-gray-300">The correct answer is {currentPracticeQuestion.correct_answer}.</p>
+                                                        {currentPracticeQuestion.hint && (
+                                                            <p className="text-gray-400 text-sm mt-2">{currentPracticeQuestion.hint}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {currentPracticeQuestion.explanation && (
+                                                    <p className="text-gray-400 text-sm mt-3 pt-3 border-t border-gray-800">
+                                                        {currentPracticeQuestion.explanation}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Next Question button */}
+                                        {currentPracticeAnswer && (
+                                            <button
+                                                onClick={() => {
+                                                    if (practiceQuestionIndex < totalPracticeQuestions - 1) {
+                                                        nextPracticeQuestion();
+                                                    }
+                                                }}
+                                                className="w-full mt-4 rounded-xl bg-gray-200 text-gray-900 px-6 py-3 font-semibold hover:bg-white transition-colors"
+                                            >
+                                                {practiceQuestionIndex < totalPracticeQuestions - 1
+                                                    ? "Next →"
+                                                    : "See Results"}
+                                            </button>
                                         )}
                                     </div>
                                 )}
 
+                                {/* Practice Complete - Show results */}
                                 {practiceComplete && (
-                                    <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl p-6 border border-green-500/30 text-center">
-                                        <Trophy className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
-                                        <h3 className="text-xl font-bold text-white">Homework Complete!</h3>
-                                        <p className="text-green-300 text-lg mt-2">
-                                            {practiceScore} / {totalPracticeQuestions} correct ({Math.round((practiceScore / totalPracticeQuestions) * 100)}%)
+                                    <div className="text-center py-6">
+                                        <h3 className="text-xl font-bold text-white mb-2">Complete</h3>
+                                        <p className="text-gray-400 text-lg">
+                                            {practiceScore} / {totalPracticeQuestions} correct
                                         </p>
-                                        <div className="flex flex-wrap justify-center gap-2 mt-4">
+
+                                        {/* Score breakdown */}
+                                        <div className="flex flex-wrap justify-center gap-2 my-6">
                                             {Object.entries(practiceAnswers).map(([idx, result]) => (
                                                 <div
                                                     key={idx}
-                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
                                                         result.correct
-                                                            ? "bg-green-500/30 text-green-300"
-                                                            : "bg-red-500/30 text-red-300"
+                                                            ? "bg-gray-300 text-gray-900"
+                                                            : "bg-gray-800 text-gray-500"
                                                     }`}
                                                 >
                                                     {parseInt(idx) + 1}
                                                 </div>
                                             ))}
                                         </div>
+
+                                        {/* Review Flashcards button */}
+                                        {exitTicket.flashcards && exitTicket.flashcards.length > 0 && (
+                                            <button
+                                                onClick={() => setStudyPacketSection("review")}
+                                                className="w-full rounded-xl bg-gray-200 text-gray-900 px-6 py-3 font-semibold hover:bg-white transition-colors"
+                                            >
+                                                Review Flashcards →
+                                            </button>
+                                        )}
                                     </div>
                                 )}
 
@@ -1156,20 +1272,40 @@ export default function PlayGamePage() {
                         )}
 
                         {/* Done / Navigation */}
-                        <div className="mt-6 pt-4 border-t border-white/10 flex flex-col gap-3">
-                            <Link
-                                href="/student/learning"
-                                className="flex items-center justify-center gap-2 bg-gray-800 rounded-xl p-4 text-white hover:bg-gray-700 transition-colors"
-                            >
-                                <BookOpen className="h-5 w-5" />
-                                View All Exit Tickets
-                            </Link>
-                            <button
-                                onClick={() => router.push("/student")}
-                                className="rounded-xl bg-sky-600 px-6 py-3 font-bold text-white hover:bg-sky-500 transition-colors"
-                            >
-                                Done
-                            </button>
+                        <div className="mt-8 pt-6 border-t border-gray-800 flex flex-col gap-3">
+                            {!isSignedIn ? (
+                                <>
+                                    <button
+                                        onClick={handleStudentSignUp}
+                                        className="flex items-center justify-center gap-2 bg-gray-100 rounded-xl p-4 text-gray-900 font-bold hover:bg-white transition-colors ring-2 ring-gray-400 ring-offset-2 ring-offset-gray-950 w-full"
+                                    >
+                                        <UserPlus className="h-5 w-5" />
+                                        Sign up to save this packet
+                                    </button>
+                                    <button
+                                        onClick={() => router.push("/join")}
+                                        className="rounded-xl bg-gray-800 px-6 py-3 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors"
+                                    >
+                                        Play another quiz
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <Link
+                                        href="/student/learning"
+                                        className="flex items-center justify-center gap-2 bg-gray-800 rounded-xl p-4 text-white hover:bg-gray-700 transition-colors"
+                                    >
+                                        <BookOpen className="h-5 w-5" />
+                                        View All Exit Tickets
+                                    </Link>
+                                    <button
+                                        onClick={() => router.push("/student/dashboard")}
+                                        className="rounded-xl bg-gray-200 px-6 py-3 font-semibold text-gray-900 hover:bg-white transition-colors"
+                                    >
+                                        Done
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 ) : postQuizStage === "summary" ? (
@@ -1177,10 +1313,10 @@ export default function PlayGamePage() {
                         <PostQuizSummary
                             score={playerState?.score || 0}
                             totalQuestions={game.total_questions}
-                            correctAnswers={Math.min(playerState?.correct_answers || 0, game.total_questions)}
+                            correctAnswers={localCorrectCount}
                             rank={playerState?.rank}
                             totalPlayers={undefined}
-                            accuracy={game.total_questions > 0 ? Math.min(100, Math.round((Math.min(playerState?.correct_answers || 0, game.total_questions) / game.total_questions) * 100)) : 0}
+                            accuracy={game.total_questions > 0 ? Math.round((localCorrectCount / game.total_questions) * 100) : 0}
                             avgConfidence={analyticsData?.avgConfidence}
                             quadrants={analyticsData?.quadrants}
                             calibration={analyticsData?.calibration}
@@ -1201,74 +1337,87 @@ export default function PlayGamePage() {
                     </div>
                 ) : postQuizStage === "exit_ticket" && exitTicket ? (
                     <div className="max-w-3xl mx-auto py-6 px-4">
+                        {/* Exit Header Bar */}
+                        <div className="flex items-center justify-between mb-4">
+                            <button
+                                onClick={handleExitQuiz}
+                                className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                            {!isSignedIn && (
+                                <button
+                                    onClick={handleStudentSignUp}
+                                    className="flex items-center gap-2 bg-gray-200 hover:bg-white text-gray-900 text-sm font-semibold px-4 py-2 rounded-full transition-colors"
+                                >
+                                    <UserPlus className="h-4 w-4" />
+                                    Save this packet
+                                </button>
+                            )}
+                        </div>
+
                         {/* Header */}
                         <div className="text-center mb-6">
-                            <GraduationCap className="h-12 w-12 text-yellow-400 mx-auto mb-2" />
-                            <h2 className="text-2xl font-bold text-white">Your Personalized Study Packet</h2>
-                            <p className="text-white/70 mt-1">Topic: {exitTicket.target_concept}</p>
-                            <p className="text-sm text-gray-400 mt-1">
-                                {totalPracticeQuestions} homework questions • {exitTicket.flashcards?.length || 0} flashcards
-                            </p>
+                            <h2 className="text-2xl font-bold text-white">Study Packet</h2>
+                            <p className="text-gray-400 mt-1">{exitTicket.target_concept}</p>
                         </div>
 
                         {/* Section Tabs */}
-                        <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-xl">
+                        <div className="flex gap-1 mb-6 bg-gray-900 p-1 rounded-xl border border-gray-800">
                             <button
                                 onClick={() => setStudyPacketSection("notes")}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                                     studyPacketSection === "notes"
-                                        ? "bg-sky-600 text-white"
-                                        : "text-gray-400 hover:text-white"
+                                        ? "bg-gray-700 text-white"
+                                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                                 }`}
                             >
-                                📚 Study Notes
+                                <FileText className="h-4 w-4" />
+                                Notes
                             </button>
                             <button
                                 onClick={() => setStudyPacketSection("homework")}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                                     studyPacketSection === "homework"
-                                        ? "bg-purple-600 text-white"
-                                        : "text-gray-400 hover:text-white"
+                                        ? "bg-gray-700 text-white"
+                                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                                 }`}
                             >
-                                ✏️ Homework ({totalPracticeQuestions})
+                                <Pencil className="h-4 w-4" />
+                                Homework {totalPracticeQuestions > 0 && <span className="text-xs opacity-60">{totalPracticeQuestions}</span>}
                             </button>
                             <button
                                 onClick={() => setStudyPacketSection("review")}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                                     studyPacketSection === "review"
-                                        ? "bg-emerald-600 text-white"
-                                        : "text-gray-400 hover:text-white"
+                                        ? "bg-gray-700 text-white"
+                                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                                 }`}
                             >
-                                🃏 Flashcards
+                                <BookOpen className="h-4 w-4" />
+                                Flashcards
                             </button>
                         </div>
 
                         {/* STUDY NOTES SECTION */}
                         {studyPacketSection === "notes" && (
-                            <div className="space-y-4">
+                            <div className="space-y-5">
                                 {/* Quick Review / Micro Lesson */}
-                                <div className="bg-sky-500/20 rounded-xl p-5 border border-sky-500/30">
-                                    <h3 className="font-bold text-sky-300 mb-3 flex items-center gap-2 text-lg">
-                                        <Sparkles className="h-5 w-5" /> Quick Review
-                                    </h3>
-                                    <p className="text-gray-200 leading-relaxed">{exitTicket.micro_lesson}</p>
+                                <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-800">
+                                    <p className="text-gray-200 leading-relaxed text-base">{exitTicket.micro_lesson}</p>
                                     {exitTicket.encouragement && (
-                                        <p className="text-cyan-300 mt-3 italic border-t border-sky-500/30 pt-3">{exitTicket.encouragement}</p>
+                                        <p className="text-gray-400 mt-4 italic text-sm border-t border-gray-800 pt-4">{exitTicket.encouragement}</p>
                                     )}
                                 </div>
 
                                 {/* Key Concepts */}
                                 {exitTicket.study_notes?.key_concepts && exitTicket.study_notes.key_concepts.length > 0 && (
-                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
-                                        <h3 className="font-bold text-purple-300 mb-3 flex items-center gap-2">
-                                            🎯 Key Concepts to Master
-                                        </h3>
-                                        <ul className="space-y-2">
+                                    <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-800">
+                                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">Key Concepts</h3>
+                                        <ul className="space-y-3">
                                             {exitTicket.study_notes.key_concepts.map((concept, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-2">
-                                                    <span className="text-purple-400 mt-1">•</span>
+                                                <li key={i} className="text-gray-200 flex items-start gap-3 text-base leading-relaxed">
+                                                    <span className="text-gray-500 mt-1">•</span>
                                                     <span>{concept}</span>
                                                 </li>
                                             ))}
@@ -1278,14 +1427,12 @@ export default function PlayGamePage() {
 
                                 {/* Common Mistakes to Avoid */}
                                 {exitTicket.study_notes?.common_mistakes && exitTicket.study_notes.common_mistakes.length > 0 && (
-                                    <div className="bg-orange-500/20 rounded-xl p-5 border border-orange-500/30">
-                                        <h3 className="font-bold text-orange-300 mb-3 flex items-center gap-2">
-                                            ⚠️ Common Mistakes to Avoid
-                                        </h3>
-                                        <ul className="space-y-2">
+                                    <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-800">
+                                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">Common Mistakes</h3>
+                                        <ul className="space-y-3">
                                             {exitTicket.study_notes.common_mistakes.map((mistake, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-2">
-                                                    <span className="text-orange-400 mt-1">✗</span>
+                                                <li key={i} className="text-gray-200 flex items-start gap-3 text-base leading-relaxed">
+                                                    <X className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
                                                     <span>{mistake}</span>
                                                 </li>
                                             ))}
@@ -1295,16 +1442,12 @@ export default function PlayGamePage() {
 
                                 {/* Strategies */}
                                 {exitTicket.study_notes?.strategies && exitTicket.study_notes.strategies.length > 0 && (
-                                    <div className="bg-emerald-500/20 rounded-xl p-5 border border-emerald-500/30">
-                                        <h3 className="font-bold text-emerald-300 mb-3 flex items-center gap-2">
-                                            💡 Problem-Solving Strategies
-                                        </h3>
-                                        <ol className="space-y-2">
+                                    <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-800">
+                                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">Strategies</h3>
+                                        <ol className="space-y-3">
                                             {exitTicket.study_notes.strategies.map((strategy, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-3">
-                                                    <span className="bg-emerald-500/30 text-emerald-300 rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
-                                                        {i + 1}
-                                                    </span>
+                                                <li key={i} className="text-gray-200 flex items-start gap-3 text-base leading-relaxed">
+                                                    <span className="text-gray-400 bg-gray-800 rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">{i + 1}</span>
                                                     <span>{strategy}</span>
                                                 </li>
                                             ))}
@@ -1314,14 +1457,15 @@ export default function PlayGamePage() {
 
                                 {/* Memory Tips */}
                                 {exitTicket.study_notes?.memory_tips && exitTicket.study_notes.memory_tips.length > 0 && (
-                                    <div className="bg-pink-500/20 rounded-xl p-5 border border-pink-500/30">
-                                        <h3 className="font-bold text-pink-300 mb-3 flex items-center gap-2">
-                                            🧠 Memory Tips
+                                    <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-800">
+                                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide flex items-center gap-2">
+                                            <Lightbulb className="h-4 w-4" />
+                                            Memory Tips
                                         </h3>
-                                        <ul className="space-y-2">
+                                        <ul className="space-y-3">
                                             {exitTicket.study_notes.memory_tips.map((tip, i) => (
-                                                <li key={i} className="text-gray-200 flex items-start gap-2">
-                                                    <span className="text-pink-400 mt-1">★</span>
+                                                <li key={i} className="text-gray-200 flex items-start gap-3 text-base leading-relaxed">
+                                                    <span className="text-gray-500 mt-1">•</span>
                                                     <span>{tip}</span>
                                                 </li>
                                             ))}
@@ -1331,20 +1475,14 @@ export default function PlayGamePage() {
 
                                 {/* Misconceptions if present */}
                                 {exitTicket.misconceptions && exitTicket.misconceptions.length > 0 && (
-                                    <div className="bg-red-500/20 rounded-xl p-5 border border-red-500/30">
-                                        <h3 className="font-bold text-red-300 mb-3 flex items-center gap-2">
-                                            🔍 Understanding Your Mistakes
-                                        </h3>
+                                    <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-800">
+                                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">Understanding Your Mistakes</h3>
                                         <div className="space-y-4">
                                             {exitTicket.misconceptions.map((m, i) => (
-                                                <div key={i} className="bg-white/5 rounded-lg p-4">
-                                                    <p className="text-red-300 font-medium mb-2">{m.type}</p>
-                                                    <p className="text-gray-400 text-sm mb-2">
-                                                        <span className="text-red-400">What you thought:</span> {m.description}
-                                                    </p>
-                                                    <p className="text-gray-200 text-sm">
-                                                        <span className="text-green-400">Correct understanding:</span> {m.correction}
-                                                    </p>
+                                                <div key={i} className="bg-gray-800/50 rounded-lg p-4">
+                                                    <p className="text-white font-medium mb-2">{m.type}</p>
+                                                    <p className="text-gray-400 text-sm mb-2">{m.description}</p>
+                                                    <p className="text-gray-200 text-sm">{m.correction}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -1354,9 +1492,9 @@ export default function PlayGamePage() {
                                 {/* Continue to Homework button */}
                                 <button
                                     onClick={() => setStudyPacketSection("homework")}
-                                    className="w-full rounded-xl bg-purple-600 px-6 py-4 font-bold text-white hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
+                                    className="w-full rounded-xl bg-gray-200 text-gray-900 px-6 py-4 font-semibold hover:bg-white transition-colors"
                                 >
-                                    Start Homework Questions →
+                                    Start Homework →
                                 </button>
                             </div>
                         )}
@@ -1366,37 +1504,21 @@ export default function PlayGamePage() {
                             <div className="space-y-4">
                                 {/* Practice Questions - Multi-question flow */}
                                 {totalPracticeQuestions > 0 && !practiceComplete && currentPracticeQuestion && (
-                                    <div className="bg-purple-500/20 rounded-xl p-5 border border-purple-500/30">
+                                    <div>
                                         {/* Progress indicator */}
                                         <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h3 className="font-bold text-purple-300">Homework Question</h3>
-                                                {currentPracticeQuestion.difficulty && (
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                        currentPracticeQuestion.difficulty === "foundation"
-                                                            ? "bg-green-500/30 text-green-300"
-                                                            : currentPracticeQuestion.difficulty === "core"
-                                                            ? "bg-purple-500/30 text-purple-300"
-                                                            : "bg-orange-500/30 text-orange-300"
-                                                    }`}>
-                                                        {currentPracticeQuestion.difficulty}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-purple-300 text-sm font-medium">
-                                                {practiceQuestionIndex + 1} / {totalPracticeQuestions}
-                                            </span>
+                                            <span className="text-gray-400 text-sm">Question {practiceQuestionIndex + 1} of {totalPracticeQuestions}</span>
                                         </div>
 
                                         {/* Progress bar */}
-                                        <div className="h-2 bg-purple-900/50 rounded-full mb-5 overflow-hidden">
+                                        <div className="h-1.5 bg-gray-800 rounded-full mb-6 overflow-hidden">
                                             <div
-                                                className="h-full bg-purple-500 transition-all duration-300"
+                                                className="h-full bg-gray-400 transition-all duration-300"
                                                 style={{ width: `${((practiceQuestionIndex + 1) / totalPracticeQuestions) * 100}%` }}
                                             />
                                         </div>
 
-                                        <p className="text-white mb-4 text-lg">{currentPracticeQuestion.prompt}</p>
+                                        <p className="text-white mb-5 text-lg">{currentPracticeQuestion.prompt}</p>
                                         <div className="space-y-2">
                                             {currentPracticeQuestion.options.map((opt, i) => {
                                                 const optLetter = String.fromCharCode(65 + i);
@@ -1409,14 +1531,14 @@ export default function PlayGamePage() {
                                                         key={i}
                                                         onClick={() => !currentPracticeAnswer && submitPracticeAnswer(optLetter)}
                                                         disabled={!!currentPracticeAnswer}
-                                                        className={`w-full text-left rounded-lg px-4 py-3 text-white transition-colors ${
+                                                        className={`w-full text-left rounded-lg px-4 py-3 transition-colors ${
                                                             showResult
                                                                 ? isCorrect
-                                                                    ? "bg-green-500/30 border-2 border-green-500"
+                                                                    ? "bg-gray-200 text-gray-900 font-medium"
                                                                     : isSelected && !currentPracticeAnswer?.correct
-                                                                    ? "bg-red-500/30 border-2 border-red-500"
-                                                                    : "bg-white/10 border border-white/10"
-                                                                : "bg-white/10 hover:bg-white/20 border border-white/10"
+                                                                    ? "bg-gray-800 text-gray-500 line-through"
+                                                                    : "bg-gray-900 text-gray-400 border border-gray-800"
+                                                                : "bg-gray-900 text-gray-200 hover:bg-gray-800 border border-gray-800"
                                                         } ${currentPracticeAnswer ? "cursor-default" : "cursor-pointer"}`}
                                                     >
                                                         {opt}
@@ -1427,29 +1549,22 @@ export default function PlayGamePage() {
 
                                         {/* Result feedback */}
                                         {currentPracticeAnswer && (
-                                            <div className={`mt-4 p-4 rounded-lg ${
-                                                currentPracticeAnswer.correct
-                                                    ? "bg-green-500/20 border border-green-500/30"
-                                                    : "bg-orange-500/20 border border-orange-500/30"
-                                            }`}>
+                                            <div className="mt-4 p-4 rounded-lg bg-gray-900 border border-gray-800">
                                                 {currentPracticeAnswer.correct ? (
-                                                    <p className="text-green-300 flex items-center gap-2 font-medium">
-                                                        <Check className="h-5 w-5" /> Correct!
+                                                    <p className="text-white flex items-center gap-2 font-medium">
+                                                        <Check className="h-5 w-5" /> Correct
                                                     </p>
                                                 ) : (
                                                     <div>
-                                                        <p className="text-orange-300 font-medium">Not quite. The correct answer is {currentPracticeQuestion.correct_answer}.</p>
+                                                        <p className="text-gray-300">The correct answer is {currentPracticeQuestion.correct_answer}.</p>
                                                         {currentPracticeQuestion.hint && (
-                                                            <p className="text-white/70 text-sm mt-2">
-                                                                <Sparkles className="inline h-4 w-4 mr-1" />
-                                                                <span className="font-medium">Hint:</span> {currentPracticeQuestion.hint}
-                                                            </p>
+                                                            <p className="text-gray-400 text-sm mt-2">{currentPracticeQuestion.hint}</p>
                                                         )}
                                                     </div>
                                                 )}
                                                 {currentPracticeQuestion.explanation && (
-                                                    <p className="text-gray-300 text-sm mt-3 pt-3 border-t border-white/10">
-                                                        <span className="font-medium text-white">Explanation:</span> {currentPracticeQuestion.explanation}
+                                                    <p className="text-gray-400 text-sm mt-3 pt-3 border-t border-gray-800">
+                                                        {currentPracticeQuestion.explanation}
                                                     </p>
                                                 )}
                                             </div>
@@ -1463,10 +1578,10 @@ export default function PlayGamePage() {
                                                         nextPracticeQuestion();
                                                     }
                                                 }}
-                                                className="w-full mt-4 rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-500 transition-colors"
+                                                className="w-full mt-4 rounded-xl bg-gray-200 text-gray-900 px-6 py-3 font-semibold hover:bg-white transition-colors"
                                             >
                                                 {practiceQuestionIndex < totalPracticeQuestions - 1
-                                                    ? `Next Question (${practiceQuestionIndex + 2}/${totalPracticeQuestions}) →`
+                                                    ? "Next →"
                                                     : "See Results"}
                                             </button>
                                         )}
@@ -1475,26 +1590,21 @@ export default function PlayGamePage() {
 
                                 {/* Practice Complete - Show results */}
                                 {practiceComplete && (
-                                    <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl p-6 border border-green-500/30">
-                                        <div className="text-center mb-6">
-                                            <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-green-500/20 mb-4">
-                                                <Trophy className="h-10 w-10 text-yellow-400" />
-                                            </div>
-                                            <h3 className="text-2xl font-bold text-white">Homework Complete!</h3>
-                                            <p className="text-green-300 text-xl mt-2">
-                                                {practiceScore} / {totalPracticeQuestions} correct ({Math.round((practiceScore / totalPracticeQuestions) * 100)}%)
-                                            </p>
-                                        </div>
+                                    <div className="text-center py-6">
+                                        <h3 className="text-xl font-bold text-white mb-2">Complete</h3>
+                                        <p className="text-gray-400 text-lg">
+                                            {practiceScore} / {totalPracticeQuestions} correct
+                                        </p>
 
                                         {/* Score breakdown */}
-                                        <div className="flex flex-wrap justify-center gap-2 mb-6">
+                                        <div className="flex flex-wrap justify-center gap-2 my-6">
                                             {Object.entries(practiceAnswers).map(([idx, result]) => (
                                                 <div
                                                     key={idx}
-                                                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
                                                         result.correct
-                                                            ? "bg-green-500/30 text-green-300 border border-green-500"
-                                                            : "bg-red-500/30 text-red-300 border border-red-500"
+                                                            ? "bg-gray-300 text-gray-900"
+                                                            : "bg-gray-800 text-gray-500"
                                                     }`}
                                                 >
                                                     {parseInt(idx) + 1}
@@ -1506,7 +1616,7 @@ export default function PlayGamePage() {
                                         {exitTicket.flashcards && exitTicket.flashcards.length > 0 && (
                                             <button
                                                 onClick={() => setStudyPacketSection("review")}
-                                                className="w-full rounded-xl bg-emerald-600 px-6 py-3 font-bold text-white hover:bg-emerald-500 transition-colors mb-3"
+                                                className="w-full rounded-xl bg-gray-200 text-gray-900 px-6 py-3 font-semibold hover:bg-white transition-colors"
                                             >
                                                 Review Flashcards →
                                             </button>
@@ -1525,12 +1635,10 @@ export default function PlayGamePage() {
 
                         {/* FLASHCARDS SECTION */}
                         {studyPacketSection === "review" && (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {exitTicket.flashcards && exitTicket.flashcards.length > 0 ? (
                                     <>
-                                        <div className="text-center mb-4">
-                                            <p className="text-gray-400">Click a card to reveal the answer</p>
-                                        </div>
+                                        <p className="text-gray-500 text-sm text-center mb-4">Tap to reveal</p>
                                         {exitTicket.flashcards.map((card, i) => (
                                             <FlashcardComponent key={i} front={card.front} back={card.back} index={i} />
                                         ))}
@@ -1545,13 +1653,12 @@ export default function PlayGamePage() {
 
                         {/* Done Button - visible when homework complete or in review section */}
                         {(practiceComplete || studyPacketSection === "review") && (
-                            <div className="mt-6 pt-4 border-t border-white/10">
+                            <div className="mt-6 pt-4 border-t border-gray-800">
                                 <button
                                     onClick={() => setPostQuizStage("complete")}
-                                    className="w-full rounded-xl bg-sky-600 px-6 py-4 text-lg font-bold text-white shadow-lg hover:bg-sky-700 transition-colors flex items-center justify-center gap-2"
+                                    className="w-full rounded-xl border border-gray-700 px-6 py-4 font-medium text-gray-300 hover:bg-gray-900 transition-colors"
                                 >
-                                    <Check className="h-5 w-5" />
-                                    I'm Done Studying
+                                    Done
                                 </button>
                             </div>
                         )}
@@ -1583,43 +1690,70 @@ export default function PlayGamePage() {
                         />
                     </div>
                 ) : postQuizStage === "complete" ? (
-                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
-                        <div className="text-center max-w-md">
-                            <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-500/20 mb-4">
-                                <Check className="h-8 w-8 text-green-400" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-white mb-2">All Done!</h2>
-                            <p className="text-gray-400 mb-6">
-                                Great job completing the quiz. Your weak areas have been added to your adaptive review queue.
-                            </p>
-                            <div className="rounded-xl bg-sky-500/10 border border-sky-500/30 p-4 mb-6">
-                                <p className="text-sm text-sky-300">
-                                    <Sparkles className="inline h-4 w-4 mr-1" />
-                                    Come back tomorrow for spaced repetition review!
-                                </p>
-                            </div>
-                            <div className="flex flex-col gap-3">
-                                <button
-                                    onClick={() => setShowAnalytics(true)}
-                                    className="rounded-xl bg-sky-600 px-6 py-3 font-medium text-white hover:bg-sky-700 flex items-center justify-center gap-2"
-                                >
-                                    <BarChart3 className="h-5 w-5" />
-                                    View Full Analytics
-                                </button>
-                                <Link
-                                    href="/student/learning"
-                                    className="rounded-xl bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-500 flex items-center justify-center gap-2"
-                                >
-                                    <BookOpen className="h-5 w-5" />
-                                    Learning Dashboard
-                                </Link>
-                                <button
-                                    onClick={() => router.push("/student")}
-                                    className="rounded-xl border border-gray-700 px-6 py-3 font-medium text-gray-300 hover:bg-gray-800 flex items-center justify-center gap-2"
-                                >
-                                    Done
-                                </button>
-                            </div>
+                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8 px-4">
+                        <div className="text-center max-w-md w-full">
+                            {isSignedIn ? (
+                                <>
+                                    <Check className="h-12 w-12 text-white mx-auto mb-4" />
+                                    <h2 className="text-2xl font-bold text-white mb-2">All Done</h2>
+                                    <p className="text-gray-400 mb-8">
+                                        Your study packet has been saved to your dashboard.
+                                    </p>
+                                    <div className="flex flex-col gap-3">
+                                        <Link
+                                            href="/student/dashboard"
+                                            className="rounded-xl bg-white px-6 py-3 font-medium text-gray-900 hover:bg-gray-100 transition-colors"
+                                        >
+                                            Go to Dashboard
+                                        </Link>
+                                        <button
+                                            onClick={() => router.push("/join")}
+                                            className="rounded-xl border border-gray-700 px-6 py-3 font-medium text-gray-400 hover:bg-gray-900 transition-colors"
+                                        >
+                                            Join Another Quiz
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <GraduationCap className="h-12 w-12 text-white mx-auto mb-4" />
+                                    <h2 className="text-2xl font-bold text-white mb-2">Nice work!</h2>
+                                    <p className="text-gray-400 mb-6">
+                                        Your personalized study packet is ready.
+                                    </p>
+
+                                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6 text-left">
+                                        <h3 className="font-semibold text-white mb-3">Want to keep this packet?</h3>
+                                        <ul className="space-y-2 text-sm text-gray-400 mb-5">
+                                            <li className="flex items-start gap-2">
+                                                <Check className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                                                Access your study notes anytime
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <Check className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                                                Track progress across quizzes
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <Check className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                                                Get personalized practice recommendations
+                                            </li>
+                                        </ul>
+                                        <Link
+                                            href="/sign-up"
+                                            className="block w-full rounded-lg bg-white px-6 py-3 font-semibold text-gray-900 hover:bg-gray-100 transition-colors text-center"
+                                        >
+                                            Create Free Account
+                                        </Link>
+                                    </div>
+
+                                    <button
+                                        onClick={() => router.push("/join")}
+                                        className="w-full text-gray-500 hover:text-white text-sm transition-colors"
+                                    >
+                                        Skip for now
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 ) : (
@@ -1692,14 +1826,14 @@ export default function PlayGamePage() {
     if (hasAnswered && hostMessage) {
         return (
             <div className="min-h-screen bg-gray-950 p-4 overflow-auto">
-                <div className="flex flex-col items-center justify-center min-h-[90vh] max-w-md mx-auto">
+                <div className="flex flex-col items-center justify-center min-h-[90vh] max-w-xl mx-auto">
                     {/* Result Icon */}
                     <div className={`mb-6 flex h-28 w-28 items-center justify-center rounded-full ${
-                        playerState?.last_answer_correct
+                        lastAnswerWasCorrect
                             ? "bg-green-500 animate-pulse"
                             : "bg-orange-500"
                     } shadow-2xl`}>
-                        {playerState?.last_answer_correct ? (
+                        {lastAnswerWasCorrect ? (
                             <Check className="h-14 w-14 text-white" />
                         ) : (
                             <X className="h-14 w-14 text-white" />
@@ -1707,11 +1841,11 @@ export default function PlayGamePage() {
                     </div>
 
                     {/* Points earned */}
-                    {playerState?.last_answer_correct && playerState?.last_answer_points > 0 && (
+                    {lastAnswerWasCorrect && (playerState?.last_answer_points ?? 0) > 0 && (
                         <div className="mb-4 flex items-center gap-2 animate-bounce">
                             <Zap className="h-8 w-8 text-yellow-400" />
                             <span className="text-4xl font-bold text-yellow-400">
-                                +{playerState.last_answer_points}
+                                +{playerState?.last_answer_points}
                             </span>
                         </div>
                     )}
@@ -1724,7 +1858,7 @@ export default function PlayGamePage() {
                     )}
 
                     {/* Confidence feedback */}
-                    {!playerState?.last_answer_correct && confidence >= 70 && (
+                    {!lastAnswerWasCorrect && confidence >= 70 && (
                         <div className="mb-4 rounded-xl bg-orange-500/20 border border-orange-500/30 px-4 py-2 text-orange-200 text-sm flex items-center gap-2">
                             <Brain className="h-4 w-4" />
                             <span>High confidence but incorrect - let's review this concept!</span>
@@ -1757,7 +1891,6 @@ export default function PlayGamePage() {
                                             : resp
                                     ));
                                 }}
-                                showRetryInChat={game?.sync_mode === false}
                                 onCorrectRetry={() => {
                                     // Student got it right on retry - proceed without points
                                     // Mark that peer discussion helped them understand
@@ -1796,21 +1929,23 @@ export default function PlayGamePage() {
                         </div>
                     )}
 
-                    {/* Current Score */}
-                    <div className="rounded-2xl bg-gray-900 px-8 py-4 text-center border border-gray-800 w-full">
-                        <p className="text-gray-400 text-sm">Your Score</p>
-                        <p className="text-3xl font-bold text-white">
-                            {playerState?.score.toLocaleString() || 0}
-                        </p>
-                        {playerState && (
-                            <p className="mt-1 text-gray-400">Rank #{playerState.rank}</p>
-                        )}
-                    </div>
+                    {/* Current Score - hidden during peer discussion */}
+                    {!showPeerDiscussion && (
+                        <div className="rounded-2xl bg-gray-900 px-8 py-4 text-center border border-gray-800 w-full">
+                            <p className="text-gray-400 text-sm">Your Score</p>
+                            <p className="text-3xl font-bold text-white">
+                                {playerState?.score.toLocaleString() || 0}
+                            </p>
+                            {playerState && (
+                                <p className="mt-1 text-gray-400">Rank #{playerState.rank}</p>
+                            )}
+                        </div>
+                    )}
 
                     {/* FOR ASYNC MODE: Show Next Question or Try Again based on correctness */}
-                    {game?.sync_mode === false && !showPeerDiscussion && (
+                    {game?.sync_mode === false && !showPeerDiscussion && lastAnswerWasCorrect !== null && (
                         <div className="mt-8">
-                            {playerState?.last_answer_correct ? (
+                            {lastAnswerWasCorrect === true ? (
                                 // Correct answer - can proceed
                                 asyncQuestionIndex + 1 < game.total_questions ? (
                                     <button
@@ -1842,6 +1977,7 @@ export default function PlayGamePage() {
                                             setSelectedAnswer(null);
                                             setShowConfirmStep(false);
                                             setHostMessage("");
+                                            setLastAnswerWasCorrect(null);
                                         }}
                                         className="rounded-full bg-sky-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-sky-500 transition-colors"
                                     >
@@ -1890,11 +2026,20 @@ export default function PlayGamePage() {
             <div className="flex min-h-screen flex-col bg-gray-950 p-4">
                 {/* Header */}
                 <div className="mb-4 flex items-center justify-between">
-                    <div className="rounded-full bg-gray-900 px-4 py-2 border border-gray-800">
-                        <span className="text-white/70">Q</span>{" "}
-                        <span className="font-bold text-white">
-                            {game.current_question_index + 1}/{game.total_questions}
-                        </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleExitQuiz}
+                            className="flex items-center justify-center h-10 w-10 rounded-full bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+                            title="Exit quiz"
+                        >
+                            <LogOut className="h-5 w-5" />
+                        </button>
+                        <div className="rounded-full bg-gray-900 px-4 py-2 border border-gray-800">
+                            <span className="text-white/70">Q</span>{" "}
+                            <span className="font-bold text-white">
+                                {game.current_question_index + 1}/{game.total_questions}
+                            </span>
+                        </div>
                     </div>
 
                     {timeLeft !== null && (
@@ -1996,11 +2141,20 @@ export default function PlayGamePage() {
         <div className="flex min-h-screen flex-col bg-gray-950 p-4">
             {/* Header */}
             <div className="mb-4 flex items-center justify-between">
-                <div className="rounded-full bg-gray-900 px-4 py-2 border border-gray-800">
-                    <span className="text-white/70">Q</span>{" "}
-                    <span className="font-bold text-white">
-                        {game.current_question_index + 1}/{game.total_questions}
-                    </span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleExitQuiz}
+                        className="flex items-center justify-center h-10 w-10 rounded-full bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+                        title="Exit quiz"
+                    >
+                        <LogOut className="h-5 w-5" />
+                    </button>
+                    <div className="rounded-full bg-gray-900 px-4 py-2 border border-gray-800">
+                        <span className="text-white/70">Q</span>{" "}
+                        <span className="font-bold text-white">
+                            {game.current_question_index + 1}/{game.total_questions}
+                        </span>
+                    </div>
                 </div>
 
                 {timeLeft !== null && (

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { MessageCircle, Send, Loader2, Lightbulb, ThumbsUp, RefreshCw, Users, Bot, ChevronDown, ChevronUp, HelpCircle, Paperclip, X, Image, FileText, ChevronRight } from "lucide-react";
+import { MessageCircle, Send, Loader2, Lightbulb, ThumbsUp, Users, Bot, ChevronDown, ChevronUp, HelpCircle, Paperclip, X, Image, FileText, ChevronRight } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -34,7 +34,6 @@ interface PeerDiscussionProps {
     onInsightGained?: (insight: string) => void;
     onDiscussionComplete?: (data: DiscussionData) => void;
     onCorrectRetry?: () => void; // Called when student answers correctly on retry (no points, just proceed)
-    showRetryInChat?: boolean;
 }
 
 interface Attachment {
@@ -174,8 +173,7 @@ export default function PeerDiscussion({
     onComplete,
     onInsightGained,
     onDiscussionComplete,
-    onCorrectRetry,
-    showRetryInChat = false
+    onCorrectRetry
 }: PeerDiscussionProps) {
     const [matchStatus, setMatchStatus] = useState<"searching" | "matched" | "ai_fallback">("searching");
     const [peerMatch, setPeerMatch] = useState<PeerMatch | null>(null);
@@ -186,7 +184,6 @@ export default function PeerDiscussion({
     const [showInsight, setShowInsight] = useState(false);
     const [showQuestionContext, setShowQuestionContext] = useState(true);
     const [sessionId, setSessionId] = useState<string | null>(null);
-    const [showInlineRetry, setShowInlineRetry] = useState(false); // Show answer options inline in chat
     const [discussionSummary, setDiscussionSummary] = useState<{
         summary?: string;
         key_insights?: string[];
@@ -555,17 +552,15 @@ export default function PeerDiscussion({
                 // Save AI response to backend
                 saveMessage("peer", aiMessage);
 
-                // Check if the AI indicates the student is ready for a mastery check
-                // This happens when: student already got it right OR AI signals readiness
-                const messageCount = messages.filter(m => m.sender_id === playerId).length;
+                // Check if AI signals it's time for the mastery check
                 if (isCorrect && !data.follow_up_question) {
                     // Student got it right originally, they can move on
                     setDiscussionComplete(true);
                 } else if (!isCorrect && data.ready_for_check) {
-                    // AI signals student is ready to demonstrate understanding
+                    // Backend signals student is ready to try the question again
                     setShowMasteryCheck(true);
                 }
-                // Otherwise, keep discussing - no auto-complete on message count
+                // Otherwise, keep discussing until backend says ready_for_check
             } else {
                 // Fallback to simple response on API error
                 fallbackAIResponse(userMessage, aiName);
@@ -582,28 +577,30 @@ export default function PeerDiscussion({
         const messageCount = messages.filter(m => m.sender_id === playerId).length;
 
         let response = "";
+        let shouldShowMasteryCheck = false;
+
         if (messageCount === 1) {
             if (isCorrect) {
                 response = `That's really helpful, thanks! Can you help me understand why the other options wouldn't work here?`;
-                setDiscussionComplete(true); // Correct answers can complete
+                setDiscussionComplete(true);
             } else {
-                response = `I hear you - "${studentAnswerText}" does seem reasonable at first. But let me ask you this: what's the core concept this question is testing? That might help us figure it out.`;
+                // First response: Ask a probing question
+                response = `I hear you - "${studentAnswerText}" does seem reasonable at first. But let me ask you this: what's the core concept this question is testing?`;
             }
-        } else if (messageCount < 4) {
+        } else if (messageCount >= 2) {
             if (isCorrect) {
                 response = `Great explanation! I think we've both learned something here.`;
                 setDiscussionComplete(true);
             } else {
-                response = `Good thinking! Let me give you a hint - try comparing each option to what the question is really asking. Which one addresses the core concept most directly?`;
+                // After 2 exchanges: Give lesson and show mastery check
+                response = `Good thinking! The key insight here is about what makes something fit the definition. Ready to try the question again?`;
+                shouldShowMasteryCheck = true;
             }
-        } else {
-            if (isCorrect) {
-                response = `Excellent discussion! Thanks for explaining that.`;
-                setDiscussionComplete(true);
-            } else {
-                response = `I think you're getting closer! Want to try selecting what you think the correct answer is now?`;
-                setShowMasteryCheck(true);
-            }
+        }
+
+        // Show mastery check AFTER the message is displayed
+        if (shouldShowMasteryCheck) {
+            setShowMasteryCheck(true);
         }
 
         setMessages(prev => [...prev, {
@@ -733,7 +730,13 @@ export default function PeerDiscussion({
         if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
         }
-        onComplete?.();
+        // If student originally got it wrong but corrected via mastery check, use onCorrectRetry
+        // Otherwise use onComplete
+        if (!isCorrect && onCorrectRetry) {
+            onCorrectRetry();
+        } else {
+            onComplete?.();
+        }
     };
 
     // Searching state
@@ -812,8 +815,11 @@ export default function PeerDiscussion({
                         <p className="text-white text-sm font-medium">{question.question_text}</p>
                         <div className="flex flex-col gap-2">
                             {Object.entries(question.options).map(([key, value]) => {
-                                const isWrongAnswer = key === studentAnswer && !isCorrect;
-                                const isCorrectAnswer = key === correctAnswer;
+                                const isStudentAnswer = key === studentAnswer;
+                                // Only reveal correct answer after discussion is complete AND insight shown
+                                const shouldRevealCorrect = discussionComplete && showInsight;
+                                const isCorrectAnswer = key === correctAnswer && shouldRevealCorrect;
+                                const isWrongAnswer = isStudentAnswer && !isCorrect;
                                 return (
                                     <div
                                         key={key}
@@ -822,25 +828,31 @@ export default function PeerDiscussion({
                                                 ? "bg-red-500/10 border-red-500/30 text-red-300"
                                                 : isCorrectAnswer
                                                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                                                : isStudentAnswer && isCorrect
+                                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                                                 : "bg-gray-700/50 border-gray-600 text-gray-300"
                                         }`}
                                     >
                                         <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
                                             isWrongAnswer
                                                 ? "bg-red-500/20"
-                                                : isCorrectAnswer
+                                                : isCorrectAnswer || (isStudentAnswer && isCorrect)
                                                 ? "bg-emerald-500/20"
                                                 : "bg-gray-600"
                                         }`}>
                                             {key}
                                         </span>
                                         <span className="flex-1">{value}</span>
-                                        {isWrongAnswer && (
-                                            <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 font-medium uppercase">
+                                        {isStudentAnswer && (
+                                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium uppercase ${
+                                                isCorrect
+                                                    ? "bg-emerald-500/20 text-emerald-300"
+                                                    : "bg-red-500/20 text-red-300"
+                                            }`}>
                                                 Your answer
                                             </span>
                                         )}
-                                        {isCorrectAnswer && (
+                                        {isCorrectAnswer && !isStudentAnswer && (
                                             <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium uppercase">
                                                 Correct
                                             </span>
@@ -903,7 +915,7 @@ export default function PeerDiscussion({
                 )}
 
                 {/* Visual hint to type below - shows when last message is from AI and user hasn't responded */}
-                {!sending && messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId && !showRetryInChat && (
+                {!sending && messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId && !showMasteryCheck && (
                     <div className="flex justify-center mt-4 animate-bounce">
                         <div className="flex items-center gap-1 text-sky-400 text-xs bg-sky-500/10 px-3 py-1.5 rounded-full">
                             <ChevronDown className="h-3 w-3" />
@@ -913,39 +925,18 @@ export default function PeerDiscussion({
                     </div>
                 )}
 
-                {/* Retry action embedded in chat */}
-                {showRetryInChat && onCorrectRetry && messages.length >= 2 && !showInlineRetry && !discussionComplete && (
-                    <div className="mt-4 space-y-3">
-                        <div className="bg-gray-700/50 rounded-2xl px-4 py-3">
-                            <p className="text-sm text-gray-300 mb-3">
-                                Ready to try again? You can also keep chatting if you have more questions.
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    onClick={() => setShowInlineRetry(true)}
-                                    className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-sky-500/20"
-                                >
-                                    <RefreshCw className="h-4 w-4" />
-                                    Try Again
-                                </button>
-                                <button
-                                    onClick={() => setShowMasteryCheck(true)}
-                                    className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-white font-medium px-4 py-2.5 rounded-xl transition-colors"
-                                >
-                                    <Lightbulb className="h-4 w-4" />
-                                    Check Understanding
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Inline retry - answer options in chat */}
-                {showInlineRetry && !discussionComplete && (
+                {/* Mastery check - shows automatically when AI thinks student understands */}
+                {showMasteryCheck && !discussionComplete && (
                     <div className="mt-4">
-                        <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4">
-                            <p className="text-sky-300 text-sm font-medium mb-3">
-                                Select your answer:
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Lightbulb className="h-5 w-5 text-amber-400" />
+                                <span className="font-semibold text-amber-300">
+                                    {masteryAttempts === 0 ? "Let's check your understanding!" : "Not quite - try again!"}
+                                </span>
+                            </div>
+                            <p className="text-white text-sm mb-4">
+                                Based on our discussion, what do you think is the correct answer?
                             </p>
                             <div className="space-y-2">
                                 {Object.entries(question.options).map(([key, value]) => {
@@ -954,8 +945,9 @@ export default function PeerDiscussion({
                                         <button
                                             key={key}
                                             onClick={() => {
+                                                setMasteryAnswer(key);
                                                 if (key === correctAnswer) {
-                                                    // Correct! Add success message and proceed
+                                                    // Correct! Add success message and show insight
                                                     const peerName = peerMatch?.ai_peer_name || "Quizzy";
                                                     setMessages(prev => [...prev, {
                                                         id: `success_${Date.now()}`,
@@ -965,32 +957,31 @@ export default function PeerDiscussion({
                                                         timestamp: Date.now() / 1000
                                                     }]);
                                                     setDiscussionComplete(true);
-                                                    setShowInlineRetry(false);
-                                                    // Call the callback to proceed (no points)
-                                                    setTimeout(() => {
-                                                        onCorrectRetry?.();
-                                                    }, 1500);
+                                                    setShowMasteryCheck(false);
+                                                    // Don't auto-advance - let user see the insight first
                                                 } else {
-                                                    // Wrong again - encourage more discussion
+                                                    // Wrong again - hide check and continue discussion
+                                                    setMasteryAttempts(prev => prev + 1);
+                                                    setShowMasteryCheck(false);
                                                     const peerName = peerMatch?.ai_peer_name || "Quizzy";
+                                                    const wrongText = question.options[key] || key;
                                                     setMessages(prev => [...prev, {
-                                                        id: `retry_wrong_${Date.now()}`,
+                                                        id: `ai_${Date.now()}`,
                                                         sender_id: "ai",
                                                         sender_name: peerName,
-                                                        content: `Not quite! Let's think about this more. Why did you choose "${value.slice(0, 40)}${value.length > 40 ? '...' : ''}"? What's your reasoning?`,
+                                                        content: `Hmm, "${wrongText.slice(0, 50)}..." isn't quite it. Let's think about this differently - what's the key concept this question is testing?`,
                                                         timestamp: Date.now() / 1000
                                                     }]);
-                                                    setShowInlineRetry(false);
                                                 }
                                             }}
                                             className={`w-full text-left p-3 rounded-xl border transition-all hover:scale-[1.01] ${
                                                 isWrongAnswer
                                                     ? "bg-red-500/10 border-red-500/30 text-red-300 opacity-50"
-                                                    : "bg-gray-700/50 border-gray-600 text-white hover:border-sky-500/50 hover:bg-gray-700"
+                                                    : "bg-gray-700/50 border-gray-600 text-white hover:border-amber-500/50 hover:bg-gray-700"
                                             }`}
                                             disabled={isWrongAnswer}
                                         >
-                                            <span className="font-bold text-sky-400 mr-2">{key}.</span>
+                                            <span className="font-bold text-amber-400 mr-2">{key}.</span>
                                             <span>{value}</span>
                                             {isWrongAnswer && (
                                                 <span className="ml-2 text-xs text-red-400">(previous answer)</span>
@@ -999,81 +990,14 @@ export default function PeerDiscussion({
                                     );
                                 })}
                             </div>
-                            <button
-                                onClick={() => setShowInlineRetry(false)}
-                                className="mt-3 text-sm text-gray-400 hover:text-white transition-colors"
-                            >
-                                ← Keep discussing instead
-                            </button>
                         </div>
                     </div>
                 )}
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Mastery Check - Student must prove understanding */}
-            {showMasteryCheck && !discussionComplete ? (
-                <div className="p-4 border-t border-gray-700">
-                    <div className="bg-amber-500/10 rounded-xl p-4 border border-amber-500/30 mb-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Lightbulb className="h-5 w-5 text-amber-400" />
-                            <span className="font-bold text-amber-300">
-                                {masteryAttempts === 0 ? "Let's check your understanding!" : "Not quite - try again!"}
-                            </span>
-                        </div>
-                        <p className="text-white text-sm mb-4">
-                            Based on our discussion, what do you think is the correct answer?
-                        </p>
-                        <div className="space-y-2">
-                            {Object.entries(question.options).map(([key, value]) => (
-                                <button
-                                    key={key}
-                                    onClick={() => {
-                                        setMasteryAnswer(key);
-                                        if (key === correctAnswer) {
-                                            // They got it! Complete the discussion
-                                            setDiscussionComplete(true);
-                                            setShowMasteryCheck(false);
-                                            // Add success message
-                                            setMessages(prev => [...prev, {
-                                                id: `system_${Date.now()}`,
-                                                sender_id: "system",
-                                                sender_name: "System",
-                                                content: `You got it! ${key} is correct.`,
-                                                timestamp: Date.now() / 1000
-                                            }]);
-                                        } else {
-                                            // Wrong - encourage them to discuss more
-                                            setMasteryAttempts(prev => prev + 1);
-                                            setShowMasteryCheck(false);
-                                            // Add AI follow-up
-                                            const peerName = peerMatch?.ai_peer_name || "Alex";
-                                            const wrongText = question.options[key] || key;
-                                            setMessages(prev => [...prev, {
-                                                id: `ai_${Date.now()}`,
-                                                sender_id: "ai",
-                                                sender_name: peerName,
-                                                content: `Hmm, "${wrongText.slice(0, 50)}..." isn't quite it. Let's think about this more. What specifically makes you think that's the answer? Maybe we can work through it together.`,
-                                                timestamp: Date.now() / 1000
-                                            }]);
-                                        }
-                                    }}
-                                    className={`w-full text-left p-3 rounded-lg border transition-all ${
-                                        masteryAnswer === key
-                                            ? key === correctAnswer
-                                                ? "bg-emerald-500/20 border-emerald-500"
-                                                : "bg-red-500/20 border-red-500"
-                                            : "bg-gray-700 border-gray-600 hover:border-amber-500/50"
-                                    }`}
-                                >
-                                    <span className="font-bold text-amber-300 mr-2">{key}:</span>
-                                    <span className="text-white">{value}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            ) : !discussionComplete ? (
+            {/* Input area - shown when discussion is active */}
+            {!discussionComplete ? (
                 <div className="p-4 border-t border-gray-700">
                     {/* Attachment Preview */}
                     {pendingAttachment && (
@@ -1128,18 +1052,24 @@ export default function PeerDiscussion({
                             )}
                         </button>
 
-                        <input
-                            type="text"
+                        <textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    sendMessage();
+                                }
+                            }}
                             onPaste={handlePaste}
                             placeholder={pendingAttachment ? "Add a message..." : messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId ? `Reply to ${messages[messages.length - 1]?.sender_name || "your peer"}...` : "Share your thoughts..."}
-                            className={`flex-1 bg-gray-700 rounded-full px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all ${
+                            rows={1}
+                            className={`flex-1 bg-gray-700 rounded-2xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all resize-none ${
                                 !sending && messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId
                                     ? "ring-2 ring-sky-500/40 animate-pulse"
                                     : ""
                             }`}
+                            style={{ minHeight: '44px', maxHeight: '120px' }}
                         />
                         <button
                             onClick={sendMessage}
@@ -1149,24 +1079,14 @@ export default function PeerDiscussion({
                             <Send className="h-5 w-5" />
                         </button>
                     </div>
-                    <div className="flex items-center justify-between mt-2">
-                        <p className="text-xs text-gray-500">
-                            {messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId
-                                ? "💬 Type in the box above to respond"
-                                : isRealPeer
-                                    ? "Chat with your peer to understand the concept better"
-                                    : "Paste or attach images of your work"
-                            }
-                        </p>
-                        {!isCorrect && messages.filter(m => m.sender_id === playerId).length >= 2 && (
-                            <button
-                                onClick={() => setShowMasteryCheck(true)}
-                                className="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
-                            >
-                                I think I understand
-                            </button>
-                        )}
-                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                        {messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId
+                            ? "💬 Type in the box above to respond"
+                            : isRealPeer
+                                ? "Chat with your peer to understand the concept better"
+                                : "Paste or attach images of your work"
+                        }
+                    </p>
                 </div>
             ) : (
                 <div className="p-4 border-t border-gray-700 space-y-3">

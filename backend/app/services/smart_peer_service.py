@@ -39,10 +39,10 @@ else:
 # Peer names for variety
 PEER_NAMES = ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Quinn"]
 
-
 def get_peer_name(player_id: str) -> str:
     """Get a consistent peer name based on player ID."""
-    return PEER_NAMES[hash(player_id) % len(PEER_NAMES)]
+    # Use absolute value to ensure positive index
+    return PEER_NAMES[abs(hash(player_id)) % len(PEER_NAMES)]
 
 
 def process_attachment(attachment: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -170,6 +170,8 @@ async def generate_smart_peer_response(
 
     # Build contextual prompt
     is_first_message = len(chat_history) == 0
+    # Count student messages to track exchange progress
+    student_message_count = sum(1 for msg in chat_history if msg.get("role") == "user" or msg.get("sender") == "student")
 
     if is_first_message:
         prompt = _build_opening_prompt(
@@ -180,7 +182,8 @@ async def generate_smart_peer_response(
     else:
         prompt = _build_continuation_prompt(
             peer_name, question, options, student_answer_text, correct_answer_text,
-            is_correct, history_text, chat_history[-1].get("content", "")
+            is_correct, history_text, chat_history[-1].get("content", ""),
+            exchange_count=student_message_count
         )
 
     # Add attachment context to prompt
@@ -217,11 +220,18 @@ async def generate_smart_peer_response(
             generation_config={"response_mime_type": "application/json"}
         )
         result = json.loads(response.text)
+
+        # Socratic flow: ready_for_check only after 2+ student responses
+        # Message 1: AI asks question -> student responds (count=1)
+        # Message 2: AI asks another question -> student responds (count=2)
+        # Message 3: AI gives lesson -> ready_for_check = true
+        force_check = not is_correct and student_message_count >= 2
+
         return {
             "name": peer_name,
             "message": result.get("message", "That's interesting! Tell me more."),
-            "follow_up_question": result.get("follow_up_question"),
-            "ready_for_check": result.get("ready_for_check", False)
+            "follow_up_question": result.get("follow_up_question") if not force_check else None,
+            "ready_for_check": force_check or result.get("ready_for_check", False)
         }
     except Exception as e:
         print(f"Smart peer response error: {e}")
@@ -243,7 +253,10 @@ def _build_opening_prompt(
     is_correct: bool,
     confidence: Optional[int]
 ) -> str:
-    """Build the prompt for the first message in a peer discussion."""
+    """Build the prompt for the first message in a peer discussion.
+
+    Uses Socratic method - ask questions first, don't explain.
+    """
 
     # Format all options for context
     options_formatted = "\n".join([f"  {k}: {v}" for k, v in options.items()])
@@ -272,32 +285,28 @@ STUDENT'S ANSWER: {student_answer} - {student_answer_text}
 {confidence_context}
 RESULT: {"CORRECT" if is_correct else "INCORRECT"}
 
-Your job as {peer_name} is to start a helpful peer discussion.
+Your job: Ask ONE thought-provoking question to help them discover the concept themselves.
 
-CRITICAL RULES:
-1. NEVER say "Why did you pick A?" or reference letter choices - discuss the ACTUAL CONCEPTS
-2. Reference the actual option TEXT when discussing answers
-3. If they got it wrong, START HELPING immediately - don't just ask vague questions
-4. If they got it right, ask them to explain their reasoning to deepen understanding
-5. Be conversational and friendly, like a real student who actually understands the topic
-6. Use the actual content of the options in your discussion
+IMPORTANT - SOCRATIC METHOD:
+- Do NOT explain or teach yet - just ask a question
+- Your question should make them think about WHY their answer might be wrong
+- Lead them toward the key insight through questioning
 
-{"Since they got it WRONG:" if not is_correct else "Since they got it RIGHT, congratulate them and ask them to explain their thinking. This helps solidify their understanding."}
-{"- Don't just say 'interesting choice, why?' - that's empty" if not is_correct else ""}
-{"- Immediately offer something useful: an analogy, example, hint, or scenario" if not is_correct else ""}
-{"- Point toward the KEY CONCEPT they need to understand" if not is_correct else ""}
-{"- Your opening should already start teaching, not just fishing for info" if not is_correct else ""}
+EXAMPLE for "Which is NOT a proposition?" where they chose "√5 is irrational" (wrong):
+"Hey! So you think '√5 is irrational' isn't a proposition... Can you tell me what makes something a proposition vs not? Like, what's the key requirement?"
 
-EXAMPLE OF BAD OPENING (vague, no value):
-"Hey! I see you picked X. That's an interesting choice! What made you think that?"
+EXAMPLE 2:
+"Interesting choice! Quick question - can we determine if '√5 is irrational' is true or false? What about 'x² + 3x = 5'?"
 
-EXAMPLE OF GOOD OPENING (immediately helpful):
-"Hey! I picked the same thing at first. But then I thought about a specific case - [concrete scenario]. That made me reconsider. What do you think happens in that situation?"
+RULES:
+- NEVER reference letter choices (A, B, C, D) - discuss concepts only
+- Keep it SHORT (1-2 sentences max)
+- Ask a QUESTION that leads them to think, don't explain
+- Be curious and friendly, not corrective
 
 Return JSON:
 {{
-    "message": "Your opening message as {peer_name} (2-3 sentences - if they're WRONG, immediately offer a helpful hint or example)",
-    "follow_up_question": "A SPECIFIC question about a scenario or edge case, not 'what was your reasoning?'"
+    "message": "Brief greeting + ONE probing question (no explanation!)"
 }}"""
 
 
@@ -309,67 +318,89 @@ def _build_continuation_prompt(
     correct_answer_text: str,
     is_correct: bool,
     history_text: str,
-    last_student_message: str
+    last_student_message: str,
+    exchange_count: int = 0
 ) -> str:
-    """Build the prompt for continuing an existing discussion."""
+    """Build the prompt for continuing an existing discussion.
+
+    Uses Socratic method:
+    - Exchange 1: Ask another probing question based on their response
+    - Exchange 2+: Give the lesson and let them try the question
+    """
 
     options_formatted = "\n".join([f"  {k}: {v}" for k, v in options.items()])
 
-    # Count exchanges to gauge conversation progress
-    exchange_count = history_text.count("\n") // 2 if history_text else 0
+    # First response: Ask another question, don't explain yet
+    if exchange_count < 2:
+        return f"""You are {peer_name}. The student just responded to your question.
 
-    return f"""You are {peer_name}, continuing a peer discussion about a question.
-
-QUESTION:
-{question.get('question_text', question.get('prompt', 'Unknown question'))}
-
+ORIGINAL QUESTION: {question.get('question_text', question.get('prompt', 'Unknown question'))}
 OPTIONS:
 {options_formatted}
-
 CORRECT ANSWER: {correct_answer_text}
-STUDENT'S ORIGINAL ANSWER: {student_answer_text}
-STUDENT WAS: {"CORRECT" if is_correct else "INCORRECT"}
-
-EXPLANATION:
-{question.get('explanation', 'Not available')}
 
 CONVERSATION SO FAR:
 {history_text}
 
-STUDENT'S LATEST MESSAGE: "{last_student_message}"
+STUDENT'S LATEST RESPONSE: "{last_student_message}"
 
-Continue the discussion as {peer_name}:
+Your job: Ask ONE follow-up question. NO EXPLANATION - just a question.
 
-CRITICAL - ADD EDUCATIONAL VALUE, DON'T JUST PARAPHRASE:
-1. DO NOT just mirror back what the student said ("So you're saying X, right?") - that's empty
-2. ACTUALLY HELP THEM LEARN by doing ONE of these:
-   - Give a concrete example or analogy that illustrates the concept
-   - Point out a specific edge case or scenario they haven't considered
-   - Explain a key distinction they might be missing
-   - Share a "trick" or mental model for remembering the concept
-   - Ask a SPECIFIC question that forces them to confront their misconception
-3. Be like a helpful tutor who ADDS information, not a therapist who just reflects
-4. Keep it conversational but substantive - every message should teach something
-5. NEVER reference letter choices - only discuss concepts
-6. DO NOT reveal the correct answer directly - but DO give meaningful hints
+CRITICAL: Do NOT explain anything. Do NOT teach. ONLY ask a question.
 
-EXAMPLE OF BAD RESPONSE (empty paraphrase):
-"So you're focusing on the idea that X leads to Y, right?"
+GOOD EXAMPLES (just questions, no teaching):
+- "Hmm, can you tell me - is '√5 is irrational' something we can determine is true or false?"
+- "What about 'x² + 3x = 5' - can we say if that's true or false without knowing x?"
+- "Interesting! What do you think is different between '1+1=2' and 'x+1=2'?"
 
-EXAMPLE OF GOOD RESPONSE (adds value):
-"Here's something to think about - what if someone promises 'If it rains, I'll bring an umbrella' but it's sunny? Did they break their promise? That's the key to this question."
+BAD EXAMPLES (these explain - DON'T do this):
+- "A proposition needs to be true or false. So what about..." ❌
+- "The key difference is that..." ❌
+- "Think about it this way..." ❌
 
-IMPORTANT: The student got this question WRONG. Your goal is to help them understand through discussion.
-- Keep asking questions and providing hints until they demonstrate understanding
-- After {max(2, 4 - exchange_count)} more exchanges, if they seem to understand the concept, set ready_for_check to true
-- ready_for_check means: "I think they understand now and should try answering again"
-- If they're still struggling, keep ready_for_check false and continue helping
+RULES:
+- ONE question only (1 sentence)
+- NO explaining, NO teaching, NO hints
+- Just ask and let them think
+- NEVER reference letter choices
 
 Return JSON:
 {{
-    "message": "Your response as {peer_name} (2-3 sentences that TEACH something, not just reflect)",
-    "follow_up_question": "A SPECIFIC question about a scenario or edge case they should consider",
-    "ready_for_check": true/false (true if student seems ready to demonstrate understanding)
+    "message": "Just a question, nothing else"
+}}"""
+
+    # Second+ response: Now give the lesson
+    return f"""You are {peer_name}. The student has been thinking through this with you.
+
+ORIGINAL QUESTION: {question.get('question_text', question.get('prompt', 'Unknown question'))}
+CORRECT ANSWER: {correct_answer_text}
+EXPLANATION: {question.get('explanation', 'Not available')}
+
+CONVERSATION SO FAR:
+{history_text}
+
+STUDENT'S LATEST RESPONSE: "{last_student_message}"
+
+Your job: Now give them the key lesson and let them try the original question.
+
+STRUCTURE:
+1. Brief acknowledgment of their thinking (1 sentence)
+2. The key lesson/insight they need (1-2 sentences)
+3. Encourage them to try the question again
+
+EXAMPLE:
+"You're getting it! The key thing is: a proposition must be definitively true or false WITHOUT depending on unknown values. 'x² + 3x = 5' has a variable, so we can't say it's true or false until we know x. Ready to try the question again?"
+
+RULES:
+- Keep it SHORT (2-3 sentences total)
+- NOW you can explain the concept briefly
+- End by letting them try the question
+- NEVER reference letter choices
+
+Return JSON:
+{{
+    "message": "Brief lesson + encouragement to try again",
+    "ready_for_check": true
 }}"""
 
 
@@ -380,51 +411,56 @@ def _fallback_response(
     correct_answer_text: str,
     message_count: int
 ) -> Dict[str, Any]:
-    """Fallback responses when LLM is unavailable."""
+    """Fallback responses when LLM is unavailable.
+
+    Uses Socratic pattern:
+    - First message: Ask a probing question
+    - Second message: Ask another question
+    - Third+ message: Give brief lesson + let them try
+    """
+    # Count student messages (every other message after the first is from student)
+    student_responses = (message_count + 1) // 2
 
     if message_count == 0:
+        # First message: Ask a probing question (no explanation)
         if is_correct:
             return {
                 "name": peer_name,
-                "message": f"Hey! Nice work on this one. I see you chose \"{student_answer_text[:50]}...\" - that's exactly right! What made you confident that was the answer?",
-                "follow_up_question": "Can you walk me through your reasoning?",
+                "message": f"Hey! Nice work. Quick question - what made you confident that was the answer?",
                 "ready_for_check": False
             }
         else:
             return {
                 "name": peer_name,
-                "message": f"Hey! This one's tricky. I see you went with \"{student_answer_text[:50]}...\" - I can see why that's tempting. What made you think that was the best choice?",
-                "follow_up_question": "What was the key factor in your decision?",
+                "message": f"Hey! Interesting choice. What do you think makes something fit this definition vs not?",
                 "ready_for_check": False
             }
-    elif message_count < 4:
+    elif student_responses < 2:
+        # Second message: Ask another probing question
         if is_correct:
             return {
                 "name": peer_name,
-                "message": "That makes sense! Teaching others really helps cement your own understanding.",
-                "follow_up_question": None,
+                "message": "That makes sense! Can you think of an example that wouldn't fit?",
                 "ready_for_check": False
             }
         else:
             return {
                 "name": peer_name,
-                "message": f"I hear you. Let me give you a hint - think about how the correct answer relates to the core concept being asked.",
-                "follow_up_question": "What do you notice when you compare the options more carefully?",
+                "message": "Okay, that's interesting! What if we compare your answer to one of the other options - what's the key difference?",
                 "ready_for_check": False
             }
     else:
+        # Third+ message: Give lesson and let them try
         if is_correct:
             return {
                 "name": peer_name,
-                "message": "Great discussion! I think we both learned something here.",
-                "follow_up_question": None,
+                "message": "Great explanation! You clearly understand this concept.",
                 "ready_for_check": False
             }
         else:
             return {
                 "name": peer_name,
-                "message": "I think you're getting closer to understanding this. Want to try selecting what you think the correct answer is now?",
-                "follow_up_question": "Give it a shot!",
+                "message": "Good thinking! The key insight here is about what makes something fit the definition. Ready to try the question again?",
                 "ready_for_check": True
             }
 
