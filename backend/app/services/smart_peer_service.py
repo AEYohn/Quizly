@@ -171,7 +171,8 @@ async def generate_smart_peer_response(
     # Build contextual prompt
     is_first_message = len(chat_history) == 0
     # Count student messages to track exchange progress
-    student_message_count = sum(1 for msg in chat_history if msg.get("role") == "user" or msg.get("sender") == "student")
+    # Chat history uses "role": "student" for student messages
+    student_message_count = sum(1 for msg in chat_history if msg.get("role") == "student")
 
     if is_first_message:
         prompt = _build_opening_prompt(
