@@ -1357,7 +1357,7 @@ export default function PlayGamePage() {
                         </div>
                     </div>
                 ) : postQuizStage === "summary" ? (
-                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
+                    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 py-8">
                         <PostQuizSummary
                             score={playerState?.score || 0}
                             totalQuestions={game.total_questions}
@@ -1376,7 +1376,7 @@ export default function PlayGamePage() {
                         />
                     </div>
                 ) : postQuizStage === "exit_ticket" && exitTicketLoading ? (
-                    <div className="flex min-h-[90vh] flex-col items-center justify-center py-8">
+                    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950">
                         <div className="text-center">
                             <Loader2 className="mx-auto h-12 w-12 animate-spin text-sky-400 mb-4" />
                             <h2 className="text-xl font-bold text-white mb-2">Creating Your Study Packet</h2>

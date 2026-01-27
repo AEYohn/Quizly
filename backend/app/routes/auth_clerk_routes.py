@@ -48,8 +48,8 @@ class RoleUpdateRequest(BaseModel):
 
 class LinkGuestRequest(BaseModel):
     """Request to link a guest player to an authenticated user."""
-    player_id: str
-    game_id: str
+    player_id: Optional[str] = None  # Optional - may only have exit ticket
+    game_id: Optional[str] = None    # Optional - may only have exit ticket
     exit_ticket_id: Optional[str] = None
 
 
@@ -169,36 +169,39 @@ async def link_guest_player(
     result_data = {"linked": False}
 
     try:
-        # Find and link the player
-        result = await db.execute(
-            select(Player).where(
-                Player.id == UUID(link_data.player_id),
-                Player.game_id == UUID(link_data.game_id),
-                Player.user_id.is_(None)  # Only link unlinked players
-            )
-        )
-        player = result.scalars().first()
-
-        if player:
-            print(f"[link-guest] Found player: {player.id}, linking to user {current_user.id}")
-            player.user_id = current_user.id
-            result_data["linked"] = True
-            result_data["player_id"] = str(player.id)
-        else:
-            # Debug: check if player exists but is already linked
-            result2 = await db.execute(
+        # Find and link the player (only if player_id and game_id provided)
+        if link_data.player_id and link_data.game_id:
+            result = await db.execute(
                 select(Player).where(
                     Player.id == UUID(link_data.player_id),
                     Player.game_id == UUID(link_data.game_id),
+                    Player.user_id.is_(None)  # Only link unlinked players
                 )
             )
-            existing_player = result2.scalars().first()
-            if existing_player:
-                print(f"[link-guest] Player exists but already linked to user_id={existing_player.user_id}")
-                result_data["player_reason"] = "Player already linked to another user"
+            player = result.scalars().first()
+
+            if player:
+                print(f"[link-guest] Found player: {player.id}, linking to user {current_user.id}")
+                player.user_id = current_user.id
+                result_data["linked"] = True
+                result_data["player_id"] = str(player.id)
             else:
-                print(f"[link-guest] Player not found")
-                result_data["player_reason"] = "Player not found"
+                # Debug: check if player exists but is already linked
+                result2 = await db.execute(
+                    select(Player).where(
+                        Player.id == UUID(link_data.player_id),
+                        Player.game_id == UUID(link_data.game_id),
+                    )
+                )
+                existing_player = result2.scalars().first()
+                if existing_player:
+                    print(f"[link-guest] Player exists but already linked to user_id={existing_player.user_id}")
+                    result_data["player_reason"] = "Player already linked to another user"
+                else:
+                    print(f"[link-guest] Player not found")
+                    result_data["player_reason"] = "Player not found"
+        else:
+            print(f"[link-guest] No player_id/game_id provided, skipping player link")
 
         # Link exit ticket if provided
         if link_data.exit_ticket_id:

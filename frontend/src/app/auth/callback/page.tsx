@@ -71,9 +71,11 @@ export default function AuthCallbackPage() {
 
                 console.log("[Auth Callback] Checking for guest data to link:", { pendingPlayerId, pendingGameId, pendingExitTicketId });
 
-                if (pendingPlayerId && pendingGameId) {
+                // Call link-guest if we have player data OR just an exit ticket
+                // The backend can link exit tickets independently of player records
+                if ((pendingPlayerId && pendingGameId) || pendingExitTicketId) {
                     try {
-                        console.log("[Auth Callback] Linking guest player and exit ticket...");
+                        console.log("[Auth Callback] Linking guest player and/or exit ticket...");
                         const linkResponse = await fetch(`${API_URL}/auth/clerk/link-guest`, {
                             method: "POST",
                             headers: {
@@ -81,8 +83,8 @@ export default function AuthCallbackPage() {
                                 Authorization: `Bearer ${token}`,
                             },
                             body: JSON.stringify({
-                                player_id: pendingPlayerId,
-                                game_id: pendingGameId,
+                                player_id: pendingPlayerId || undefined,
+                                game_id: pendingGameId || undefined,
                                 exit_ticket_id: pendingExitTicketId || undefined,
                             }),
                         });
@@ -97,8 +99,6 @@ export default function AuthCallbackPage() {
                     localStorage.removeItem("quizly_pending_exit_ticket_id");
                 } else {
                     console.log("[Auth Callback] No guest data to link");
-                    // Still clean up exit ticket if present
-                    localStorage.removeItem("quizly_pending_exit_ticket_id");
                 }
 
                 setStatus("Redirecting to dashboard...");
