@@ -230,6 +230,11 @@ export default function PlayGamePage() {
         }
         localStorage.setItem("quizly_pending_game_id", gameId);
         console.log("[Play Page] Stored pending game_id:", gameId);
+        // Store exit ticket ID for linking after sign-up
+        if (exitTicket?.id) {
+            localStorage.setItem("quizly_pending_exit_ticket_id", exitTicket.id);
+            console.log("[Play Page] Stored pending exit_ticket_id:", exitTicket.id);
+        }
         router.push("/sign-up");
     };
 
@@ -1899,12 +1904,20 @@ export default function PlayGamePage() {
                                             ? { ...resp, had_peer_discussion: true, corrected_via_discussion: true }
                                             : resp
                                     ));
-                                    // Move to next question
                                     setShowPeerDiscussion(false);
-                                    nextQuestion();
                                     setConfidence(70);
                                     setReasoning("");
                                     setShowReasoning(false);
+
+                                    // Check if this was the last question
+                                    const isLastQuestion = game && asyncQuestionIndex >= game.total_questions - 1;
+                                    if (isLastQuestion) {
+                                        // Complete the quiz
+                                        handleQuizComplete();
+                                    } else {
+                                        // Move to next question
+                                        nextQuestion();
+                                    }
                                 }}
                             />
                         </div>

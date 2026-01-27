@@ -64,15 +64,16 @@ export default function AuthCallbackPage() {
                 localStorage.setItem("quizly_user", JSON.stringify(userData));
                 localStorage.removeItem("quizly_pending_role");
 
-                // Link guest player data if present
+                // Link guest player data and exit ticket if present
                 const pendingPlayerId = localStorage.getItem("quizly_pending_player_id");
                 const pendingGameId = localStorage.getItem("quizly_pending_game_id");
+                const pendingExitTicketId = localStorage.getItem("quizly_pending_exit_ticket_id");
 
-                console.log("[Auth Callback] Checking for guest data to link:", { pendingPlayerId, pendingGameId });
+                console.log("[Auth Callback] Checking for guest data to link:", { pendingPlayerId, pendingGameId, pendingExitTicketId });
 
                 if (pendingPlayerId && pendingGameId) {
                     try {
-                        console.log("[Auth Callback] Linking guest player...");
+                        console.log("[Auth Callback] Linking guest player and exit ticket...");
                         const linkResponse = await fetch(`${API_URL}/auth/clerk/link-guest`, {
                             method: "POST",
                             headers: {
@@ -82,6 +83,7 @@ export default function AuthCallbackPage() {
                             body: JSON.stringify({
                                 player_id: pendingPlayerId,
                                 game_id: pendingGameId,
+                                exit_ticket_id: pendingExitTicketId || undefined,
                             }),
                         });
                         const linkResult = await linkResponse.json();
@@ -92,8 +94,11 @@ export default function AuthCallbackPage() {
                     // Clean up
                     localStorage.removeItem("quizly_pending_player_id");
                     localStorage.removeItem("quizly_pending_game_id");
+                    localStorage.removeItem("quizly_pending_exit_ticket_id");
                 } else {
                     console.log("[Auth Callback] No guest data to link");
+                    // Still clean up exit ticket if present
+                    localStorage.removeItem("quizly_pending_exit_ticket_id");
                 }
 
                 setStatus("Redirecting to dashboard...");

@@ -16,8 +16,10 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
+from ..db_models import User
 from ..db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession
 from ..models.game import Player, PlayerAnswer, GameSession, Quiz
+from ..auth_clerk import get_current_user_clerk
 
 # Add experimentation folder to path for AI agents
 EXPERIMENTATION_PATH = Path(__file__).parent.parent.parent.parent / "experimentation" / "ai_agents"
@@ -390,6 +392,48 @@ async def export_study_guide(
         lines.append("\n---\n")
 
     return {"markdown": "\n".join(lines)}
+
+
+@router.get("/exit-tickets/mine", response_model=List[ExitTicketResponse])
+async def get_my_exit_tickets(
+    limit: int = Query(default=10, le=50),
+    current_user: User = Depends(get_current_user_clerk),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get exit tickets for the authenticated user.
+
+    This endpoint queries by student_id (the authenticated user's ID) rather than
+    student_name, ensuring that exit tickets linked during sign-up are returned.
+    """
+    result = await db.execute(
+        select(ExitTicket)
+        .where(ExitTicket.student_id == current_user.id)
+        .order_by(desc(ExitTicket.created_at))
+        .limit(limit)
+    )
+    tickets = result.scalars().all()
+
+    return [
+        ExitTicketResponse(
+            id=str(t.id),
+            student_name=t.student_name,
+            target_concept=t.target_concept,
+            micro_lesson=t.micro_lesson,
+            encouragement=t.encouragement,
+            question_prompt=t.question_prompt,
+            question_options=t.question_options,
+            correct_answer=t.correct_answer,
+            hint=t.hint,
+            is_completed=t.is_completed,
+            created_at=t.created_at.isoformat(),
+            study_notes=t.study_notes or {},
+            practice_questions=t.practice_questions or [],
+            flashcards=t.flashcards or [],
+            misconceptions=t.misconceptions or [],
+        )
+        for t in tickets
+    ]
 
 
 # ==============================================================================

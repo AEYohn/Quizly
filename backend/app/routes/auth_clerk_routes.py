@@ -22,6 +22,7 @@ from ..auth_clerk import (
 )
 from ..auth import UserResponse
 from ..models.game import Player
+from ..db_models_learning import ExitTicket
 
 router = APIRouter()
 
@@ -49,6 +50,7 @@ class LinkGuestRequest(BaseModel):
     """Request to link a guest player to an authenticated user."""
     player_id: str
     game_id: str
+    exit_ticket_id: Optional[str] = None
 
 
 @router.post("/sync", response_model=ClerkUserResponse)
@@ -160,12 +162,14 @@ async def link_guest_player(
     POST /auth/clerk/link-guest
 
     This endpoint is called after a guest signs up to link their
-    existing player record to their new user account.
+    existing player record and exit ticket to their new user account.
     """
-    print(f"[link-guest] Attempting to link player_id={link_data.player_id}, game_id={link_data.game_id} to user_id={current_user.id}")
+    print(f"[link-guest] Attempting to link player_id={link_data.player_id}, game_id={link_data.game_id}, exit_ticket_id={link_data.exit_ticket_id} to user_id={current_user.id}")
+
+    result_data = {"linked": False}
 
     try:
-        # Find the player
+        # Find and link the player
         result = await db.execute(
             select(Player).where(
                 Player.id == UUID(link_data.player_id),
@@ -178,23 +182,52 @@ async def link_guest_player(
         if player:
             print(f"[link-guest] Found player: {player.id}, linking to user {current_user.id}")
             player.user_id = current_user.id
-            await db.commit()
-            return {"linked": True, "player_id": str(player.id)}
-
-        # Debug: check if player exists but is already linked
-        result2 = await db.execute(
-            select(Player).where(
-                Player.id == UUID(link_data.player_id),
-                Player.game_id == UUID(link_data.game_id),
+            result_data["linked"] = True
+            result_data["player_id"] = str(player.id)
+        else:
+            # Debug: check if player exists but is already linked
+            result2 = await db.execute(
+                select(Player).where(
+                    Player.id == UUID(link_data.player_id),
+                    Player.game_id == UUID(link_data.game_id),
+                )
             )
-        )
-        existing_player = result2.scalars().first()
-        if existing_player:
-            print(f"[link-guest] Player exists but already linked to user_id={existing_player.user_id}")
-            return {"linked": False, "reason": "Player already linked to another user"}
+            existing_player = result2.scalars().first()
+            if existing_player:
+                print(f"[link-guest] Player exists but already linked to user_id={existing_player.user_id}")
+                result_data["player_reason"] = "Player already linked to another user"
+            else:
+                print(f"[link-guest] Player not found")
+                result_data["player_reason"] = "Player not found"
 
-        print(f"[link-guest] Player not found")
-        return {"linked": False, "reason": "Player not found"}
+        # Link exit ticket if provided
+        if link_data.exit_ticket_id:
+            try:
+                ticket_result = await db.execute(
+                    select(ExitTicket).where(
+                        ExitTicket.id == UUID(link_data.exit_ticket_id),
+                        ExitTicket.student_id.is_(None)  # Only link unlinked tickets
+                    )
+                )
+                ticket = ticket_result.scalars().first()
+
+                if ticket:
+                    print(f"[link-guest] Found exit ticket: {ticket.id}, linking to user {current_user.id}")
+                    ticket.student_id = current_user.id
+                    result_data["exit_ticket_linked"] = True
+                    result_data["exit_ticket_id"] = str(ticket.id)
+                else:
+                    print(f"[link-guest] Exit ticket not found or already linked")
+                    result_data["exit_ticket_linked"] = False
+                    result_data["exit_ticket_reason"] = "Exit ticket not found or already linked"
+            except Exception as te:
+                print(f"[link-guest] Error linking exit ticket: {te}")
+                result_data["exit_ticket_linked"] = False
+                result_data["exit_ticket_reason"] = str(te)
+
+        await db.commit()
+        return result_data
+
     except Exception as e:
         print(f"[link-guest] Error: {e}")
         return {"linked": False, "reason": str(e)}
