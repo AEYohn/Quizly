@@ -222,11 +222,11 @@ async def generate_smart_peer_response(
         )
         result = json.loads(response.text)
 
-        # Socratic flow: ready_for_check only after 2+ student responses
-        # Message 1: AI asks question -> student responds (count=1)
-        # Message 2: AI asks another question -> student responds (count=2)
-        # Message 3: AI gives lesson -> ready_for_check = true
-        force_check = not is_correct and student_message_count >= 2
+        # Socratic flow: ready_for_check after student has engaged with teaching
+        # After 1 student response, show the mastery check
+        force_check = not is_correct and student_message_count >= 1
+
+        print(f"[smart_peer] student_message_count={student_message_count}, is_correct={is_correct}, force_check={force_check}")
 
         return {
             "name": peer_name,
