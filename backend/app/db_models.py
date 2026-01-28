@@ -34,6 +34,7 @@ class User(Base):
     courses: Mapped[List["Course"]] = relationship(back_populates="teacher")
     responses: Mapped[List["Response"]] = relationship(back_populates="student")
     study_items: Mapped[List["StudyItem"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    collections: Mapped[List["Collection"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
 
 
 class Course(Base):
@@ -547,6 +548,44 @@ class GameContent(Base):
 
     # Relationships
     study_item: Mapped["StudyItem"] = relationship()
+
+
+class Collection(Base):
+    """Curated collection of study items."""
+    __tablename__ = "collections"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cover_color: Mapped[str] = mapped_column(String(20), default="#3B82F6")  # Tailwind blue-500
+    visibility: Mapped[str] = mapped_column(String(20), default="private")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    # Relationships
+    owner: Mapped["User"] = relationship(back_populates="collections")
+    items: Mapped[List["CollectionItem"]] = relationship(back_populates="collection", cascade="all, delete-orphan", order_by="CollectionItem.position")
+
+
+class CollectionItem(Base):
+    """Join table for Collection <-> StudyItem many-to-many."""
+    __tablename__ = "collection_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    collection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), nullable=False)
+    study_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("study_items.id", ondelete="CASCADE"), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    # Relationships
+    collection: Mapped["Collection"] = relationship(back_populates="items")
+    study_item: Mapped["StudyItem"] = relationship(back_populates="collection_items")
+
+    __table_args__ = (
+        {"sqlite_autoincrement": True},
+    )
 
 
 # Import extended learning models to register them
