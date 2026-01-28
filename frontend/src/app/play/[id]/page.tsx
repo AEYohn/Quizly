@@ -103,6 +103,8 @@ export default function PlayGamePage() {
     // Async mode: track current question index independently
     // Initialize to 0, then restore from sessionStorage once we have playerId
     const [asyncQuestionIndex, setAsyncQuestionIndex] = useState<number>(0);
+    // Track whether progress has been restored from sessionStorage (prevents race condition)
+    const [progressRestored, setProgressRestored] = useState(false);
 
     // AI Host state
     const [hostMessage, setHostMessage] = useState<string>("");
@@ -516,6 +518,7 @@ export default function PlayGamePage() {
     }, [gameId, playerId, isSignedIn, router]);
 
     // Restore quiz progress from sessionStorage (tied to player session)
+    // This MUST complete before polling starts to avoid race condition
     useEffect(() => {
         if (typeof window !== "undefined" && gameId && playerId) {
             const saved = sessionStorage.getItem(`quiz_progress_${gameId}_${playerId}`);
@@ -525,12 +528,20 @@ export default function PlayGamePage() {
                     setAsyncQuestionIndex(savedIndex);
                 }
             }
+            // Mark restore as complete (even if nothing to restore)
+            setProgressRestored(true);
         }
     }, [gameId, playerId]);
 
     useEffect(() => {
         if (!playerId) {
             router.push("/join");
+            return;
+        }
+
+        // Wait for progress restore to complete before polling
+        // This prevents fetching with wrong question index on page reload
+        if (!progressRestored) {
             return;
         }
 
@@ -558,7 +569,7 @@ export default function PlayGamePage() {
         }, pollInterval);
 
         return () => clearInterval(interval);
-    }, [fetchGame, fetchPlayerState, playerId, router, hasAnswered]);
+    }, [fetchGame, fetchPlayerState, playerId, router, hasAnswered, progressRestored]);
 
     // Timer initialization - only if timer is enabled in quiz settings
     useEffect(() => {
