@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
 import { authApi } from "@/lib/api";
 
@@ -34,9 +33,27 @@ function generateGuestId(): string {
   return `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+// Check if Clerk is available
+const CLERK_AVAILABLE = !!process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+// Conditional Clerk imports - only use when available
+let useClerkAuth: any = () => ({ isLoaded: true, isSignedIn: false, getToken: null, signOut: null });
+let useUser: any = () => ({ user: null });
+
+if (CLERK_AVAILABLE) {
+  try {
+    const clerk = require("@clerk/clerk-expo");
+    useClerkAuth = clerk.useAuth;
+    useUser = clerk.useUser;
+  } catch (e) {
+    // Clerk not available, use defaults
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const clerkAuth = useClerkAuth();
-  const { user } = useUser();
+  // Only use Clerk hooks if Clerk is available
+  const clerkAuth = CLERK_AVAILABLE ? useClerkAuth() : { isLoaded: true, isSignedIn: false, getToken: null, signOut: null };
+  const { user } = CLERK_AVAILABLE ? useUser() : { user: null };
 
   const [guestData, setGuestData] = useState<GuestData | null>(null);
   const [isGuestLoaded, setIsGuestLoaded] = useState(false);
@@ -112,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!clerkAuth.isSignedIn || !user || !guestData) return;
 
     try {
-      const token = await clerkAuth.getToken();
+      const token = clerkAuth.getToken ? await clerkAuth.getToken() : null;
       if (token) {
         // Sync user with backend, including guest data
         await authApi.syncUser({
@@ -147,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [clerkAuth]);
 
-  const isLoaded = clerkAuth.isLoaded && isGuestLoaded;
+  const isLoaded = (CLERK_AVAILABLE ? clerkAuth.isLoaded : true) && isGuestLoaded;
   const isSignedIn = clerkAuth.isSignedIn ?? false;
   const isGuest = !isSignedIn && !!guestData;
 
