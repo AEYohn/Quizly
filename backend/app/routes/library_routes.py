@@ -80,6 +80,17 @@ class FlashcardDeckResponse(StudyItemResponse):
     cards: List[FlashcardResponse]
 
 
+class StudyNoteCreate(StudyItemBase):
+    content_markdown: str = Field(default="")
+    attachments: List[dict] = Field(default_factory=list)
+
+
+class StudyNoteResponse(StudyItemResponse):
+    content_markdown: str
+    attachments: List[dict]
+    highlighted_terms: List[str]
+
+
 # ============ Study Items Endpoints ============
 
 @router.get("/items", response_model=StudyItemListResponse)
@@ -271,4 +282,149 @@ async def get_flashcard_deck(
         cards=[FlashcardResponse(id=str(c.id), **{
             k: getattr(c, k) for k in FlashcardResponse.model_fields if k != 'id'
         }) for c in sorted(deck.cards, key=lambda x: x.position)]
+    )
+
+
+# ============ Study Note Endpoints ============
+
+@router.post("/notes", response_model=StudyNoteResponse, status_code=status.HTTP_201_CREATED)
+async def create_study_note(
+    request: StudyNoteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Create a new study note."""
+    study_item = StudyItem(
+        owner_id=current_user.id,
+        type="note",
+        title=request.title,
+        description=request.description,
+        visibility=request.visibility,
+        tags=request.tags,
+        source="manual"
+    )
+    db.add(study_item)
+    await db.flush()
+
+    note = StudyNote(
+        study_item_id=study_item.id,
+        content_markdown=request.content_markdown,
+        attachments=request.attachments
+    )
+    db.add(note)
+    await db.commit()
+    await db.refresh(study_item)
+    await db.refresh(note)
+
+    return StudyNoteResponse(
+        id=str(study_item.id),
+        type=study_item.type,
+        title=study_item.title,
+        description=study_item.description,
+        visibility=study_item.visibility,
+        tags=study_item.tags,
+        source=study_item.source,
+        times_studied=study_item.times_studied,
+        last_studied_at=study_item.last_studied_at,
+        created_at=study_item.created_at,
+        updated_at=study_item.updated_at,
+        content_markdown=note.content_markdown,
+        attachments=note.attachments or [],
+        highlighted_terms=note.highlighted_terms or []
+    )
+
+
+@router.get("/notes/{item_id}", response_model=StudyNoteResponse)
+async def get_study_note(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Get a study note."""
+    result = await db.execute(
+        select(StudyItem).where(
+            StudyItem.id == item_id,
+            StudyItem.type == "note"
+        )
+    )
+    study_item = result.scalars().first()
+
+    if not study_item:
+        raise HTTPException(status_code=404, detail="Study note not found")
+
+    if study_item.owner_id != current_user.id and study_item.visibility == "private":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    note_result = await db.execute(
+        select(StudyNote).where(StudyNote.study_item_id == item_id)
+    )
+    note = note_result.scalars().first()
+
+    return StudyNoteResponse(
+        id=str(study_item.id),
+        type=study_item.type,
+        title=study_item.title,
+        description=study_item.description,
+        visibility=study_item.visibility,
+        tags=study_item.tags,
+        source=study_item.source,
+        times_studied=study_item.times_studied,
+        last_studied_at=study_item.last_studied_at,
+        created_at=study_item.created_at,
+        updated_at=study_item.updated_at,
+        content_markdown=note.content_markdown,
+        attachments=note.attachments or [],
+        highlighted_terms=note.highlighted_terms or []
+    )
+
+
+@router.patch("/notes/{item_id}", response_model=StudyNoteResponse)
+async def update_study_note(
+    item_id: uuid.UUID,
+    request: StudyNoteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Update a study note."""
+    result = await db.execute(
+        select(StudyItem).where(StudyItem.id == item_id)
+    )
+    study_item = result.scalars().first()
+
+    if not study_item or study_item.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Study note not found")
+
+    # Update study item
+    study_item.title = request.title
+    study_item.description = request.description
+    study_item.visibility = request.visibility
+    study_item.tags = request.tags
+
+    # Update note
+    note_result = await db.execute(
+        select(StudyNote).where(StudyNote.study_item_id == item_id)
+    )
+    note = note_result.scalars().first()
+    note.content_markdown = request.content_markdown
+    note.attachments = request.attachments
+
+    await db.commit()
+    await db.refresh(study_item)
+    await db.refresh(note)
+
+    return StudyNoteResponse(
+        id=str(study_item.id),
+        type=study_item.type,
+        title=study_item.title,
+        description=study_item.description,
+        visibility=study_item.visibility,
+        tags=study_item.tags,
+        source=study_item.source,
+        times_studied=study_item.times_studied,
+        last_studied_at=study_item.last_studied_at,
+        created_at=study_item.created_at,
+        updated_at=study_item.updated_at,
+        content_markdown=note.content_markdown,
+        attachments=note.attachments or [],
+        highlighted_terms=note.highlighted_terms or []
     )
