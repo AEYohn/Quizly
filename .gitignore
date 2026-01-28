@@ -52,3 +52,6 @@ experimentation/.env
 
 # Pitch/investor docs (not for public repo)
 pitch-docs/
+
+# Git worktrees
+.worktrees/
