@@ -91,6 +91,18 @@ class StudyNoteResponse(StudyItemResponse):
     highlighted_terms: List[str]
 
 
+class GameContentCreate(StudyItemBase):
+    template_type: str = Field(...)  # match_pairs, fill_blank, sort_it
+    game_data: dict = Field(...)
+
+
+class GameContentResponse(StudyItemResponse):
+    template_type: str
+    game_data: dict
+    best_score: Optional[int]
+    best_time_seconds: Optional[int]
+
+
 # ============ Study Items Endpoints ============
 
 @router.get("/items", response_model=StudyItemListResponse)
@@ -427,4 +439,102 @@ async def update_study_note(
         content_markdown=note.content_markdown,
         attachments=note.attachments or [],
         highlighted_terms=note.highlighted_terms or []
+    )
+
+
+# ============ Game Content Endpoints ============
+
+@router.post("/games", response_model=GameContentResponse, status_code=status.HTTP_201_CREATED)
+async def create_game_content(
+    request: GameContentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Create a new game."""
+    if request.template_type not in ["match_pairs", "fill_blank", "sort_it"]:
+        raise HTTPException(status_code=400, detail="Invalid template type")
+
+    study_item = StudyItem(
+        owner_id=current_user.id,
+        type="game",
+        title=request.title,
+        description=request.description,
+        visibility=request.visibility,
+        tags=request.tags,
+        source="manual"
+    )
+    db.add(study_item)
+    await db.flush()
+
+    game = GameContent(
+        study_item_id=study_item.id,
+        template_type=request.template_type,
+        game_data=request.game_data
+    )
+    db.add(game)
+    await db.commit()
+    await db.refresh(study_item)
+    await db.refresh(game)
+
+    return GameContentResponse(
+        id=str(study_item.id),
+        type=study_item.type,
+        title=study_item.title,
+        description=study_item.description,
+        visibility=study_item.visibility,
+        tags=study_item.tags,
+        source=study_item.source,
+        times_studied=study_item.times_studied,
+        last_studied_at=study_item.last_studied_at,
+        created_at=study_item.created_at,
+        updated_at=study_item.updated_at,
+        template_type=game.template_type,
+        game_data=game.game_data,
+        best_score=game.best_score,
+        best_time_seconds=game.best_time_seconds
+    )
+
+
+@router.get("/games/{item_id}", response_model=GameContentResponse)
+async def get_game_content(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Get a game."""
+    result = await db.execute(
+        select(StudyItem).where(
+            StudyItem.id == item_id,
+            StudyItem.type == "game"
+        )
+    )
+    study_item = result.scalars().first()
+
+    if not study_item:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    if study_item.owner_id != current_user.id and study_item.visibility == "private":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    game_result = await db.execute(
+        select(GameContent).where(GameContent.study_item_id == item_id)
+    )
+    game = game_result.scalars().first()
+
+    return GameContentResponse(
+        id=str(study_item.id),
+        type=study_item.type,
+        title=study_item.title,
+        description=study_item.description,
+        visibility=study_item.visibility,
+        tags=study_item.tags,
+        source=study_item.source,
+        times_studied=study_item.times_studied,
+        last_studied_at=study_item.last_studied_at,
+        created_at=study_item.created_at,
+        updated_at=study_item.updated_at,
+        template_type=game.template_type,
+        game_data=game.game_data,
+        best_score=game.best_score,
+        best_time_seconds=game.best_time_seconds
     )
