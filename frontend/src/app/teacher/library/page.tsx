@@ -21,6 +21,7 @@ import {
     Check,
     ExternalLink,
     Loader2,
+    RefreshCw,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -73,24 +74,37 @@ export default function LibraryPage() {
     const [copied, setCopied] = useState(false);
     const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null);
     const [generatingCodeFor, setGeneratingCodeFor] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchContent();
     }, []);
 
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await fetchContent();
+        setRefreshing(false);
+    };
+
     const fetchContent = async () => {
         try {
             const token = localStorage.getItem("token");
 
-            // Fetch quizzes
-            const quizzesRes = await fetch(`${API_URL}/quizzes/`, {
-                headers: { Authorization: `Bearer ${token}` },
+            // Fetch quizzes with cache-busting
+            const quizzesRes = await fetch(`${API_URL}/quizzes/?_t=${Date.now()}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Cache-Control": "no-cache",
+                },
             });
             const quizzes = quizzesRes.ok ? await quizzesRes.json() : [];
 
-            // Fetch coding challenges
-            const codingRes = await fetch(`${API_URL}/coding/my`, {
-                headers: { Authorization: `Bearer ${token}` },
+            // Fetch coding challenges with cache-busting
+            const codingRes = await fetch(`${API_URL}/coding/my?_t=${Date.now()}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Cache-Control": "no-cache",
+                },
             });
             const challenges = codingRes.ok ? await codingRes.json() : [];
 
@@ -293,6 +307,14 @@ export default function LibraryPage() {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleRefresh}
+                            disabled={refreshing}
+                            className="flex items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors disabled:opacity-50"
+                            title="Refresh content"
+                        >
+                            <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
+                        </button>
                         <Link
                             href="/teacher/quizzes/new"
                             className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 font-medium text-white transition-colors hover:bg-sky-700"
