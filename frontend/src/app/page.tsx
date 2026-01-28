@@ -92,12 +92,24 @@ export default function Home() {
                             <Gamepad2 className="h-5 w-5" />
                             Join a Game
                         </Link>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
                         <Link
                             href="/sign-up"
-                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-8 py-4 text-lg font-medium text-white hover:bg-gray-700 transition-colors"
+                            onClick={() => localStorage.setItem("quizly_pending_role", "teacher")}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-6 py-3 text-base font-medium text-white hover:bg-gray-700 transition-colors"
                         >
-                            Create Account
-                            <ArrowRight className="h-5 w-5" />
+                            <GraduationCap className="h-5 w-5" />
+                            I&apos;m a Teacher
+                        </Link>
+                        <Link
+                            href="/sign-up"
+                            onClick={() => localStorage.setItem("quizly_pending_role", "student")}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-6 py-3 text-base font-medium text-white hover:bg-gray-700 transition-colors"
+                        >
+                            <Users className="h-5 w-5" />
+                            I&apos;m a Student
                         </Link>
                     </div>
                 </div>
