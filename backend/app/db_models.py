@@ -588,6 +588,29 @@ class CollectionItem(Base):
     )
 
 
+class LibraryStudySession(Base):
+    """Tracks progress through a collection study session."""
+    __tablename__ = "library_study_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    collection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), nullable=False)
+
+    current_item_index: Mapped[int] = mapped_column(Integer, default=0)
+    items_completed: Mapped[int] = mapped_column(Integer, default=0)
+    total_items: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Progress per item: {item_id: {score, time_spent, completed}}
+    progress: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    user: Mapped["User"] = relationship()
+    collection: Mapped["Collection"] = relationship()
+
+
 # Import extended learning models to register them
 from . import db_models_learning  # noqa
 
