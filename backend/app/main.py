@@ -14,7 +14,7 @@ import os
 import uuid
 from sqlalchemy import text
 
-from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes
+from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes
 from .rate_limiter import limiter
 from .exceptions import QuizlyException, quizly_exception_handler
 from .logging_config import setup_logging, get_logger, set_request_context, clear_request_context, log_info, log_error
@@ -205,6 +205,8 @@ app.include_router(student_learning_routes.router, prefix="/student-learning", t
 app.include_router(assignment_routes.router, tags=["assignments"])
 # Student self-study quiz routes
 app.include_router(student_quiz_routes.router, prefix="/student", tags=["student-quizzes"])
+# Student library routes
+app.include_router(library_routes.router, prefix="/library", tags=["library"])
 
 
 @app.get("/")
