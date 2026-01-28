@@ -142,7 +142,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (!clerkLoaded) return;
 
-        if (isSignedIn && clerkUser && !syncedRef.current) {
+        // Check if there's a pending role change that needs to be synced
+        const pendingRole = localStorage.getItem("quizly_pending_role");
+        const needsRoleSync = pendingRole && user && user.role !== pendingRole;
+
+        if (isSignedIn && clerkUser && (!syncedRef.current || needsRoleSync)) {
+            // Reset synced flag if we need to update role
+            if (needsRoleSync) {
+                syncedRef.current = false;
+            }
             syncUser().finally(() => setIsLoading(false));
         } else if (!isSignedIn) {
             // Not signed in via Clerk, check for legacy auth
@@ -165,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
             setIsLoading(false);
         }
-    }, [clerkLoaded, isSignedIn, clerkUser, syncUser]);
+    }, [clerkLoaded, isSignedIn, clerkUser, syncUser, user]);
 
     // Refresh token periodically for Clerk users
     useEffect(() => {

@@ -8,6 +8,16 @@ body {
     color-scheme: dark;
 }
 
+/* Orange text selection highlight */
+::selection {
+    background-color: #f97316;
+    color: white;
+}
+::-moz-selection {
+    background-color: #f97316;
+    color: white;
+}
+
 /* Ensure body fills viewport */
 body {
     min-height: 100dvh;
