@@ -102,7 +102,9 @@ export default function FlashcardStudyPage() {
         // Fisher-Yates shuffle
         for (let i = newOrder.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
+            const temp = newOrder[i];
+            newOrder[i] = newOrder[j]!;
+            newOrder[j] = temp!;
         }
         setCardOrder(newOrder);
         setCurrentIndex(0);
@@ -181,10 +183,15 @@ export default function FlashcardStudyPage() {
         );
     }
 
-    const currentCard = deck.cards[cardOrder[currentIndex]];
+    const cardIndex = cardOrder[currentIndex] ?? 0;
+    const currentCard = deck.cards[cardIndex]!;
     const progress = ((currentIndex + 1) / deck.cards.length) * 100;
     const isAtEnd = currentIndex === deck.cards.length - 1;
     const isComplete = isAtEnd && isFlipped;
+
+    if (!currentCard) {
+        return null;
+    }
 
     return (
         <div className="min-h-screen bg-gray-950 text-white flex flex-col">
