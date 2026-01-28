@@ -117,6 +117,7 @@ function NewQuizPageContent() {
     const [chatInput, setChatInput] = useState("");
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [pendingFiles, setPendingFiles] = useState<UploadedFile[]>([]);
+    const [sessionFiles, setSessionFiles] = useState<UploadedFile[]>([]); // All files uploaded this session
     const [dragOver, setDragOver] = useState(false);
     const [mode, setMode] = useState<"ai" | "manual">("ai");
 
@@ -288,6 +289,12 @@ function NewQuizPageContent() {
         setMessages(prev => [...prev, userMessage]);
         const currentInput = chatInput;
         const currentFiles = [...pendingFiles];
+
+        // Add current files to session files for future requests
+        if (currentFiles.length > 0) {
+            setSessionFiles(prev => [...prev, ...currentFiles]);
+        }
+
         setChatInput("");
         setPendingFiles([]);
         setGenerating(true);
@@ -303,20 +310,23 @@ function NewQuizPageContent() {
 
         try {
             const token = await getFreshToken();
-            const attachments = currentFiles.map((f, i) => ({
+            // Combine current files with all session files for context
+            const allSessionFiles = [...sessionFiles, ...currentFiles];
+            const attachments = allSessionFiles.map((f, i) => ({
                 type: f.type,
                 name: f.name || `file_${i}.${f.type === "pdf" ? "pdf" : "jpg"}`,
                 content: f.base64,
                 mime_type: f.mimeType,
             }));
 
-            const hasFiles = currentFiles.length > 0;
+            const hasFiles = allSessionFiles.length > 0;
+            const hasNewFiles = currentFiles.length > 0;
             const fileTypes = currentFiles.map(f => f.type === "pdf" ? "PDF" : "image").join(" and ");
 
             let prompt = currentInput;
-            if (hasFiles && !currentInput) {
+            if (hasNewFiles && !currentInput) {
                 prompt = `Analyze the uploaded ${fileTypes} and generate quiz questions based on the content.`;
-            } else if (hasFiles) {
+            } else if (hasNewFiles) {
                 prompt = `${currentInput}. Use the uploaded ${fileTypes} as reference material.`;
             }
             // Let the user's intent pass through unchanged - backend will extract question count
