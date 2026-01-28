@@ -15,13 +15,24 @@ import {
     Users,
     Library,
     BarChart3,
+    BookOpen,
+    LayoutDashboard,
+    Inbox,
+    GraduationCap,
 } from "lucide-react";
 import { ProfileModal } from "~/components/ProfileModal";
 
-const navigation = [
+const teacherNavigation = [
     { name: "Library", href: "/teacher/library", icon: Library },
     { name: "Classrooms", href: "/teacher/classrooms", icon: Users },
     { name: "Analytics", href: "/teacher/analytics", icon: BarChart3 },
+];
+
+const studentNavigation = [
+    { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
+    { name: "My Library", href: "/student/library", icon: BookOpen },
+    { name: "Inbox", href: "/student/inbox", icon: Inbox },
+    { name: "Learning", href: "/student/learning", icon: GraduationCap },
 ];
 
 const EXPANDED_WIDTH = 256;
@@ -101,11 +112,12 @@ export function Sidebar() {
 
             {/* Navigation */}
             <nav className="flex-1 space-y-1 px-3 py-4">
-                {navigation.map((item) => {
+                {(pathname.startsWith("/student") ? studentNavigation : teacherNavigation).map((item) => {
                     const isActive =
                         pathname === item.href ||
                         pathname.startsWith(item.href) ||
-                        (item.href === "/teacher/library" && pathname === "/teacher");
+                        (item.href === "/teacher/library" && pathname === "/teacher") ||
+                        (item.href === "/student/dashboard" && pathname === "/student");
 
                     return (
                         <Link
