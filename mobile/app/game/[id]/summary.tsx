@@ -1,11 +1,12 @@
 import { View, Text, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button, Card } from "@/components/ui";
+import { StudyPacket } from "@/components/study";
 import { useAuth } from "@/providers/AuthProvider";
 import { useGameStore, useUserStore } from "@/stores";
-import { Trophy, Home, RotateCcw, Target, Zap } from "lucide-react-native";
+import { Trophy, Home, RotateCcw, Target, Zap, BookOpen } from "lucide-react-native";
 
 export default function GameSummaryScreen() {
   const {
@@ -83,6 +84,20 @@ export default function GameSummaryScreen() {
     if (accuracy >= 50) return "Well done!";
     return "Keep practicing!";
   };
+
+  const [showStudyPacket, setShowStudyPacket] = useState(false);
+  const missedCount = totalQuestions - correctAnswers;
+
+  // Demo missed questions for the study packet
+  // In a real app, these would come from the game session data
+  const demoMissedQuestions = missedCount > 0 ? [
+    {
+      question: "Sample question that was missed",
+      yourAnswer: "A",
+      correctAnswer: "B",
+      explanation: "This is the explanation for why B is correct.",
+    },
+  ] : [];
 
   return (
     <SafeAreaView className="flex-1 bg-primary-500">
@@ -162,6 +177,20 @@ export default function GameSummaryScreen() {
           </View>
         </Card>
 
+        {/* Review Mistakes Button */}
+        {missedCount > 0 && (
+          <Button
+            variant="outline"
+            size="lg"
+            fullWidth
+            icon={BookOpen}
+            onPress={() => setShowStudyPacket(true)}
+            className="w-full max-w-sm mb-6 bg-white"
+          >
+            Review {missedCount} Missed Question{missedCount > 1 ? "s" : ""}
+          </Button>
+        )}
+
         {/* Guest Prompt */}
         {isGuest && (
           <Card className="w-full max-w-sm bg-white/10 border border-white/20 mb-6">
@@ -187,46 +216,56 @@ export default function GameSummaryScreen() {
           <Button
             size="lg"
             fullWidth
-            icon={Home}
-            onPress={() => router.replace("/(student)")}
+            icon={RotateCcw}
+            onPress={() => router.push(isGuest ? "/(auth)/join" : "/(student)/join")}
           >
-            Back to Home
+            Join Another Game
           </Button>
 
           <Button
             variant="outline"
             size="lg"
             fullWidth
-            icon={RotateCcw}
-            onPress={() => router.push("/(student)/join")}
+            icon={Home}
+            onPress={() => router.replace(isGuest ? "/(auth)" : "/(student)")}
             className="bg-white"
           >
-            Join Another Game
+            {isGuest ? "Back to Welcome" : "Back to Home"}
           </Button>
         </View>
 
-        {/* Study Suggestion */}
-        <Card variant="outline" className="w-full max-w-sm mt-8 bg-white">
-          <View className="flex-row items-start">
-            <Text className="text-2xl mr-3">📚</Text>
-            <View className="flex-1">
-              <Text className="font-semibold text-gray-900 mb-1">
-                Want to practice more?
-              </Text>
-              <Text className="text-gray-500 text-sm mb-3">
-                Create your own study quiz on this topic with AI
-              </Text>
-              <Button
-                size="sm"
-                variant="outline"
-                onPress={() => router.push("/(student)/create")}
-              >
-                Create Quiz
-              </Button>
+        {/* Study Suggestion - Only for signed in users */}
+        {!isGuest && (
+          <Card variant="outline" className="w-full max-w-sm mt-8 bg-white">
+            <View className="flex-row items-start">
+              <Text className="text-2xl mr-3">📚</Text>
+              <View className="flex-1">
+                <Text className="font-semibold text-gray-900 mb-1">
+                  Want to practice more?
+                </Text>
+                <Text className="text-gray-500 text-sm mb-3">
+                  Create your own study quiz on this topic with AI
+                </Text>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onPress={() => router.push("/(student)/create")}
+                >
+                  Create Quiz
+                </Button>
+              </View>
             </View>
-          </View>
-        </Card>
+          </Card>
+        )}
       </ScrollView>
+
+      {/* Study Packet Modal */}
+      <StudyPacket
+        visible={showStudyPacket}
+        onClose={() => setShowStudyPacket(false)}
+        quizTitle={quizTitle || "Quiz Game"}
+        missedQuestions={demoMissedQuestions}
+      />
     </SafeAreaView>
   );
 }

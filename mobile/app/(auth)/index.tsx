@@ -2,17 +2,10 @@ import { View, Text, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui";
-import { useAuth } from "@/providers/AuthProvider";
 import { Gamepad2, BookOpen, Sparkles } from "lucide-react-native";
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { setGuestNickname } = useAuth();
-
-  const handleContinueAsGuest = async () => {
-    await setGuestNickname("");
-    router.replace("/(student)");
-  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -92,13 +85,18 @@ export default function WelcomeScreen() {
           >
             Create Account
           </Button>
+          <View className="flex-row items-center my-2">
+            <View className="flex-1 h-px bg-gray-200" />
+            <Text className="text-gray-400 text-sm mx-4">or</Text>
+            <View className="flex-1 h-px bg-gray-200" />
+          </View>
           <Button
-            onPress={handleContinueAsGuest}
+            onPress={() => router.push("/(auth)/join")}
             variant="ghost"
             fullWidth
             size="lg"
           >
-            Continue as Guest
+            Join a Game
           </Button>
         </View>
       </View>

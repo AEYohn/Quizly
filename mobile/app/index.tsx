@@ -3,7 +3,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { View, ActivityIndicator } from "react-native";
 
 export default function Index() {
-  const { isLoaded, isSignedIn, isGuest } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
     return (
@@ -13,11 +13,11 @@ export default function Index() {
     );
   }
 
-  // If signed in or guest, go to student dashboard
-  if (isSignedIn || isGuest) {
+  // Only signed-in users go to student dashboard
+  if (isSignedIn) {
     return <Redirect href="/(student)" />;
   }
 
-  // Otherwise, go to auth flow
+  // Guests and unauthenticated users go to auth flow
   return <Redirect href="/(auth)" />;
 }
