@@ -59,6 +59,7 @@ export default function GameResultsPage() {
     const [results, setResults] = useState<GameResults | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showAllPlayers, setShowAllPlayers] = useState(false);
 
     // Try to get the player's nickname from sessionStorage or localStorage
     const nickname = typeof window !== "undefined"
@@ -221,7 +222,7 @@ export default function GameResultsPage() {
                         Leaderboard
                     </h2>
                     <div className="space-y-2">
-                        {normalizedLeaderboard.slice(0, 20).map((entry) => {
+                        {(showAllPlayers ? normalizedLeaderboard : normalizedLeaderboard.slice(0, 20)).map((entry) => {
                             const isCurrentPlayer = playerEntry?.player_id === entry.player_id;
                             return (
                                 <div
@@ -251,9 +252,14 @@ export default function GameResultsPage() {
                             );
                         })}
                         {normalizedLeaderboard.length > 20 && (
-                            <p className="text-center text-gray-500 text-sm py-2">
-                                + {normalizedLeaderboard.length - 20} more players
-                            </p>
+                            <button
+                                onClick={() => setShowAllPlayers(!showAllPlayers)}
+                                className="w-full py-3 text-center text-sky-400 hover:text-sky-300 text-sm font-medium transition-colors"
+                            >
+                                {showAllPlayers
+                                    ? "Show Less"
+                                    : `Show All ${normalizedLeaderboard.length} Players`}
+                            </button>
                         )}
                     </div>
                 </div>
