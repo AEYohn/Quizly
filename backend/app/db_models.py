@@ -475,6 +475,45 @@ class StudyItem(Base):
     collection_items: Mapped[List["CollectionItem"]] = relationship(back_populates="study_item", cascade="all, delete-orphan")
 
 
+class FlashcardDeck(Base):
+    """Flashcard deck extending StudyItem."""
+    __tablename__ = "flashcard_decks"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    study_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("study_items.id", ondelete="CASCADE"), nullable=False, unique=True)
+    study_mode: Mapped[str] = mapped_column(String(20), default="classic")  # classic, shuffle, spaced
+
+    # Stats
+    cards_mastered: Mapped[int] = mapped_column(Integer, default=0)
+    cards_struggling: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Relationships
+    study_item: Mapped["StudyItem"] = relationship()
+    cards: Mapped[List["Flashcard"]] = relationship(back_populates="deck", cascade="all, delete-orphan")
+
+
+class Flashcard(Base):
+    """Individual flashcard in a deck."""
+    __tablename__ = "flashcards"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    deck_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("flashcard_decks.id", ondelete="CASCADE"), nullable=False)
+    front: Mapped[str] = mapped_column(Text, nullable=False)
+    back: Mapped[str] = mapped_column(Text, nullable=False)
+    image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Spaced repetition
+    mastery_level: Mapped[int] = mapped_column(Integer, default=0)  # 0-5
+    next_review_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    # Relationships
+    deck: Mapped["FlashcardDeck"] = relationship(back_populates="cards")
+
+
 # Import extended learning models to register them
 from . import db_models_learning  # noqa
 
