@@ -222,17 +222,20 @@ async def generate_smart_peer_response(
         )
         result = json.loads(response.text)
 
-        # Socratic flow: ready_for_check after student has engaged with teaching
-        # After 1 student response, show the mastery check
-        force_check = not is_correct and student_message_count >= 1
+        # Socratic flow:
+        # - After 2 student messages, AI gives lesson and asks "Ready to try again?"
+        # - Show ask_if_ready flag so frontend can show Yes/No buttons
+        # - Only show mastery check when user explicitly confirms
+        gave_lesson = not is_correct and student_message_count >= 2
 
-        print(f"[smart_peer] student_message_count={student_message_count}, is_correct={is_correct}, force_check={force_check}")
+        print(f"[smart_peer] student_message_count={student_message_count}, is_correct={is_correct}, gave_lesson={gave_lesson}")
 
         return {
             "name": peer_name,
             "message": result.get("message", "That's interesting! Tell me more."),
-            "follow_up_question": result.get("follow_up_question") if not force_check else None,
-            "ready_for_check": force_check or result.get("ready_for_check", False)
+            "follow_up_question": result.get("follow_up_question") if not gave_lesson else None,
+            "ask_if_ready": gave_lesson,  # Frontend shows Yes/No buttons
+            "ready_for_check": False  # Only true when user confirms
         }
     except Exception as e:
         print(f"Smart peer response error: {e}")
@@ -373,7 +376,6 @@ Return JSON:
     # Second+ response: Now give the lesson
     return f"""You are {peer_name}. The student has been thinking through this with you.
 
-ORIGINAL QUESTION: {question.get('question_text', question.get('prompt', 'Unknown question'))}
 CORRECT ANSWER: {correct_answer_text}
 EXPLANATION: {question.get('explanation', 'Not available')}
 
@@ -382,26 +384,26 @@ CONVERSATION SO FAR:
 
 STUDENT'S LATEST RESPONSE: "{last_student_message}"
 
-Your job: Now give them the key lesson and let them try the original question.
+Your job: Give a brief lesson, then ask if they're ready to try again.
 
 STRUCTURE:
-1. Brief acknowledgment of their thinking (1 sentence)
-2. The key lesson/insight they need (1-2 sentences)
-3. Encourage them to try the question again
+1. Brief acknowledgment (1 sentence)
+2. Key lesson/insight (1-2 sentences)
+3. End with EXACTLY: "Ready to try the question again?"
 
 EXAMPLE:
-"You're getting it! The key thing is: a proposition must be definitively true or false WITHOUT depending on unknown values. 'x² + 3x = 5' has a variable, so we can't say it's true or false until we know x. Ready to try the question again?"
+"You've got it! The key insight is: in a balanced BST, each comparison eliminates half the remaining nodes, giving O(log n) time. Ready to try the question again?"
 
-RULES:
-- Keep it SHORT (2-3 sentences total)
-- NOW you can explain the concept briefly
-- End by letting them try the question
-- NEVER reference letter choices
+CRITICAL RULES:
+- Keep it SHORT (2-3 sentences)
+- DO NOT re-ask or repeat the original question
+- DO NOT ask them to type the answer
+- Just end with "Ready to try the question again?" - the UI will show the actual question
+- NEVER reference letter choices (A, B, C, D)
 
 Return JSON:
 {{
-    "message": "Brief lesson + encouragement to try again",
-    "ready_for_check": true
+    "message": "Brief lesson ending with 'Ready to try the question again?'"
 }}"""
 
 

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..db_models import CodingProblem, TestCase, CodeSubmission, Session, User
-from ..auth import get_current_user_optional, get_current_user
+from ..auth_clerk import get_current_user_clerk as get_current_user, get_current_user_clerk_optional as get_current_user_optional
 
 
 router = APIRouter()

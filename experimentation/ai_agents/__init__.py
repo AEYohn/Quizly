@@ -12,26 +12,52 @@ from .misconception_tagger import MisconceptionTagger, MisconceptionResult, misc
 from .adaptive_engine import AdaptiveDifficultyEngine, adaptive_engine
 from .multimodal_question import MultiModalQuestion, MultiModalQuestionGenerator, multimodal_generator
 
+# Manim Animation Generator
+from .manim_generator import (
+    ManimPipeline,
+    ConceptAgent,
+    ScenePlanner,
+    CodeGenerator,
+    ManimValidator,
+    ConceptBreakdown,
+    AnimationScene,
+    ScenePlan,
+    ManimCode,
+    PipelineResult,
+)
+
 __all__ = [
     # Core
-    "SessionPlanner", 
-    "QuestionDesigner", 
+    "SessionPlanner",
+    "QuestionDesigner",
     "ExitTicketAgent",
     "QuestionBankGenerator",
     "generate_questions",
 
-    
+
     # Advanced
     "DebateJudge",
     "JudgmentResult",
     "debate_judge",
     "MisconceptionTagger",
-    "MisconceptionResult", 
+    "MisconceptionResult",
     "misconception_tagger",
     "AdaptiveDifficultyEngine",
     "adaptive_engine",
     "MultiModalQuestion",
     "MultiModalQuestionGenerator",
     "multimodal_generator",
+
+    # Manim Generator
+    "ManimPipeline",
+    "ConceptAgent",
+    "ScenePlanner",
+    "CodeGenerator",
+    "ManimValidator",
+    "ConceptBreakdown",
+    "AnimationScene",
+    "ScenePlan",
+    "ManimCode",
+    "PipelineResult",
 ]
 

@@ -21,12 +21,13 @@ from .database import Base
 class User(Base):
     """User model for teachers and students."""
     __tablename__ = "users"
-    
+
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For authenticated users
     role: Mapped[str] = mapped_column(String(50), nullable=False)  # 'teacher' or 'student'
+    clerk_user_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)  # Clerk auth
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     
     # Relationships

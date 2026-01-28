@@ -15,7 +15,11 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..db_models import Course, CourseModule, ModuleItem, CourseEnrollment, StudentProgress, User
-from ..auth import get_current_user, get_optional_user
+from ..auth_clerk import get_current_user_clerk, get_current_user_clerk_optional
+
+# Alias for compatibility
+get_current_user = get_current_user_clerk
+get_optional_user = get_current_user_clerk_optional
 
 router = APIRouter()
 
@@ -100,6 +104,7 @@ class CourseListItem(BaseModel):
     name: str
     description: Optional[str] = None
     teacher_name: str
+    enrollment_code: Optional[str] = None
     module_count: int
     item_count: int
     enrollment_count: int
@@ -149,6 +154,7 @@ async def list_courses(
             name=course.name,
             description=course.description,
             teacher_name=current_user.name,
+            enrollment_code=course.enrollment_code,
             module_count=module_count,
             item_count=item_count,
             enrollment_count=course.enrollment_count,
@@ -266,22 +272,176 @@ async def list_public_courses(
     return {"courses": items, "total": len(items)}
 
 
+# ============= Enrollment Routes (must be before /{course_id} routes) =============
+
+@router.get("/enrolled", response_model=dict)
+async def list_enrolled_courses(
+    db: AsyncSession = Depends(get_db),
+    student_name: Optional[str] = None,
+):
+    """List courses a student is enrolled in."""
+    if not student_name:
+        return {"courses": []}
+
+    # Get enrollments for this student
+    result = await db.execute(
+        select(CourseEnrollment, Course).join(Course).where(
+            CourseEnrollment.student_name == student_name
+        )
+    )
+    enrollments = result.all()
+
+    items = []
+    for enrollment, course in enrollments:
+        # Get teacher name
+        teacher_name = "Instructor"
+        if course.teacher_id:
+            teacher_result = await db.execute(select(User).where(User.id == course.teacher_id))
+            teacher = teacher_result.scalar_one_or_none()
+            if teacher:
+                teacher_name = teacher.name
+
+        # Count progress - get completed items for this student in this course
+        progress_result = await db.execute(
+            select(func.count()).select_from(StudentProgress).join(ModuleItem).join(CourseModule).where(
+                StudentProgress.student_name == student_name,
+                CourseModule.course_id == course.id,
+                StudentProgress.status == "completed"
+            )
+        )
+        completed_count = progress_result.scalar() or 0
+
+        # Count total items
+        items_result = await db.execute(
+            select(func.count()).select_from(ModuleItem).join(CourseModule).where(
+                CourseModule.course_id == course.id
+            )
+        )
+        total_items = items_result.scalar() or 1
+
+        items.append({
+            "id": str(course.id),
+            "name": course.name,
+            "description": course.description,
+            "teacher_name": teacher_name,
+            "progress": int((completed_count / total_items) * 100) if total_items > 0 else 0,
+            "enrolled_at": enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None,
+        })
+
+    return {"courses": items}
+
+
+@router.post("/enroll/{code}")
+async def enroll_in_course(
+    code: str,
+    student_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Enroll in a course using enrollment code."""
+    result = await db.execute(
+        select(Course).where(Course.enrollment_code == code.upper())
+    )
+    course = result.scalar_one_or_none()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Invalid enrollment code")
+    if not course.is_published:
+        raise HTTPException(status_code=400, detail="Course is not open for enrollment")
+
+    # Check if already enrolled
+    existing = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.course_id == course.id,
+            CourseEnrollment.student_name == student_name
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Already enrolled in this class")
+
+    # Create enrollment
+    enrollment = CourseEnrollment(
+        course_id=course.id,
+        student_id=current_user.id if current_user else None,
+        student_name=student_name
+    )
+    db.add(enrollment)
+    course.enrollment_count += 1
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "course_id": str(course.id),
+        "course_name": course.name,
+        "message": f"Enrolled in {course.name}!"
+    }
+
+
+@router.delete("/unenroll/{course_id}")
+async def unenroll_from_course(
+    course_id: UUID,
+    student_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Unenroll from a course (removes all duplicate enrollments)."""
+    # Find all enrollments (handle duplicates)
+    result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.course_id == course_id,
+            CourseEnrollment.student_name == student_name
+        )
+    )
+    enrollments = result.scalars().all()
+
+    if not enrollments:
+        raise HTTPException(status_code=404, detail="Not enrolled in this class")
+
+    # Get course to update count
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    course = course_result.scalar_one_or_none()
+
+    # Delete all enrollments and update count
+    for enrollment in enrollments:
+        if course and course.enrollment_count > 0:
+            course.enrollment_count -= 1
+        await db.delete(enrollment)
+
+    await db.commit()
+
+    return {"success": True, "message": "Left the class"}
+
+
 @router.get("/{course_id}", response_model=CourseResponse)
 async def get_course(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: Optional[User] = Depends(get_optional_user),
+    student_name: Optional[str] = Query(None)
 ):
     """Get course details with modules and items."""
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalar_one_or_none()
-    
+
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    
-    # Check access
+
+    # Check access - allow if: public, owner, or enrolled student
     is_owner = current_user and course.teacher_id == current_user.id
-    if not course.is_public and not is_owner:
+    is_enrolled = False
+
+    # Check enrollment by student_name or current_user
+    if student_name or current_user:
+        enrollment_query = select(CourseEnrollment).where(CourseEnrollment.course_id == course_id)
+        if student_name:
+            enrollment_query = enrollment_query.where(CourseEnrollment.student_name == student_name)
+        elif current_user:
+            enrollment_query = enrollment_query.where(CourseEnrollment.student_id == current_user.id)
+        enrollment_result = await db.execute(enrollment_query)
+        is_enrolled = enrollment_result.scalar_one_or_none() is not None
+
+    if not course.is_public and not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Course is not public")
     
     # Get teacher name
@@ -404,60 +564,78 @@ async def delete_course(
     return {"success": True, "message": "Course deleted"}
 
 
-@router.get("/enrolled", response_model=dict)
-async def list_enrolled_courses(
+# ============= Students/Enrollment Routes =============
+
+@router.get("/{course_id}/students")
+async def get_course_students(
+    course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    student_name: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
 ):
-    """List courses a student is enrolled in."""
-    if not student_name:
-        return {"courses": []}
-    
-    # Get enrollments for this student
-    result = await db.execute(
-        select(CourseEnrollment, Course).join(Course).where(
-            CourseEnrollment.student_name == student_name
+    """Get all enrolled students for a course (teacher only)."""
+    # Verify course ownership
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalar_one_or_none()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Get all enrollments for this course
+    enrollments_result = await db.execute(
+        select(CourseEnrollment).where(CourseEnrollment.course_id == course_id).order_by(CourseEnrollment.enrolled_at.desc())
+    )
+    enrollments = enrollments_result.scalars().all()
+
+    students = []
+    for enrollment in enrollments:
+        students.append({
+            "id": str(enrollment.id),
+            "student_name": enrollment.student_name,
+            "student_id": str(enrollment.student_id) if enrollment.student_id else None,
+            "enrolled_at": enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None,
+            "role": enrollment.role,
+        })
+
+    return {"students": students}
+
+
+@router.delete("/{course_id}/students/{enrollment_id}")
+async def remove_student_from_course(
+    course_id: UUID,
+    enrollment_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Remove a student from a course (teacher only)."""
+    # Verify course ownership
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalar_one_or_none()
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Find and delete the enrollment
+    enrollment_result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.id == enrollment_id,
+            CourseEnrollment.course_id == course_id
         )
     )
-    enrollments = result.all()
-    
-    items = []
-    for enrollment, course in enrollments:
-        # Get teacher name
-        teacher_name = "Instructor"
-        if course.teacher_id:
-            teacher_result = await db.execute(select(User).where(User.id == course.teacher_id))
-            teacher = teacher_result.scalar_one_or_none()
-            if teacher:
-                teacher_name = teacher.name
-        
-        # Count progress
-        progress_result = await db.execute(
-            select(func.count()).where(
-                StudentProgress.enrollment_id == enrollment.id,
-                StudentProgress.completed == True
-            )
-        )
-        completed_count = progress_result.scalar() or 0
-        
-        # Count total items
-        items_result = await db.execute(
-            select(func.count()).select_from(ModuleItem).join(CourseModule).where(
-                CourseModule.course_id == course.id
-            )
-        )
-        total_items = items_result.scalar() or 1
-        
-        items.append({
-            "id": str(course.id),
-            "name": course.name,
-            "description": course.description,
-            "teacher_name": teacher_name,
-            "progress": int((completed_count / total_items) * 100) if total_items > 0 else 0,
-            "enrolled_at": enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None,
-        })
-    
-    return {"courses": items}
+    enrollment = enrollment_result.scalar_one_or_none()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Student not found in this course")
+
+    await db.delete(enrollment)
+    if course.enrollment_count > 0:
+        course.enrollment_count -= 1
+    await db.commit()
+
+    return {"success": True, "message": "Student removed from course"}
 
 
 # ============= Module Routes =============
@@ -684,45 +862,6 @@ async def complete_item(
     await db.commit()
     
     return {"success": True}
-
-
-# ============= Enrollment Routes =============
-
-@router.post("/enroll/{code}")
-async def enroll_in_course(
-    code: str,
-    student_name: str = Query(...),
-    db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_user)
-):
-    """Enroll in a course using enrollment code."""
-    result = await db.execute(
-        select(Course).where(Course.enrollment_code == code.upper())
-    )
-    course = result.scalar_one_or_none()
-    
-    if not course:
-        raise HTTPException(status_code=404, detail="Invalid enrollment code")
-    if not course.is_published:
-        raise HTTPException(status_code=400, detail="Course is not open for enrollment")
-    
-    # Create enrollment
-    enrollment = CourseEnrollment(
-        course_id=course.id,
-        student_id=current_user.id if current_user else None,
-        student_name=student_name
-    )
-    db.add(enrollment)
-    course.enrollment_count += 1
-    
-    await db.commit()
-    
-    return {
-        "success": True,
-        "course_id": str(course.id),
-        "course_name": course.name,
-        "message": f"Enrolled in {course.name}!"
-    }
 
 
 # ============= Fork Course =============

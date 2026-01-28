@@ -73,16 +73,51 @@ async def get_db():
 def run_migrations(conn):
     """Add missing columns to existing tables (for schema updates)."""
     from sqlalchemy import text
-    import sys
 
     print("🔄 Running database migrations...", flush=True)
 
-    # Check if we're using PostgreSQL (skip for SQLite)
+    # Check database dialect
     dialect = conn.dialect.name
     print(f"   Database dialect: {dialect}", flush=True)
-    if dialect != "postgresql":
-        print("   Skipping migrations (SQLite mode)", flush=True)
-        return
+    is_sqlite = dialect == "sqlite"
+
+    def column_exists(table_name: str, column_name: str) -> bool:
+        """Check if a column exists in a table (works for both SQLite and PostgreSQL)."""
+        if is_sqlite:
+            result = conn.execute(text(f"PRAGMA table_info({table_name})"))
+            columns = [row[1] for row in result.fetchall()]
+            return column_name in columns
+        else:
+            result = conn.execute(text(f"""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = '{table_name}' AND column_name = '{column_name}'
+            """))
+            return result.fetchone() is not None
+
+    def get_type(pg_type: str) -> str:
+        """Convert PostgreSQL type to SQLite type if needed."""
+        if is_sqlite:
+            type_map = {
+                "BOOLEAN": "INTEGER",
+                "JSONB": "TEXT",
+                "VARCHAR(50)": "TEXT",
+                "VARCHAR(255)": "TEXT",
+            }
+            return type_map.get(pg_type, pg_type)
+        return pg_type
+
+    def get_default(default_val: str) -> str:
+        """Convert default value for SQLite if needed."""
+        if is_sqlite:
+            # SQLite uses 0/1 for booleans
+            val_map = {
+                "FALSE": "0",
+                "TRUE": "1",
+                "'{}'::jsonb": "'{}'",
+                "'[]'::jsonb": "'[]'",
+            }
+            return val_map.get(default_val, default_val)
+        return default_val
 
     # Columns to add to the quizzes table
     quiz_columns = [
@@ -100,17 +135,15 @@ def run_migrations(conn):
         ("peer_discussion_trigger", "VARCHAR(50)", "'high_confidence_wrong'"),
         ("allow_teacher_intervention", "BOOLEAN", "TRUE"),
         ("sync_pacing_available", "BOOLEAN", "FALSE"),
+        ("quiz_type", "VARCHAR(50)", "'teacher'"),  # "teacher" or "self_study"
     ]
 
     for col_name, col_type, default_val in quiz_columns:
         try:
-            check_sql = text(f"""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'quizzes' AND column_name = '{col_name}'
-            """)
-            result = conn.execute(check_sql)
-            if result.fetchone() is None:
-                alter_sql = text(f"ALTER TABLE quizzes ADD COLUMN {col_name} {col_type} DEFAULT {default_val}")
+            if not column_exists("quizzes", col_name):
+                sql_type = get_type(col_type)
+                sql_default = get_default(default_val)
+                alter_sql = text(f"ALTER TABLE quizzes ADD COLUMN {col_name} {sql_type} DEFAULT {sql_default}")
                 conn.execute(alter_sql)
                 print(f"   Added column 'quizzes.{col_name}'", flush=True)
         except Exception as e:
@@ -125,13 +158,9 @@ def run_migrations(conn):
 
     for col_name, col_type in player_answer_columns:
         try:
-            check_sql = text(f"""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'player_answers' AND column_name = '{col_name}'
-            """)
-            result = conn.execute(check_sql)
-            if result.fetchone() is None:
-                alter_sql = text(f"ALTER TABLE player_answers ADD COLUMN {col_name} {col_type}")
+            if not column_exists("player_answers", col_name):
+                sql_type = get_type(col_type)
+                alter_sql = text(f"ALTER TABLE player_answers ADD COLUMN {col_name} {sql_type}")
                 conn.execute(alter_sql)
                 print(f"   Added column 'player_answers.{col_name}'", flush=True)
         except Exception as e:
@@ -147,17 +176,33 @@ def run_migrations(conn):
 
     for col_name, col_type, default_val in exit_ticket_columns:
         try:
-            check_sql = text(f"""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'exit_tickets' AND column_name = '{col_name}'
-            """)
-            result = conn.execute(check_sql)
-            if result.fetchone() is None:
-                alter_sql = text(f"ALTER TABLE exit_tickets ADD COLUMN {col_name} {col_type} DEFAULT {default_val}")
+            if not column_exists("exit_tickets", col_name):
+                sql_type = get_type(col_type)
+                sql_default = get_default(default_val)
+                alter_sql = text(f"ALTER TABLE exit_tickets ADD COLUMN {col_name} {sql_type} DEFAULT {sql_default}")
                 conn.execute(alter_sql)
                 print(f"   Added column 'exit_tickets.{col_name}'", flush=True)
         except Exception as e:
             print(f"   Migration warning for exit_tickets.{col_name}: {e}", flush=True)
+
+    # Columns to add to users table (Clerk auth integration)
+    user_columns = [
+        ("clerk_user_id", "VARCHAR(255)"),
+    ]
+
+    for col_name, col_type in user_columns:
+        try:
+            if not column_exists("users", col_name):
+                sql_type = get_type(col_type)
+                alter_sql = text(f"ALTER TABLE users ADD COLUMN {col_name} {sql_type}")
+                conn.execute(alter_sql)
+                # Add unique index for clerk_user_id
+                if col_name == "clerk_user_id":
+                    index_sql = text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_clerk_user_id ON users(clerk_user_id)")
+                    conn.execute(index_sql)
+                print(f"   Added column 'users.{col_name}'", flush=True)
+        except Exception as e:
+            print(f"   Migration warning for users.{col_name}: {e}", flush=True)
 
     print("✅ Migrations complete", flush=True)
 
@@ -168,7 +213,7 @@ async def init_db():
     from .db_models import User, Course, Session, Question, Response  # noqa
     from .models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer  # noqa
     # Import learning models for exit tickets, misconceptions, etc.
-    from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession  # noqa
+    from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession, StudentAssignment  # noqa
 
     async with engine.begin() as conn:
         # Create tables that don't exist

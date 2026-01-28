@@ -154,63 +154,47 @@ function TeacherAnalyticsContent() {
 
     if (loading && !analytics) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-white" />
+            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-sky-400" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="min-h-screen bg-gray-950">
             {/* Header */}
-            <header className="bg-black/20 backdrop-blur-lg border-b border-white/10">
+            <header className="bg-gray-900 border-b border-gray-800">
                 <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <Link href="/teacher" className="text-2xl font-bold text-white">
-                        Quizly
-                    </Link>
-                    <nav className="flex items-center gap-4">
-                        <Link href="/teacher" className="text-white/70 hover:text-white">
-                            Dashboard
-                        </Link>
-                        <Link
-                            href="/teacher/analytics"
-                            className="px-4 py-2 rounded-full bg-white/20 text-white font-medium"
-                        >
-                            Analytics
-                        </Link>
-                    </nav>
+                    <div>
+                        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+                            <BarChart3 className="h-7 w-7 text-sky-400" />
+                            Class Analytics
+                        </h1>
+                        <p className="text-gray-400 text-sm mt-1">Track student performance and identify learning gaps</p>
+                    </div>
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto px-4 py-8">
-                {/* Page Title & Game Selector */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                            <BarChart3 className="h-8 w-8 text-purple-400" />
-                            Class Analytics
-                        </h1>
-                        <p className="text-white/60 mt-1">Track student performance and identify learning gaps</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={selectedGame || ""}
-                            onChange={(e) => setSelectedGame(e.target.value)}
-                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        >
-                            {games.map(game => (
-                                <option key={game.id} value={game.id} className="bg-slate-800">
-                                    {game.quiz_title} ({game.game_code})
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            onClick={() => selectedGame && fetchAnalytics(selectedGame)}
-                            className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-                        >
-                            <RefreshCw className="h-5 w-5" />
-                        </button>
-                    </div>
+                {/* Game Selector */}
+                <div className="flex items-center justify-end gap-3 mb-8">
+                    <select
+                        value={selectedGame || ""}
+                        onChange={(e) => setSelectedGame(e.target.value)}
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    >
+                        {games.map(game => (
+                            <option key={game.id} value={game.id} className="bg-gray-800">
+                                {game.quiz_title} ({game.game_code})
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={() => selectedGame && fetchAnalytics(selectedGame)}
+                        className="p-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 transition-colors"
+                    >
+                        <RefreshCw className="h-5 w-5" />
+                    </button>
                 </div>
 
                 {analytics && (
@@ -254,16 +238,16 @@ function TeacherAnalyticsContent() {
                                             key={idx}
                                             className={`rounded-xl p-4 border ${
                                                 alert.severity === "high"
-                                                    ? "bg-red-500/20 border-red-500/30"
+                                                    ? "bg-red-500/10 border-red-500/30"
                                                     : alert.severity === "medium"
-                                                        ? "bg-yellow-500/20 border-yellow-500/30"
-                                                        : "bg-blue-500/20 border-blue-500/30"
+                                                        ? "bg-yellow-500/10 border-yellow-500/30"
+                                                        : "bg-blue-500/10 border-blue-500/30"
                                             }`}
                                         >
                                             <div className="flex items-start justify-between">
                                                 <div>
                                                     <p className="font-medium text-white">{alert.message}</p>
-                                                    <p className="text-white/70 text-sm mt-1">
+                                                    <p className="text-gray-400 text-sm mt-1">
                                                         Affected: {alert.affected_students.join(", ")}
                                                     </p>
                                                 </div>
@@ -275,7 +259,7 @@ function TeacherAnalyticsContent() {
                                                     {alert.severity}
                                                 </span>
                                             </div>
-                                            <p className="text-white/60 text-sm mt-3">
+                                            <p className="text-gray-500 text-sm mt-3">
                                                 Suggested: {alert.suggested_action}
                                             </p>
                                         </div>
@@ -290,21 +274,25 @@ function TeacherAnalyticsContent() {
                                 active={activeTab === "overview"}
                                 onClick={() => setActiveTab("overview")}
                                 label="Overview"
+                                darkMode
                             />
                             <TabButton
                                 active={activeTab === "questions"}
                                 onClick={() => setActiveTab("questions")}
                                 label="By Question"
+                                darkMode
                             />
                             <TabButton
                                 active={activeTab === "students"}
                                 onClick={() => setActiveTab("students")}
                                 label="By Student"
+                                darkMode
                             />
                             <TabButton
                                 active={activeTab === "misconceptions"}
                                 onClick={() => setActiveTab("misconceptions")}
                                 label="Misconceptions"
+                                darkMode
                             />
                         </div>
 
@@ -312,7 +300,7 @@ function TeacherAnalyticsContent() {
                         {activeTab === "overview" && (
                             <div className="grid md:grid-cols-2 gap-6">
                                 {/* Calibration Distribution */}
-                                <div className="bg-white/10 rounded-xl p-6 backdrop-blur border border-white/20">
+                                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                                     <h3 className="font-bold text-white mb-4">Student Calibration</h3>
                                     <div className="space-y-3">
                                         <CalibrationBar
@@ -337,23 +325,23 @@ function TeacherAnalyticsContent() {
                                 </div>
 
                                 {/* Class Performance Summary */}
-                                <div className="bg-white/10 rounded-xl p-6 backdrop-blur border border-white/20">
+                                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                                     <h3 className="font-bold text-white mb-4">Performance Summary</h3>
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-white/70">Questions with {"<"}50% correct</span>
+                                            <span className="text-gray-400">Questions with {"<"}50% correct</span>
                                             <span className="font-bold text-red-400">
                                                 {analytics.question_performance.filter(q => q.correct_rate < 50).length}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-white/70">Students with misconceptions</span>
+                                            <span className="text-gray-400">Students with misconceptions</span>
                                             <span className="font-bold text-orange-400">
                                                 {analytics.student_performance.filter(s => s.misconception_count > 0).length}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-white/70">Students needing attention</span>
+                                            <span className="text-gray-400">Students needing attention</span>
                                             <span className="font-bold text-yellow-400">
                                                 {analytics.student_performance.filter(s => s.accuracy < 50).length}
                                             </span>
@@ -368,11 +356,11 @@ function TeacherAnalyticsContent() {
                                 {analytics.question_performance.map((q, idx) => (
                                     <div
                                         key={idx}
-                                        className="bg-white/10 rounded-xl backdrop-blur border border-white/20 overflow-hidden"
+                                        className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden"
                                     >
                                         <button
                                             onClick={() => toggleQuestion(idx)}
-                                            className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+                                            className="w-full p-4 flex items-center justify-between hover:bg-gray-800/50 transition-colors"
                                         >
                                             <div className="flex items-center gap-4">
                                                 <span className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold ${
@@ -384,55 +372,55 @@ function TeacherAnalyticsContent() {
                                                 </span>
                                                 <div className="text-left">
                                                     <p className="font-medium text-white">Question {q.question_index + 1}</p>
-                                                    <p className="text-white/60 text-sm truncate max-w-md">
+                                                    <p className="text-gray-400 text-sm truncate max-w-md">
                                                         {q.question_text}
                                                     </p>
                                                 </div>
                                             </div>
                                             {expandedQuestions.has(idx) ? (
-                                                <ChevronUp className="h-5 w-5 text-white/50" />
+                                                <ChevronUp className="h-5 w-5 text-gray-500" />
                                             ) : (
-                                                <ChevronDown className="h-5 w-5 text-white/50" />
+                                                <ChevronDown className="h-5 w-5 text-gray-500" />
                                             )}
                                         </button>
                                         {expandedQuestions.has(idx) && (
-                                            <div className="p-4 border-t border-white/10">
+                                            <div className="p-4 border-t border-gray-800">
                                                 <div className="grid md:grid-cols-3 gap-4 mb-4">
                                                     <div className="text-center">
-                                                        <p className="text-white/60 text-sm">Avg Confidence</p>
+                                                        <p className="text-gray-400 text-sm">Avg Confidence</p>
                                                         <p className="font-bold text-white text-lg">
                                                             {Math.round(q.avg_confidence)}%
                                                         </p>
                                                     </div>
                                                     <div className="text-center">
-                                                        <p className="text-white/60 text-sm">Avg Time</p>
+                                                        <p className="text-gray-400 text-sm">Avg Time</p>
                                                         <p className="font-bold text-white text-lg">
                                                             {(q.avg_time_ms / 1000).toFixed(1)}s
                                                         </p>
                                                     </div>
                                                     <div className="text-center">
-                                                        <p className="text-white/60 text-sm">Responses</p>
+                                                        <p className="text-gray-400 text-sm">Responses</p>
                                                         <p className="font-bold text-white text-lg">
                                                             {Object.values(q.answer_distribution).reduce((a, b) => a + b, 0)}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <p className="text-white/60 text-sm">Answer Distribution</p>
+                                                    <p className="text-gray-400 text-sm">Answer Distribution</p>
                                                     {Object.entries(q.answer_distribution).map(([answer, count]) => (
                                                         <div key={answer} className="flex items-center gap-2">
                                                             <span className="w-8 text-white font-medium">{answer}</span>
-                                                            <div className="flex-1 h-4 bg-white/10 rounded-full overflow-hidden">
+                                                            <div className="flex-1 h-4 bg-gray-800 rounded-full overflow-hidden">
                                                                 <div
                                                                     className={`h-full rounded-full ${
-                                                                        answer === "A" ? "bg-green-500" : "bg-purple-500"
+                                                                        answer === "A" ? "bg-green-500" : "bg-sky-500"
                                                                     }`}
                                                                     style={{
                                                                         width: `${(count / analytics.total_players) * 100}%`
                                                                     }}
                                                                 />
                                                             </div>
-                                                            <span className="text-white/60 w-8 text-right">{count}</span>
+                                                            <span className="text-gray-400 w-8 text-right">{count}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -444,21 +432,21 @@ function TeacherAnalyticsContent() {
                         )}
 
                         {activeTab === "students" && (
-                            <div className="bg-white/10 rounded-xl backdrop-blur border border-white/20 overflow-hidden">
+                            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
                                 <table className="w-full">
-                                    <thead className="bg-white/5">
+                                    <thead className="bg-gray-800/50">
                                         <tr>
-                                            <th className="text-left p-4 text-white/70 font-medium">Student</th>
-                                            <th className="text-center p-4 text-white/70 font-medium">Score</th>
-                                            <th className="text-center p-4 text-white/70 font-medium">Accuracy</th>
-                                            <th className="text-center p-4 text-white/70 font-medium">Confidence</th>
-                                            <th className="text-center p-4 text-white/70 font-medium">Calibration</th>
-                                            <th className="text-center p-4 text-white/70 font-medium">Misconceptions</th>
+                                            <th className="text-left p-4 text-gray-400 font-medium">Student</th>
+                                            <th className="text-center p-4 text-gray-400 font-medium">Score</th>
+                                            <th className="text-center p-4 text-gray-400 font-medium">Accuracy</th>
+                                            <th className="text-center p-4 text-gray-400 font-medium">Confidence</th>
+                                            <th className="text-center p-4 text-gray-400 font-medium">Calibration</th>
+                                            <th className="text-center p-4 text-gray-400 font-medium">Misconceptions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {analytics.student_performance.map((student, idx) => (
-                                            <tr key={idx} className="border-t border-white/10 hover:bg-white/5">
+                                            <tr key={idx} className="border-t border-gray-800 hover:bg-gray-800/50">
                                                 <td className="p-4 text-white font-medium">{student.nickname}</td>
                                                 <td className="p-4 text-center text-white">
                                                     {student.score.toLocaleString()}
@@ -472,7 +460,7 @@ function TeacherAnalyticsContent() {
                                                         {Math.round(student.accuracy)}%
                                                     </span>
                                                 </td>
-                                                <td className="p-4 text-center text-white/70">
+                                                <td className="p-4 text-center text-gray-400">
                                                     {Math.round(student.avg_confidence)}%
                                                 </td>
                                                 <td className="p-4 text-center">
@@ -521,15 +509,15 @@ function TeacherAnalyticsContent() {
                                                 </div>
                                                 <AlertTriangle className="h-6 w-6 text-orange-400" />
                                             </div>
-                                            <div className="bg-white/5 rounded-lg p-3 mb-3">
-                                                <p className="text-white/70 text-sm">Common Reasoning:</p>
-                                                <ul className="text-white/80 text-sm mt-1 space-y-1">
+                                            <div className="bg-gray-800/50 rounded-lg p-3 mb-3">
+                                                <p className="text-gray-400 text-sm">Common Reasoning:</p>
+                                                <ul className="text-gray-300 text-sm mt-1 space-y-1">
                                                     {cluster.common_reasoning.map((reason, ridx) => (
                                                         <li key={ridx}>- {reason}</li>
                                                     ))}
                                                 </ul>
                                             </div>
-                                            <p className="text-white/50 text-sm">
+                                            <p className="text-gray-500 text-sm">
                                                 Students: {cluster.students.join(", ")}
                                             </p>
                                         </div>
@@ -538,7 +526,7 @@ function TeacherAnalyticsContent() {
                                     <div className="text-center py-12">
                                         <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
                                         <p className="text-xl font-medium text-white">No Major Misconceptions Detected</p>
-                                        <p className="text-white/60 mt-2">Your class is doing great!</p>
+                                        <p className="text-gray-400 mt-2">Your class is doing great!</p>
                                     </div>
                                 )}
                             </div>
@@ -546,7 +534,7 @@ function TeacherAnalyticsContent() {
 
                         {/* Export Button */}
                         <div className="mt-8 flex justify-end">
-                            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors">
+                            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 transition-colors">
                                 <Download className="h-5 w-5" />
                                 Export Report
                             </button>
@@ -562,7 +550,7 @@ export default function TeacherAnalyticsPage() {
     return (
         <Suspense fallback={
             <div className="flex min-h-screen items-center justify-center bg-gray-950">
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
             </div>
         }>
             <TeacherAnalyticsContent />
@@ -584,7 +572,7 @@ function StatCard({
     alert?: boolean;
 }) {
     return (
-        <div className={`bg-white/10 rounded-xl p-5 backdrop-blur border ${alert ? "border-orange-500/50" : "border-white/20"}`}>
+        <div className={`bg-gray-900 rounded-xl p-5 border ${alert ? "border-orange-500/50" : "border-gray-800"}`}>
             <div className="flex items-center justify-between mb-2">
                 {icon}
                 {trend && (
@@ -596,7 +584,7 @@ function StatCard({
                 )}
             </div>
             <p className="text-3xl font-bold text-white">{value}</p>
-            <p className="text-white/60 text-sm mt-1">{label}</p>
+            <p className="text-gray-400 text-sm mt-1">{label}</p>
         </div>
     );
 }
@@ -604,19 +592,21 @@ function StatCard({
 function TabButton({
     active,
     onClick,
-    label
+    label,
+    darkMode
 }: {
     active: boolean;
     onClick: () => void;
     label: string;
+    darkMode?: boolean;
 }) {
     return (
         <button
             onClick={onClick}
-            className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap ${
+            className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
                 active
-                    ? "bg-white text-purple-600"
-                    : "bg-white/10 text-white hover:bg-white/20"
+                    ? darkMode ? "bg-sky-600 text-white" : "bg-white text-purple-600"
+                    : darkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700" : "bg-white/10 text-white hover:bg-white/20"
             }`}
         >
             {label}
@@ -645,10 +635,10 @@ function CalibrationBar({
     return (
         <div>
             <div className="flex items-center justify-between mb-1">
-                <span className="text-white/70 text-sm">{label}</span>
+                <span className="text-gray-400 text-sm">{label}</span>
                 <span className="text-white font-medium">{count} ({Math.round(percentage)}%)</span>
             </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                 <div
                     className={`h-full ${colorClasses[color]} rounded-full transition-all`}
                     style={{ width: `${percentage}%` }}

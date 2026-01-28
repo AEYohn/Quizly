@@ -783,13 +783,19 @@ export default function StudentSessionPage() {
                                     )}
 
                                     <div className="flex gap-2">
-                                        <input
-                                            type="text"
+                                        <textarea
                                             value={messageInput}
                                             onChange={(e) => setMessageInput(e.target.value)}
-                                            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSendMessage();
+                                                }
+                                            }}
                                             placeholder="Type your response..."
-                                            className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-2 focus:border-indigo-500 focus:outline-none"
+                                            rows={1}
+                                            className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-2 focus:border-indigo-500 focus:outline-none resize-none"
+                                            style={{ minHeight: '42px', maxHeight: '120px' }}
                                         />
                                         <Button onClick={handleSendMessage} disabled={!messageInput.trim()}>
                                             <Send className="h-5 w-5" />

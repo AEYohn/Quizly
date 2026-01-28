@@ -2,6 +2,7 @@ import "~/styles/globals.css";
 
 import { type Metadata, type Viewport } from "next";
 import { Geist } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { AuthProvider } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -64,9 +65,11 @@ export default function RootLayout({
             </head>
             <body style={{ background: "#030712", margin: 0 }}>
                 <div id="bg-layer" aria-hidden="true" />
-                <ErrorBoundary>
-                    <AuthProvider>{children}</AuthProvider>
-                </ErrorBoundary>
+                <ClerkProvider>
+                    <ErrorBoundary>
+                        <AuthProvider>{children}</AuthProvider>
+                    </ErrorBoundary>
+                </ClerkProvider>
             </body>
         </html>
     );

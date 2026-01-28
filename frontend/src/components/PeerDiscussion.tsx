@@ -191,6 +191,7 @@ export default function PeerDiscussion({
     } | null>(null);
     const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
     const [showMasteryCheck, setShowMasteryCheck] = useState(false);
+    const [askIfReady, setAskIfReady] = useState(false); // AI asked "Ready to try again?"
     const [masteryAnswer, setMasteryAnswer] = useState<string | null>(null);
     const [masteryAttempts, setMasteryAttempts] = useState(0);
     const [uploadingFile, setUploadingFile] = useState(false);
@@ -538,6 +539,9 @@ export default function PeerDiscussion({
 
             if (response.ok) {
                 const data = await response.json();
+                console.log("[PeerDiscussion] API response:", data);
+                console.log("[PeerDiscussion] isCorrect:", isCorrect, "ask_if_ready:", data.ask_if_ready);
+
                 const aiMessage = data.message;
                 const peerName = data.name || aiName;
 
@@ -556,11 +560,12 @@ export default function PeerDiscussion({
                 if (isCorrect && !data.follow_up_question) {
                     // Student got it right originally, they can move on
                     setDiscussionComplete(true);
-                } else if (!isCorrect && data.ready_for_check) {
-                    // Backend signals student is ready to try the question again
-                    setShowMasteryCheck(true);
+                } else if (!isCorrect && data.ask_if_ready) {
+                    // AI asked "Ready to try again?" - show Yes/No buttons
+                    console.log("[PeerDiscussion] Setting askIfReady to TRUE");
+                    setAskIfReady(true);
                 }
-                // Otherwise, keep discussing until backend says ready_for_check
+                // Otherwise, keep discussing
             } else {
                 // Fallback to simple response on API error
                 fallbackAIResponse(userMessage, aiName);
@@ -577,7 +582,7 @@ export default function PeerDiscussion({
         const messageCount = messages.filter(m => m.sender_id === playerId).length;
 
         let response = "";
-        let shouldShowMasteryCheck = false;
+        let shouldAskIfReady = false;
 
         if (messageCount === 1) {
             if (isCorrect) {
@@ -592,15 +597,15 @@ export default function PeerDiscussion({
                 response = `Great explanation! I think we've both learned something here.`;
                 setDiscussionComplete(true);
             } else {
-                // After 2 exchanges: Give lesson and show mastery check
+                // After 2 exchanges: Give lesson and ask if ready
                 response = `Good thinking! The key insight here is about what makes something fit the definition. Ready to try the question again?`;
-                shouldShowMasteryCheck = true;
+                shouldAskIfReady = true;
             }
         }
 
-        // Show mastery check AFTER the message is displayed
-        if (shouldShowMasteryCheck) {
-            setShowMasteryCheck(true);
+        // Show "Ready?" buttons AFTER the message is displayed
+        if (shouldAskIfReady) {
+            setAskIfReady(true);
         }
 
         setMessages(prev => [...prev, {
@@ -914,8 +919,37 @@ export default function PeerDiscussion({
                     </div>
                 )}
 
+                {/* Ready to try again? buttons - shows after AI gives lesson */}
+                {askIfReady && !showMasteryCheck && !discussionComplete && (
+                    <div className="flex justify-center mt-4">
+                        <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4 w-full max-w-md">
+                            <p className="text-center text-sky-300 mb-3">Ready to try the question again?</p>
+                            <div className="flex gap-3 justify-center">
+                                <button
+                                    onClick={() => {
+                                        setAskIfReady(false);
+                                        setShowMasteryCheck(true);
+                                    }}
+                                    className="px-6 py-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold rounded-xl transition-all"
+                                >
+                                    Yes, I&apos;m ready!
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setAskIfReady(false);
+                                        // User wants to keep discussing
+                                    }}
+                                    className="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-xl transition-all"
+                                >
+                                    Keep discussing
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Visual hint to type below - shows when last message is from AI and user hasn't responded */}
-                {!sending && messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId && !showMasteryCheck && (
+                {!sending && messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId && !showMasteryCheck && !askIfReady && (
                     <div className="flex justify-center mt-4 animate-bounce">
                         <div className="flex items-center gap-1 text-sky-400 text-xs bg-sky-500/10 px-3 py-1.5 rounded-full">
                             <ChevronDown className="h-3 w-3" />

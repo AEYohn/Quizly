@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
     ArrowLeft,
@@ -31,6 +31,7 @@ import {
     Brain,
     Radio,
 } from "lucide-react";
+import { useAuthToken } from "~/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -97,8 +98,15 @@ interface QuizSettings {
     sync_pacing_available: boolean;
 }
 
-export default function NewQuizPage() {
+function NewQuizPageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const { getFreshToken } = useAuthToken();
+    const isStudyMode = searchParams.get("mode") === "study";
+    const editId = searchParams.get("editId");
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [loadingQuiz, setLoadingQuiz] = useState(!!editId);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const chatInputRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -198,6 +206,74 @@ export default function NewQuizPage() {
         return () => window.removeEventListener("paste", handlePaste);
     }, [processFile, mode]);
 
+    // Load existing quiz data when editing
+    useEffect(() => {
+        if (!editId) return;
+
+        const loadQuiz = async () => {
+            try {
+                const token = await getFreshToken();
+                const response = await fetch(`${API_URL}/student/quizzes/${editId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to load quiz");
+                }
+
+                const quiz = await response.json();
+
+                setQuizData({
+                    title: quiz.title || "",
+                    description: quiz.description || "",
+                    subject: quiz.subject || "",
+                });
+
+                setQuestions(quiz.questions.map((q: {
+                    id: string;
+                    question_text: string;
+                    question_type: string;
+                    options: { [key: string]: string };
+                    correct_answer: string;
+                    time_limit: number;
+                    points: number;
+                    explanation?: string;
+                    order: number;
+                }) => ({
+                    id: q.id,
+                    question_text: q.question_text,
+                    question_type: q.question_type as "multiple_choice" | "coding",
+                    options: q.options,
+                    correct_answer: q.correct_answer,
+                    time_limit: q.time_limit,
+                    points: q.points,
+                    explanation: q.explanation,
+                    order_index: q.order,
+                    collapsed: true,
+                })));
+
+                setQuizSettings(prev => ({
+                    ...prev,
+                    shuffle_questions: quiz.shuffle_questions ?? prev.shuffle_questions,
+                    shuffle_answers: quiz.shuffle_answers ?? prev.shuffle_answers,
+                    show_correct_answer: quiz.show_correct_answer ?? prev.show_correct_answer,
+                    show_explanation: quiz.show_explanation ?? prev.show_explanation,
+                }));
+
+                setIsEditMode(true);
+                setMode("manual"); // Start in manual mode when editing
+            } catch (error) {
+                console.error("Failed to load quiz:", error);
+                alert("Failed to load quiz for editing");
+                router.push("/student/dashboard");
+            } finally {
+                setLoadingQuiz(false);
+            }
+        };
+
+        loadQuiz();
+    }, [editId, router, getFreshToken]);
+
     const handleSubmit = async () => {
         if (!chatInput.trim() && pendingFiles.length === 0) return;
 
@@ -226,7 +302,7 @@ export default function NewQuizPage() {
         }]);
 
         try {
-            const token = localStorage.getItem("token");
+            const token = await getFreshToken();
             const attachments = currentFiles.map((f, i) => ({
                 type: f.type,
                 name: f.name || `file_${i}.${f.type === "pdf" ? "pdf" : "jpg"}`,
@@ -401,41 +477,81 @@ export default function NewQuizPage() {
 
         setSaving(true);
         try {
-            const token = localStorage.getItem("token");
-            const finalQuizData = {
-                ...quizData,
-                title: quizData.title || "Untitled Quiz",
-                ...quizSettings, // Include all quiz settings
-            };
+            const token = await getFreshToken();
 
-            const quizResponse = await fetch(`${API_URL}/quizzes/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(finalQuizData),
-            });
+            if (isStudyMode || isEditMode) {
+                // Student self-study mode - use student quiz endpoint
+                const url = isEditMode
+                    ? `${API_URL}/student/quizzes/${editId}`
+                    : `${API_URL}/student/quizzes`;
+                const method = isEditMode ? "PATCH" : "POST";
 
-            if (!quizResponse.ok) throw new Error("Failed to create quiz");
-            const quiz = await quizResponse.json();
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        title: quizData.title || "Untitled Quiz",
+                        description: quizData.description,
+                        subject: quizData.subject,
+                        questions: questions.map((q) => ({
+                            question_text: q.question_text,
+                            question_type: q.question_type,
+                            options: q.options,
+                            correct_answer: q.correct_answer,
+                            explanation: q.explanation,
+                            time_limit: q.time_limit,
+                            points: q.points,
+                        })),
+                    }),
+                });
 
-            for (const question of questions) {
-                const qRes = await fetch(`${API_URL}/quizzes/${quiz.id}/questions`, {
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || `Failed to ${isEditMode ? "update" : "create"} study quiz`);
+                }
+
+                const quiz = await response.json();
+                router.push(`/student/study/${quiz.id}/practice`);
+            } else {
+                // Teacher mode - use regular quiz endpoint
+                const finalQuizData = {
+                    ...quizData,
+                    title: quizData.title || "Untitled Quiz",
+                    ...quizSettings, // Include all quiz settings
+                };
+
+                const quizResponse = await fetch(`${API_URL}/quizzes/`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
                     },
-                    body: JSON.stringify(question),
+                    body: JSON.stringify(finalQuizData),
                 });
-                if (!qRes.ok) {
-                    const err = await qRes.json().catch(() => ({}));
-                    throw new Error(err.detail || `Failed to add question: ${qRes.status}`);
-                }
-            }
 
-            router.push("/teacher/quizzes");
+                if (!quizResponse.ok) throw new Error("Failed to create quiz");
+                const quiz = await quizResponse.json();
+
+                for (const question of questions) {
+                    const qRes = await fetch(`${API_URL}/quizzes/${quiz.id}/questions`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify(question),
+                    });
+                    if (!qRes.ok) {
+                        const err = await qRes.json().catch(() => ({}));
+                        throw new Error(err.detail || `Failed to add question: ${qRes.status}`);
+                    }
+                }
+
+                router.push("/teacher/quizzes");
+            }
         } catch (error) {
             console.error("Failed to save:", error);
             const message = error instanceof Error ? error.message : "Unknown error";
@@ -456,6 +572,18 @@ export default function NewQuizPage() {
         setPendingFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    // Show loading state when loading quiz for editing
+    if (loadingQuiz) {
+        return (
+            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-500 mx-auto mb-4" />
+                    <p className="text-gray-400">Loading quiz...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             className="min-h-screen bg-gray-950 flex flex-col"
@@ -475,19 +603,28 @@ export default function NewQuizPage() {
             )}
 
             {/* Header */}
-            <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm">
+            <header className={`sticky top-0 z-40 border-b bg-gray-900/95 backdrop-blur-sm ${isStudyMode ? "border-emerald-800" : "border-gray-800"}`}>
                 <div className="mx-auto max-w-4xl px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button
-                                onClick={() => router.back()}
+                                onClick={() => router.push(isEditMode ? "/student/dashboard" : isStudyMode ? "/student/study" : "/teacher")}
                                 className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white"
                             >
                                 <ArrowLeft className="h-5 w-5" />
                             </button>
+                            {(isStudyMode || isEditMode) && (
+                                <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                    isEditMode
+                                        ? "text-amber-400 bg-amber-500/20"
+                                        : "text-emerald-400 bg-emerald-500/20"
+                                }`}>
+                                    {isEditMode ? "Edit Mode" : "Study Mode"}
+                                </span>
+                            )}
                             <input
                                 type="text"
-                                placeholder="Quiz title..."
+                                placeholder={isStudyMode ? "Study quiz title..." : "Quiz title..."}
                                 value={quizData.title}
                                 onChange={(e) => setQuizData({ ...quizData, title: e.target.value })}
                                 className="text-xl font-bold text-white bg-transparent focus:outline-none placeholder-gray-500"
@@ -530,10 +667,12 @@ export default function NewQuizPage() {
                             <button
                                 onClick={saveQuiz}
                                 disabled={saving || questions.length === 0}
-                                className="flex items-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 font-medium text-white transition-all hover:bg-green-700 disabled:opacity-50"
+                                className={`flex items-center gap-2 rounded-xl px-5 py-2.5 font-medium text-white transition-all disabled:opacity-50 ${
+                                    isStudyMode ? "bg-emerald-600 hover:bg-emerald-700" : "bg-green-600 hover:bg-green-700"
+                                }`}
                             >
                                 <Save className="h-4 w-4" />
-                                {saving ? "Saving..." : "Save"}
+                                {saving ? "Saving..." : isEditMode ? "Update & Practice" : isStudyMode ? "Save & Practice" : "Save"}
                             </button>
                         </div>
                     </div>
@@ -1266,5 +1405,18 @@ export default function NewQuizPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+// Wrap in Suspense for useSearchParams
+export default function NewQuizPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
+            </div>
+        }>
+            <NewQuizPageContent />
+        </Suspense>
     );
 }

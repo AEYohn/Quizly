@@ -71,6 +71,8 @@ export default function LibraryPage() {
     const [gameId, setGameId] = useState<string | null>(null);
     const [creatingGame, setCreatingGame] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null);
+    const [generatingCodeFor, setGeneratingCodeFor] = useState<string | null>(null);
 
     useEffect(() => {
         fetchContent();
@@ -134,17 +136,40 @@ export default function LibraryPage() {
         setOpenMenuId(null);
     };
 
-    // Open share modal and create game session if needed
+    // Open share modal - reuse existing game or create new one
     const openShareModal = async (quiz: Quiz) => {
         setShareQuiz(quiz);
         setShowShareModal(true);
-        setCreatingGame(true);
         setCopied(false);
+
+        // If quiz already has an active game code, use it
+        if (quiz.active_game_code) {
+            setGameCode(quiz.active_game_code);
+            setCreatingGame(false);
+            return;
+        }
+
+        setCreatingGame(true);
 
         try {
             const token = localStorage.getItem("token");
 
-            // Create a new game session (async mode by default)
+            // Check for existing lobby game first
+            const checkResponse = await fetch(`${API_URL}/games/quiz/${quiz.id}/active`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (checkResponse.ok) {
+                const existingGame = await checkResponse.json();
+                if (existingGame && existingGame.game_code) {
+                    setGameCode(existingGame.game_code);
+                    setGameId(existingGame.id);
+                    setCreatingGame(false);
+                    return;
+                }
+            }
+
+            // No existing game, create a new one
             const response = await fetch(`${API_URL}/games/`, {
                 method: "POST",
                 headers: {
@@ -179,6 +204,48 @@ export default function LibraryPage() {
             navigator.clipboard.writeText(gameCode);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    // Copy code directly from card
+    const copyQuizCode = (quizId: string, code: string) => {
+        navigator.clipboard.writeText(code);
+        setCopiedQuizId(quizId);
+        setTimeout(() => setCopiedQuizId(null), 2000);
+    };
+
+    // Generate code for a quiz that doesn't have one
+    const generateCodeForQuiz = async (quiz: Quiz) => {
+        setGeneratingCodeFor(quiz.id);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/games/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    quiz_id: quiz.id,
+                    sync_mode: false,
+                    show_correct_answer: true,
+                    show_answer_distribution: true,
+                }),
+            });
+
+            if (response.ok) {
+                const game = await response.json();
+                // Update the quiz in items with the new code
+                setItems(prev => prev.map(item =>
+                    item.id === quiz.id && item.type === "quiz"
+                        ? { ...item, active_game_code: game.game_code, active_game_id: game.id }
+                        : item
+                ));
+            }
+        } catch (error) {
+            console.error("Failed to create game:", error);
+        } finally {
+            setGeneratingCodeFor(null);
         }
     };
 
@@ -325,22 +392,11 @@ export default function LibraryPage() {
                     <h3 className="mb-2 text-lg font-semibold text-white">
                         {searchQuery ? "No content found" : "No content yet"}
                     </h3>
-                    <p className="mb-4 text-gray-400">
+                    <p className="text-gray-400">
                         {searchQuery
                             ? "Try a different search term"
-                            : "Create your first quiz or coding challenge"}
+                            : "Get started by creating a quiz or coding challenge above"}
                     </p>
-                    {!searchQuery && (
-                        <div className="flex gap-3">
-                            <Link
-                                href="/teacher/quizzes/new"
-                                className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 font-medium text-white hover:bg-sky-700"
-                            >
-                                <Plus className="h-5 w-5" />
-                                Create Quiz
-                            </Link>
-                        </div>
-                    )}
                 </div>
             ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -462,13 +518,42 @@ export default function LibraryPage() {
                             <div className="mt-4 flex gap-2">
                                 {item.type === "quiz" ? (
                                     <>
-                                        <button
-                                            onClick={() => openShareModal(item as Quiz)}
-                                            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 font-medium text-white transition-colors hover:bg-sky-700"
-                                        >
-                                            <Share2 className="h-4 w-4" />
-                                            Share
-                                        </button>
+                                        {(item as Quiz).active_game_code ? (
+                                            <button
+                                                onClick={() => copyQuizCode(item.id, (item as Quiz).active_game_code!)}
+                                                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 font-medium text-white transition-colors hover:bg-sky-700"
+                                            >
+                                                {copiedQuizId === item.id ? (
+                                                    <>
+                                                        <Check className="h-4 w-4" />
+                                                        Copied!
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="font-mono font-bold tracking-wider">{(item as Quiz).active_game_code}</span>
+                                                        <Copy className="h-4 w-4" />
+                                                    </>
+                                                )}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => generateCodeForQuiz(item as Quiz)}
+                                                disabled={generatingCodeFor === item.id}
+                                                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
+                                            >
+                                                {generatingCodeFor === item.id ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        Creating...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Share2 className="h-4 w-4" />
+                                                        Get Code
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
                                         {(item as Quiz).times_played > 0 && (item as Quiz).active_game_id ? (
                                             <Link
                                                 href={`/teacher/game/${(item as Quiz).active_game_id}/results`}
@@ -549,13 +634,42 @@ export default function LibraryPage() {
                             <div className="flex items-center gap-2">
                                 {item.type === "quiz" ? (
                                     <>
-                                        <button
-                                            onClick={() => openShareModal(item as Quiz)}
-                                            className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
-                                        >
-                                            <Share2 className="h-4 w-4" />
-                                            Share
-                                        </button>
+                                        {(item as Quiz).active_game_code ? (
+                                            <button
+                                                onClick={() => copyQuizCode(item.id, (item as Quiz).active_game_code!)}
+                                                className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
+                                            >
+                                                {copiedQuizId === item.id ? (
+                                                    <>
+                                                        <Check className="h-4 w-4" />
+                                                        Copied!
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="font-mono font-bold tracking-wider">{(item as Quiz).active_game_code}</span>
+                                                        <Copy className="h-4 w-4" />
+                                                    </>
+                                                )}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => generateCodeForQuiz(item as Quiz)}
+                                                disabled={generatingCodeFor === item.id}
+                                                className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                                            >
+                                                {generatingCodeFor === item.id ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        Creating...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Share2 className="h-4 w-4" />
+                                                        Get Code
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
                                         {(item as Quiz).times_played > 0 && (item as Quiz).active_game_id ? (
                                             <Link
                                                 href={`/teacher/game/${(item as Quiz).active_game_id}/results`}

@@ -44,6 +44,30 @@ async def lifespan(app: FastAPI):
         log_info(logger, "Initializing database")
         await init_db()
         log_info(logger, "Database connected")
+
+        # Run pending migrations
+        try:
+            from .database import engine
+            from sqlalchemy import text
+            async with engine.begin() as conn:
+                # Add course_id to quizzes if not exists
+                await conn.execute(text("""
+                    ALTER TABLE quizzes
+                    ADD COLUMN IF NOT EXISTS course_id UUID REFERENCES courses(id) ON DELETE SET NULL;
+                """))
+                # Add timer columns to game_sessions if not exists
+                await conn.execute(text("""
+                    ALTER TABLE game_sessions
+                    ADD COLUMN IF NOT EXISTS timer_end_at TIMESTAMPTZ;
+                """))
+                await conn.execute(text("""
+                    ALTER TABLE game_sessions
+                    ADD COLUMN IF NOT EXISTS timer_duration INTEGER;
+                """))
+                log_info(logger, "Database migrations complete")
+        except Exception as e:
+            log_info(logger, f"Migration note: {e}")
+
     except ImportError as e:
         log_error(logger, "Database not configured", error=str(e))
     except Exception as e:

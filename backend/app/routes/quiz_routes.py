@@ -14,7 +14,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..auth import get_current_user
+from ..auth_clerk import get_current_user_clerk as get_current_user
 from ..db_models import User
 from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer
 
@@ -89,6 +89,7 @@ class QuizUpdate(BaseModel):
     description: Optional[str] = None
     subject: Optional[str] = None
     is_public: Optional[bool] = None
+    course_id: Optional[str] = None  # Assign to classroom
 
     # Async-first timing settings
     timer_enabled: Optional[bool] = None
@@ -125,6 +126,7 @@ class QuizResponse(BaseModel):
     question_count: int
     created_at: str
     updated_at: str
+    course_id: Optional[str] = None  # Classroom ID
 
     # Game stats
     times_played: int = 0
@@ -258,19 +260,21 @@ async def create_quiz(
 @router.get("/", response_model=List[QuizResponse], include_in_schema=False)
 async def list_quizzes(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    course_id: Optional[UUID] = Query(None, description="Filter by classroom/course ID")
 ):
     """List quizzes - teachers see their own, can also see public ones."""
-    # Get user's quizzes with their game sessions and player counts
-    result = await db.execute(
-        select(Quiz)
-        .options(
-            selectinload(Quiz.questions),
-            selectinload(Quiz.games).selectinload(GameSession.players)
-        )
-        .where(Quiz.teacher_id == current_user.id)
-        .order_by(Quiz.updated_at.desc())
-    )
+    # Build query with optional course_id filter
+    query = select(Quiz).options(
+        selectinload(Quiz.questions),
+        selectinload(Quiz.games).selectinload(GameSession.players)
+    ).where(Quiz.teacher_id == current_user.id)
+
+    if course_id:
+        query = query.where(Quiz.course_id == course_id)
+
+    query = query.order_by(Quiz.updated_at.desc())
+    result = await db.execute(query)
     quizzes = result.scalars().all()
 
     responses = []
@@ -302,6 +306,7 @@ async def list_quizzes(
             question_count=len(q.questions),
             created_at=q.created_at.isoformat(),
             updated_at=q.updated_at.isoformat(),
+            course_id=str(q.course_id) if q.course_id else None,
             times_played=times_played,
             active_game_id=str(active_game.id) if active_game else None,
             active_game_code=active_game.game_code if active_game else None,
@@ -376,7 +381,7 @@ async def list_public_quizzes(
         .limit(50)
     )
     quizzes = result.scalars().all()
-    
+
     return [
         QuizResponse(
             id=str(q.id),
@@ -405,6 +410,67 @@ async def list_public_quizzes(
         )
         for q in quizzes
     ]
+
+
+@router.get("/public/{quiz_id}", response_model=QuizDetailResponse)
+async def get_public_quiz(
+    quiz_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a public quiz by ID for guest access.
+    No authentication required - returns quiz only if is_public=true.
+    """
+    result = await db.execute(
+        select(Quiz)
+        .options(selectinload(Quiz.questions))
+        .where(Quiz.id == quiz_id, Quiz.is_public == True)
+    )
+    quiz = result.scalars().first()
+
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found or not public")
+
+    return QuizDetailResponse(
+        id=str(quiz.id),
+        teacher_id=str(quiz.teacher_id),
+        title=quiz.title,
+        description=quiz.description,
+        subject=quiz.subject,
+        is_public=quiz.is_public,
+        question_count=len(quiz.questions),
+        created_at=quiz.created_at.isoformat(),
+        updated_at=quiz.updated_at.isoformat(),
+        timer_enabled=getattr(quiz, 'timer_enabled', False),
+        default_time_limit=getattr(quiz, 'default_time_limit', 30),
+        shuffle_questions=getattr(quiz, 'shuffle_questions', False),
+        shuffle_answers=getattr(quiz, 'shuffle_answers', False),
+        allow_retries=getattr(quiz, 'allow_retries', True),
+        max_retries=getattr(quiz, 'max_retries', 0),
+        show_correct_answer=getattr(quiz, 'show_correct_answer', True),
+        show_explanation=getattr(quiz, 'show_explanation', True),
+        show_distribution=getattr(quiz, 'show_distribution', False),
+        difficulty_adaptation=getattr(quiz, 'difficulty_adaptation', True),
+        peer_discussion_enabled=getattr(quiz, 'peer_discussion_enabled', True),
+        peer_discussion_trigger=getattr(quiz, 'peer_discussion_trigger', 'high_confidence_wrong'),
+        allow_teacher_intervention=getattr(quiz, 'allow_teacher_intervention', True),
+        sync_pacing_available=getattr(quiz, 'sync_pacing_available', False),
+        questions=[
+            QuestionResponse(
+                id=str(q.id),
+                order=q.order,
+                question_text=q.question_text,
+                question_type=q.question_type,
+                options=q.options,
+                correct_answer=q.correct_answer,
+                explanation=q.explanation,
+                time_limit=q.time_limit,
+                points=q.points,
+                image_url=q.image_url
+            )
+            for q in sorted(quiz.questions, key=lambda x: x.order)
+        ]
+    )
 
 
 @router.get("/{quiz_id}", response_model=QuizDetailResponse)
@@ -500,6 +566,8 @@ async def update_quiz(
         quiz.subject = quiz_data.subject
     if quiz_data.is_public is not None:
         quiz.is_public = quiz_data.is_public
+    if quiz_data.course_id is not None:
+        quiz.course_id = UUID(quiz_data.course_id) if quiz_data.course_id else None
     # Update settings
     if quiz_data.timer_enabled is not None:
         quiz.timer_enabled = quiz_data.timer_enabled
@@ -543,6 +611,7 @@ async def update_quiz(
         question_count=len(quiz.questions),
         created_at=quiz.created_at.isoformat(),
         updated_at=quiz.updated_at.isoformat(),
+        course_id=str(quiz.course_id) if quiz.course_id else None,
         timer_enabled=getattr(quiz, 'timer_enabled', False),
         default_time_limit=getattr(quiz, 'default_time_limit', 30),
         shuffle_questions=getattr(quiz, 'shuffle_questions', False),
@@ -557,6 +626,102 @@ async def update_quiz(
         peer_discussion_trigger=getattr(quiz, 'peer_discussion_trigger', 'high_confidence_wrong'),
         allow_teacher_intervention=getattr(quiz, 'allow_teacher_intervention', True),
         sync_pacing_available=getattr(quiz, 'sync_pacing_available', False),
+    )
+
+
+@router.post("/{quiz_id}/duplicate", response_model=QuizResponse)
+async def duplicate_quiz(
+    quiz_id: UUID,
+    target_course_id: Optional[UUID] = Query(None, description="Assign duplicate to this classroom"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Duplicate a quiz with all its questions."""
+    # Fetch original quiz with questions
+    result = await db.execute(
+        select(Quiz)
+        .options(selectinload(Quiz.questions))
+        .where(Quiz.id == quiz_id)
+    )
+    original = result.scalars().first()
+
+    if not original:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    # Check access - must own the quiz or it must be public
+    if original.teacher_id != current_user.id and not original.is_public:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Create new quiz with "(Copy)" suffix
+    new_quiz = Quiz(
+        teacher_id=current_user.id,
+        title=f"{original.title} (Copy)",
+        description=original.description,
+        subject=original.subject,
+        is_public=False,  # New copy is private by default
+        course_id=target_course_id,
+        timer_enabled=original.timer_enabled,
+        default_time_limit=original.default_time_limit,
+        shuffle_questions=original.shuffle_questions,
+        shuffle_answers=original.shuffle_answers,
+        allow_retries=original.allow_retries,
+        max_retries=original.max_retries,
+        show_correct_answer=original.show_correct_answer,
+        show_explanation=original.show_explanation,
+        show_distribution=original.show_distribution,
+        difficulty_adaptation=original.difficulty_adaptation,
+        peer_discussion_enabled=original.peer_discussion_enabled,
+        peer_discussion_trigger=original.peer_discussion_trigger,
+        allow_teacher_intervention=original.allow_teacher_intervention,
+        sync_pacing_available=original.sync_pacing_available,
+    )
+    db.add(new_quiz)
+    await db.flush()
+
+    # Copy all questions
+    for q in sorted(original.questions, key=lambda x: x.order):
+        new_question = QuizQuestion(
+            quiz_id=new_quiz.id,
+            order=q.order,
+            question_text=q.question_text,
+            question_type=q.question_type,
+            options=q.options,
+            correct_answer=q.correct_answer,
+            explanation=q.explanation,
+            time_limit=q.time_limit,
+            points=q.points,
+            image_url=q.image_url
+        )
+        db.add(new_question)
+
+    await db.commit()
+    await db.refresh(new_quiz)
+
+    return QuizResponse(
+        id=str(new_quiz.id),
+        teacher_id=str(new_quiz.teacher_id),
+        title=new_quiz.title,
+        description=new_quiz.description,
+        subject=new_quiz.subject,
+        is_public=new_quiz.is_public,
+        question_count=len(original.questions),
+        created_at=new_quiz.created_at.isoformat(),
+        updated_at=new_quiz.updated_at.isoformat(),
+        course_id=str(new_quiz.course_id) if new_quiz.course_id else None,
+        timer_enabled=new_quiz.timer_enabled,
+        default_time_limit=new_quiz.default_time_limit,
+        shuffle_questions=new_quiz.shuffle_questions,
+        shuffle_answers=new_quiz.shuffle_answers,
+        allow_retries=new_quiz.allow_retries,
+        max_retries=new_quiz.max_retries,
+        show_correct_answer=new_quiz.show_correct_answer,
+        show_explanation=new_quiz.show_explanation,
+        show_distribution=new_quiz.show_distribution,
+        difficulty_adaptation=new_quiz.difficulty_adaptation,
+        peer_discussion_enabled=new_quiz.peer_discussion_enabled,
+        peer_discussion_trigger=new_quiz.peer_discussion_trigger,
+        allow_teacher_intervention=new_quiz.allow_teacher_intervention,
+        sync_pacing_available=new_quiz.sync_pacing_available,
     )
 
 

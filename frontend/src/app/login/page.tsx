@@ -1,139 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useAuth } from "@/lib/auth";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
-    const { login, demoLogin, isLoading } = useAuth();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
-    const [submitting, setSubmitting] = useState(false);
+    const { isSignedIn, isLoaded: clerkLoaded } = useClerkAuth();
+    const { user, isLoading: authLoading } = useAuth();
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError("");
-        setSubmitting(true);
+    useEffect(() => {
+        if (!clerkLoaded || authLoading) return;
 
-        const result = await login(email, password);
-        
-        if (result.success) {
-            router.push("/teacher");
-        } else {
-            setError(result.error || "Login failed");
+        if (isSignedIn && user) {
+            // User is signed in via Clerk, redirect to appropriate dashboard
+            if (user.role === "teacher") {
+                router.replace("/teacher");
+            } else {
+                router.replace("/student/dashboard");
+            }
+        } else if (!isSignedIn) {
+            // Not signed in, redirect to Clerk sign-in
+            router.replace("/sign-in");
         }
-        setSubmitting(false);
-    };
+    }, [clerkLoaded, isSignedIn, authLoading, user, router]);
 
-    const handleDemoLogin = async () => {
-        setError("");
-        setSubmitting(true);
-
-        const result = await demoLogin();
-        
-        if (result.success) {
-            router.push("/teacher");
-        } else {
-            setError(result.error || "Demo login failed");
-        }
-        setSubmitting(false);
-    };
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
-                <div className="animate-pulse text-gray-500">Loading...</div>
-            </div>
-        );
-    }
-
+    // Show loading while redirecting
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 p-4">
-            <div className="w-full max-w-md">
-                <div className="bg-white rounded-2xl shadow-xl p-8">
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-                        <p className="text-gray-500 mt-2">Sign in to Quizly</p>
-                    </div>
-
-                    {error && (
-                        <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-                            {error}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Email
-                            </label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                                placeholder="you@example.com"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Password
-                            </label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                                placeholder="••••••••"
-                                required
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {submitting ? "Signing in..." : "Sign In"}
-                        </button>
-                    </form>
-
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-300"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                            <span className="px-2 bg-white text-gray-500">Or try demo</span>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleDemoLogin}
-                        disabled={submitting}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        <span>🚀</span>
-                        <span>{submitting ? "Loading..." : "Quick Demo Login"}</span>
-                    </button>
-
-                    <div className="mt-6 text-center text-sm">
-                        <span className="text-gray-500">Don&apos;t have an account? </span>
-                        <Link href="/register" className="text-indigo-600 hover:text-indigo-700 font-medium">
-                            Create one
-                        </Link>
-                    </div>
-
-                    <div className="mt-4 text-center">
-                        <Link href="/student" className="text-sm text-gray-500 hover:text-gray-700">
-                            Join as a student →
-                        </Link>
-                    </div>
-                </div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-950">
+            <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-500 mx-auto mb-4" />
+                <p className="text-gray-400">Redirecting...</p>
             </div>
         </div>
     );

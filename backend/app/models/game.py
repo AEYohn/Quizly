@@ -11,7 +11,10 @@ import uuid
 import random
 import string
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..db_models import Course
 from sqlalchemy import String, Text, Integer, Float, Boolean, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
@@ -32,15 +35,16 @@ def generate_game_code() -> str:
 
 
 class Quiz(Base):
-    """A collection of questions created by a teacher."""
+    """A collection of questions created by a teacher or student (for self-study)."""
     __tablename__ = "quizzes"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    teacher_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    teacher_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)  # Creator (teacher or student)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     subject: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+    quiz_type: Mapped[str] = mapped_column(String(50), default="teacher")  # "teacher" or "self_study"
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
@@ -68,9 +72,13 @@ class Quiz(Base):
     allow_teacher_intervention: Mapped[bool] = mapped_column(Boolean, default=True)
     sync_pacing_available: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Classroom/Course link
+    course_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, ForeignKey("courses.id"), nullable=True)
+
     # Relationships
     questions: Mapped[List["QuizQuestion"]] = relationship(back_populates="quiz", cascade="all, delete-orphan", order_by="QuizQuestion.order")
     games: Mapped[List["GameSession"]] = relationship(back_populates="quiz", cascade="all, delete-orphan")
+    course: Mapped[Optional["Course"]] = relationship()
 
 
 class QuizQuestion(Base):

@@ -5,6 +5,27 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+    images: {
+        remotePatterns: [
+            {
+                protocol: "https",
+                hostname: "img.clerk.com",
+            },
+            {
+                protocol: "https",
+                hostname: "images.clerk.dev",
+            },
+            {
+                protocol: "https",
+                hostname: "*.googleusercontent.com",
+            },
+            {
+                protocol: "https",
+                hostname: "lh3.googleusercontent.com",
+            },
+        ],
+    },
+};
 
 export default config;

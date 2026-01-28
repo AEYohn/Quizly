@@ -3,17 +3,25 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
+import { useUser, useClerk } from "@clerk/nextjs";
+import Image from "next/image";
 import { cn } from "~/lib/utils";
 import {
-    LayoutDashboard,
     LogOut,
     Sparkles,
     PanelLeftClose,
     PanelLeft,
+    Pencil,
+    Users,
+    Library,
+    BarChart3,
 } from "lucide-react";
+import { ProfileModal } from "~/components/ProfileModal";
 
 const navigation = [
-    { name: "Dashboard", href: "/teacher", icon: LayoutDashboard },
+    { name: "Library", href: "/teacher/library", icon: Library },
+    { name: "Classrooms", href: "/teacher/classrooms", icon: Users },
+    { name: "Analytics", href: "/teacher/analytics", icon: BarChart3 },
 ];
 
 const EXPANDED_WIDTH = 256;
@@ -22,13 +30,22 @@ const COLLAPSED_WIDTH = 64;
 export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
+    const { user } = useUser();
+    const { signOut } = useClerk();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [customName, setCustomName] = useState<string | null>(null);
+    const [showProfileModal, setShowProfileModal] = useState(false);
 
     // Load saved state from localStorage
     useEffect(() => {
         const savedCollapsed = localStorage.getItem("sidebarCollapsed");
         if (savedCollapsed) {
             setIsCollapsed(savedCollapsed === "true");
+        }
+        // Load custom display name
+        const savedName = localStorage.getItem("quizly_display_name");
+        if (savedName) {
+            setCustomName(savedName);
         }
     }, []);
 
@@ -40,11 +57,22 @@ export function Sidebar() {
         });
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        router.push("/login");
+        localStorage.removeItem("quizly_user");
+        localStorage.removeItem("quizly_display_name");
+        localStorage.removeItem("quizly_first_name");
+        localStorage.removeItem("quizly_last_name");
+        await signOut();
+        router.push("/");
     };
+
+    // Get user display info - prefer custom name, then Clerk data
+    const clerkName = user?.firstName || user?.username || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "User";
+    const displayName = customName || clerkName;
+    const profileImage = user?.imageUrl;
+    const initials = displayName.charAt(0).toUpperCase();
 
     const actualWidth = isCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
 
@@ -76,7 +104,8 @@ export function Sidebar() {
                 {navigation.map((item) => {
                     const isActive =
                         pathname === item.href ||
-                        (item.href !== "/teacher" && pathname.startsWith(item.href));
+                        pathname.startsWith(item.href) ||
+                        (item.href === "/teacher/library" && pathname === "/teacher");
 
                     return (
                         <Link
@@ -114,14 +143,37 @@ export function Sidebar() {
                     "flex items-center gap-3 px-2 py-2",
                     isCollapsed && "justify-center px-0"
                 )}>
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-sm font-medium">
-                        T
-                    </div>
+                    <button
+                        onClick={() => setShowProfileModal(true)}
+                        className="flex-shrink-0 hover:opacity-80 transition-opacity"
+                        title="Edit profile"
+                    >
+                        {profileImage ? (
+                            <Image
+                                src={profileImage}
+                                alt={displayName}
+                                width={32}
+                                height={32}
+                                className="h-8 w-8 rounded-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-sm font-medium">
+                                {initials}
+                            </div>
+                        )}
+                    </button>
                     {!isCollapsed && (
                         <>
-                            <div className="flex-1">
-                                <p className="text-sm font-medium">Teacher</p>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{displayName}</p>
                             </div>
+                            <button
+                                onClick={() => setShowProfileModal(true)}
+                                className="text-gray-400 transition-colors hover:text-white"
+                                title="Edit profile"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </button>
                             <button
                                 onClick={handleLogout}
                                 className="text-gray-400 transition-colors hover:text-white"
@@ -133,6 +185,12 @@ export function Sidebar() {
                     )}
                 </div>
             </div>
+
+            {/* Profile Modal */}
+            <ProfileModal
+                isOpen={showProfileModal}
+                onClose={() => setShowProfileModal(false)}
+            />
 
             {/* Collapse toggle button */}
             <button
