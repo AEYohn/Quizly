@@ -87,7 +87,7 @@ export function GuestConversionModal({ exitTicket, onClose, onSignUp }: GuestCon
                                 </div>
                                 <div>
                                     <p className="font-medium text-white">{practiceCount} Practice Questions</p>
-                                    <p className="text-sm text-gray-400">Homework to reinforce learning</p>
+                                    <p className="text-sm text-gray-400">Revision to reinforce learning</p>
                                 </div>
                             </div>
                         )}

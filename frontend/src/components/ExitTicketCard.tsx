@@ -226,7 +226,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                     }`}
                                 >
                                     <ClipboardList className="h-4 w-4" />
-                                    Homework
+                                    Revision
                                     {ticket.practice_questions && (
                                         <span className="bg-gray-700 text-xs px-1.5 py-0.5 rounded">
                                             {ticket.practice_questions.length}
@@ -383,7 +383,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                                 </div>
                                             ))
                                         ) : (
-                                            <p className="text-gray-500 text-sm text-center py-4">No homework questions available</p>
+                                            <p className="text-gray-500 text-sm text-center py-4">No revision questions available</p>
                                         )}
                                     </div>
                                 )}

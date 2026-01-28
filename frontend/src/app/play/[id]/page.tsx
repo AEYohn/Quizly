@@ -1017,7 +1017,7 @@ export default function PlayGamePage() {
                                 }`}
                             >
                                 <Pencil className="h-4 w-4" />
-                                Homework {totalPracticeQuestions > 0 && <span className="text-xs opacity-60">{totalPracticeQuestions}</span>}
+                                Revision {totalPracticeQuestions > 0 && <span className="text-xs opacity-60">{totalPracticeQuestions}</span>}
                             </button>
                             <button
                                 onClick={() => setStudyPacketSection("review")}
@@ -1125,7 +1125,7 @@ export default function PlayGamePage() {
                                         onClick={() => setStudyPacketSection("homework")}
                                         className="w-full rounded-xl bg-white text-gray-900 px-6 py-4 font-semibold hover:bg-gray-100 transition-colors"
                                     >
-                                        Start Homework →
+                                        Start Revision →
                                     </button>
                                 </div>
                             </div>
@@ -1298,7 +1298,7 @@ export default function PlayGamePage() {
                                 )}
 
                                 {totalPracticeQuestions === 0 && (
-                                    <p className="text-center text-gray-400 py-8">No homework questions available.</p>
+                                    <p className="text-center text-gray-400 py-8">No revision questions available.</p>
                                 )}
                             </div>
                         )}
@@ -1380,7 +1380,7 @@ export default function PlayGamePage() {
                         <div className="text-center">
                             <Loader2 className="mx-auto h-12 w-12 animate-spin text-sky-400 mb-4" />
                             <h2 className="text-xl font-bold text-white mb-2">Creating Your Study Packet</h2>
-                            <p className="text-gray-400">Generating personalized notes and homework based on your performance...</p>
+                            <p className="text-gray-400">Generating personalized notes and revision based on your performance...</p>
                         </div>
                     </div>
                 ) : postQuizStage === "exit_ticket" && exitTicket ? (
@@ -1432,7 +1432,7 @@ export default function PlayGamePage() {
                                 }`}
                             >
                                 <Pencil className="h-4 w-4" />
-                                Homework {totalPracticeQuestions > 0 && <span className="text-xs opacity-60">{totalPracticeQuestions}</span>}
+                                Revision {totalPracticeQuestions > 0 && <span className="text-xs opacity-60">{totalPracticeQuestions}</span>}
                             </button>
                             <button
                                 onClick={() => setStudyPacketSection("review")}
@@ -1542,7 +1542,7 @@ export default function PlayGamePage() {
                                     onClick={() => setStudyPacketSection("homework")}
                                     className="w-full rounded-xl bg-gray-200 text-gray-900 px-6 py-4 font-semibold hover:bg-white transition-colors"
                                 >
-                                    Start Homework →
+                                    Start Revision →
                                 </button>
                             </div>
                         )}
@@ -1717,7 +1717,7 @@ export default function PlayGamePage() {
                                 {/* Fallback if no practice questions */}
                                 {totalPracticeQuestions === 0 && (
                                     <div className="text-center py-8">
-                                        <p className="text-gray-400">No homework questions available.</p>
+                                        <p className="text-gray-400">No revision questions available.</p>
                                     </div>
                                 )}
                             </div>
