@@ -528,6 +528,27 @@ class StudyNote(Base):
     study_item: Mapped["StudyItem"] = relationship()
 
 
+class GameContent(Base):
+    """Template-based game content."""
+    __tablename__ = "game_contents"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    study_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("study_items.id", ondelete="CASCADE"), nullable=False, unique=True)
+    template_type: Mapped[str] = mapped_column(String(30), nullable=False)  # match_pairs, fill_blank, sort_it
+    game_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # game_data structure:
+    # match_pairs: {pairs: [{term, definition}]}
+    # fill_blank: {sentences: [{text, blanks: [{position, answer}]}]}
+    # sort_it: {categories: [{name, items: []}]}
+
+    # Stats
+    best_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    best_time_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Relationships
+    study_item: Mapped["StudyItem"] = relationship()
+
+
 # Import extended learning models to register them
 from . import db_models_learning  # noqa
 
