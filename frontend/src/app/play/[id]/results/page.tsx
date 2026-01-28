@@ -59,7 +59,6 @@ export default function GameResultsPage() {
     const [results, setResults] = useState<GameResults | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [showAllPlayers, setShowAllPlayers] = useState(false);
 
     // Try to get the player's nickname from sessionStorage or localStorage
     const nickname = typeof window !== "undefined"
@@ -215,14 +214,14 @@ export default function GameResultsPage() {
                     </div>
                 )}
 
-                {/* Leaderboard */}
+                {/* Leaderboard - Top 10 */}
                 <div className="mb-8">
                     <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                         <Trophy className="h-5 w-5 text-yellow-400" />
-                        Leaderboard
+                        Top 10
                     </h2>
                     <div className="space-y-2">
-                        {(showAllPlayers ? normalizedLeaderboard : normalizedLeaderboard.slice(0, 20)).map((entry) => {
+                        {normalizedLeaderboard.slice(0, 10).map((entry) => {
                             const isCurrentPlayer = playerEntry?.player_id === entry.player_id;
                             return (
                                 <div
@@ -251,16 +250,6 @@ export default function GameResultsPage() {
                                 </div>
                             );
                         })}
-                        {normalizedLeaderboard.length > 20 && (
-                            <button
-                                onClick={() => setShowAllPlayers(!showAllPlayers)}
-                                className="w-full py-3 text-center text-sky-400 hover:text-sky-300 text-sm font-medium transition-colors"
-                            >
-                                {showAllPlayers
-                                    ? "Show Less"
-                                    : `Show All ${normalizedLeaderboard.length} Players`}
-                            </button>
-                        )}
                     </div>
                 </div>
 
