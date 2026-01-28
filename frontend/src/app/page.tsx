@@ -96,7 +96,7 @@ export default function Home() {
 
                     <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
                         <Link
-                            href="/sign-up"
+                            href="/sign-in"
                             onClick={() => localStorage.setItem("quizly_pending_role", "teacher")}
                             className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-6 py-3 text-base font-medium text-white hover:bg-gray-700 transition-colors"
                         >
@@ -104,7 +104,7 @@ export default function Home() {
                             I&apos;m a Teacher
                         </Link>
                         <Link
-                            href="/sign-up"
+                            href="/sign-in"
                             onClick={() => localStorage.setItem("quizly_pending_role", "student")}
                             className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-800 border border-gray-700 px-6 py-3 text-base font-medium text-white hover:bg-gray-700 transition-colors"
                         >
@@ -303,7 +303,7 @@ export default function Home() {
                                 </li>
                             </ul>
                             <Link
-                                href="/sign-up"
+                                href="/sign-in"
                                 onClick={() => localStorage.setItem("quizly_pending_role", "teacher")}
                                 className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-gray-900 font-semibold hover:bg-gray-200 transition-colors"
                             >
