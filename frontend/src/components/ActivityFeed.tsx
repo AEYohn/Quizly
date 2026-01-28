@@ -355,7 +355,7 @@ export function ActivityFeed({ studentName, token, initialLimit = 5 }: ActivityF
                                     </div>
                                 </div>
                                 <Link
-                                    href={`/play/${game.game_id}`}
+                                    href={`/play/${game.game_id}/results`}
                                     className="px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 text-sm hover:bg-gray-700 hover:text-white"
                                 >
                                     View Results

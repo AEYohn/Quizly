@@ -1031,11 +1031,27 @@ class ChatAttachment(BaseModel):
     mime_type: Optional[str] = None
 
 
+class ChatHistoryMessage(BaseModel):
+    """A message in the conversation history."""
+    role: str  # "user" or "ai"
+    content: str
+
+
+class ExistingQuestion(BaseModel):
+    """An existing question in the quiz."""
+    question_text: str
+    options: Optional[List[str]] = None
+    correct_answer: Optional[str] = None
+    difficulty: Optional[str] = None
+
+
 class ChatGenerateRequest(BaseModel):
     """Request for AI chat-based question generation."""
     message: str
     question_type: str = "mcq"  # "mcq" or "coding"
     attachments: Optional[List[ChatAttachment]] = None
+    conversation_history: Optional[List[ChatHistoryMessage]] = None
+    existing_questions: Optional[List[ExistingQuestion]] = None
 
 
 class ChatGenerateResponse(BaseModel):
@@ -1096,12 +1112,38 @@ async def chat_generate(request: Request, data: ChatGenerateRequest):
     # Extract the number of questions from the user's message
     question_count = extract_question_count(data.message)
 
+    # Build conversation context if provided
+    conversation_context = ""
+    if data.conversation_history:
+        conversation_context = "\n\nPREVIOUS CONVERSATION:\n"
+        for msg in data.conversation_history:
+            role_label = "User" if msg.role == "user" else "Assistant"
+            conversation_context += f"{role_label}: {msg.content}\n"
+
+    # Build existing questions context if provided
+    existing_questions_context = ""
+    if data.existing_questions and len(data.existing_questions) > 0:
+        existing_questions_context = f"\n\nEXISTING QUESTIONS IN QUIZ ({len(data.existing_questions)} questions already created):\n"
+        for i, q in enumerate(data.existing_questions, 1):
+            existing_questions_context += f"{i}. {q.question_text}"
+            if q.difficulty:
+                existing_questions_context += f" [Difficulty: {q.difficulty}]"
+            existing_questions_context += "\n"
+        existing_questions_context += "\nIMPORTANT: Do NOT duplicate these questions. Generate NEW questions that complement the existing ones.\n"
+
     if data.question_type == "mcq":
         system_prompt = f"""You are an expert educator creating multiple choice questions.
 
 Based on the user's request and any provided content (images, files, text), generate educational multiple choice questions.
-
+{conversation_context}
+{existing_questions_context}
 IMPORTANT: Generate EXACTLY {question_count} questions. This number was extracted from the user's request.
+
+CONTEXT AWARENESS:
+- If the user asks to "make it harder" or similar, generate questions at a HIGHER difficulty level than the existing questions.
+- If the user references previous content (like uploaded files), use that context to generate relevant questions.
+- Do NOT repeat or duplicate any existing questions - create new, unique ones.
+- Build upon the topic established in the conversation.
 
 For each question, provide:
 1. A clear question

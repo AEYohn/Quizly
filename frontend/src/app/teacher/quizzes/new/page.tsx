@@ -321,6 +321,24 @@ function NewQuizPageContent() {
             }
             // Let the user's intent pass through unchanged - backend will extract question count
 
+            // Build conversation history for context
+            const conversationHistory = messages
+                .filter(m => m.id !== thinkingId) // Exclude the thinking message we just added
+                .map(m => ({
+                    role: m.role === "user" ? "user" : "ai",
+                    content: m.content,
+                }));
+
+            // Build existing questions list
+            const existingQuestions = questions.map(q => ({
+                question_text: q.question_text,
+                options: q.question_type === "multiple_choice"
+                    ? Object.values(q.options).filter(Boolean)
+                    : undefined,
+                correct_answer: q.correct_answer,
+                difficulty: undefined, // We don't track difficulty in QuestionData
+            }));
+
             const response = await fetch(`${API_URL}/ai/chat-generate`, {
                 method: "POST",
                 headers: {
@@ -331,6 +349,8 @@ function NewQuizPageContent() {
                     message: prompt,
                     question_type: "mcq",
                     attachments: hasFiles ? attachments : undefined,
+                    conversation_history: conversationHistory.length > 0 ? conversationHistory : undefined,
+                    existing_questions: existingQuestions.length > 0 ? existingQuestions : undefined,
                 }),
             });
 
