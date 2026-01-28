@@ -514,6 +514,20 @@ class Flashcard(Base):
     deck: Mapped["FlashcardDeck"] = relationship(back_populates="cards")
 
 
+class StudyNote(Base):
+    """Study notes with rich markdown content."""
+    __tablename__ = "study_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    study_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("study_items.id", ondelete="CASCADE"), nullable=False, unique=True)
+    content_markdown: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    attachments: Mapped[Optional[List[dict]]] = mapped_column(JSON, default=list)  # [{url, type, name}]
+    highlighted_terms: Mapped[Optional[List[str]]] = mapped_column(JSON, default=list)
+
+    # Relationships
+    study_item: Mapped["StudyItem"] = relationship()
+
+
 # Import extended learning models to register them
 from . import db_models_learning  # noqa
 
