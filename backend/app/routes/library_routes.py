@@ -49,6 +49,37 @@ class StudyItemListResponse(BaseModel):
     total: int
 
 
+class FlashcardCreate(BaseModel):
+    front: str = Field(..., min_length=1)
+    back: str = Field(..., min_length=1)
+    image_url: Optional[str] = None
+
+
+class FlashcardResponse(BaseModel):
+    id: str
+    front: str
+    back: str
+    image_url: Optional[str]
+    position: int
+    mastery_level: int
+    next_review_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class FlashcardDeckCreate(StudyItemBase):
+    cards: List[FlashcardCreate] = Field(default_factory=list)
+    study_mode: str = Field(default="classic")
+
+
+class FlashcardDeckResponse(StudyItemResponse):
+    study_mode: str
+    cards_mastered: int
+    cards_struggling: int
+    cards: List[FlashcardResponse]
+
+
 # ============ Study Items Endpoints ============
 
 @router.get("/items", response_model=StudyItemListResponse)
@@ -123,3 +154,121 @@ async def delete_study_item(
 
     await db.delete(item)
     await db.commit()
+
+
+# ============ Flashcard Deck Endpoints ============
+
+@router.post("/flashcard-decks", response_model=FlashcardDeckResponse, status_code=status.HTTP_201_CREATED)
+async def create_flashcard_deck(
+    request: FlashcardDeckCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Create a new flashcard deck."""
+    # Create study item
+    study_item = StudyItem(
+        owner_id=current_user.id,
+        type="flashcard_deck",
+        title=request.title,
+        description=request.description,
+        visibility=request.visibility,
+        tags=request.tags,
+        source="manual"
+    )
+    db.add(study_item)
+    await db.flush()
+
+    # Create deck
+    deck = FlashcardDeck(
+        study_item_id=study_item.id,
+        study_mode=request.study_mode
+    )
+    db.add(deck)
+    await db.flush()
+
+    # Create cards
+    cards = []
+    for i, card_data in enumerate(request.cards):
+        card = Flashcard(
+            deck_id=deck.id,
+            front=card_data.front,
+            back=card_data.back,
+            image_url=card_data.image_url,
+            position=i
+        )
+        db.add(card)
+        cards.append(card)
+
+    await db.commit()
+    await db.refresh(study_item)
+    await db.refresh(deck)
+
+    return FlashcardDeckResponse(
+        id=str(study_item.id),
+        type=study_item.type,
+        title=study_item.title,
+        description=study_item.description,
+        visibility=study_item.visibility,
+        tags=study_item.tags,
+        source=study_item.source,
+        times_studied=study_item.times_studied,
+        last_studied_at=study_item.last_studied_at,
+        created_at=study_item.created_at,
+        updated_at=study_item.updated_at,
+        study_mode=deck.study_mode,
+        cards_mastered=deck.cards_mastered,
+        cards_struggling=deck.cards_struggling,
+        cards=[FlashcardResponse(id=str(c.id), **{
+            k: getattr(c, k) for k in FlashcardResponse.model_fields if k != 'id'
+        }) for c in cards]
+    )
+
+
+@router.get("/flashcard-decks/{item_id}", response_model=FlashcardDeckResponse)
+async def get_flashcard_deck(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Get a flashcard deck with all cards."""
+    result = await db.execute(
+        select(StudyItem).where(
+            StudyItem.id == item_id,
+            StudyItem.type == "flashcard_deck"
+        )
+    )
+    study_item = result.scalars().first()
+
+    if not study_item:
+        raise HTTPException(status_code=404, detail="Flashcard deck not found")
+
+    if study_item.owner_id != current_user.id and study_item.visibility == "private":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get deck and cards
+    deck_result = await db.execute(
+        select(FlashcardDeck)
+        .where(FlashcardDeck.study_item_id == item_id)
+        .options(selectinload(FlashcardDeck.cards))
+    )
+    deck = deck_result.scalars().first()
+
+    return FlashcardDeckResponse(
+        id=str(study_item.id),
+        type=study_item.type,
+        title=study_item.title,
+        description=study_item.description,
+        visibility=study_item.visibility,
+        tags=study_item.tags,
+        source=study_item.source,
+        times_studied=study_item.times_studied,
+        last_studied_at=study_item.last_studied_at,
+        created_at=study_item.created_at,
+        updated_at=study_item.updated_at,
+        study_mode=deck.study_mode,
+        cards_mastered=deck.cards_mastered,
+        cards_struggling=deck.cards_struggling,
+        cards=[FlashcardResponse(id=str(c.id), **{
+            k: getattr(c, k) for k in FlashcardResponse.model_fields if k != 'id'
+        }) for c in sorted(deck.cards, key=lambda x: x.position)]
+    )
