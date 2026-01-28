@@ -33,6 +33,7 @@ class User(Base):
     # Relationships
     courses: Mapped[List["Course"]] = relationship(back_populates="teacher")
     responses: Mapped[List["Response"]] = relationship(back_populates="student")
+    study_items: Mapped[List["StudyItem"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
 
 
 class Course(Base):
@@ -447,6 +448,31 @@ class Misconception(Base):
     session: Mapped[Optional["Session"]] = relationship()
     question: Mapped[Optional["Question"]] = relationship()
     creator: Mapped[Optional["User"]] = relationship()
+
+
+class StudyItem(Base):
+    """Base model for all student-created study content."""
+    __tablename__ = "study_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # quiz, flashcard_deck, note, game
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    visibility: Mapped[str] = mapped_column(String(20), default="private")  # private, class, public
+    tags: Mapped[Optional[List[str]]] = mapped_column(JSON, default=list)
+    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual, ai, import
+
+    # Stats
+    times_studied: Mapped[int] = mapped_column(Integer, default=0)
+    last_studied_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    # Relationships
+    owner: Mapped["User"] = relationship(back_populates="study_items")
+    collection_items: Mapped[List["CollectionItem"]] = relationship(back_populates="study_item", cascade="all, delete-orphan")
 
 
 # Import extended learning models to register them
