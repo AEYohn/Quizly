@@ -103,6 +103,43 @@ class GameContentResponse(StudyItemResponse):
     best_time_seconds: Optional[int]
 
 
+class CollectionCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    cover_color: str = Field(default="#3B82F6")
+    visibility: str = Field(default="private")
+
+
+class CollectionItemResponse(BaseModel):
+    id: str
+    study_item: StudyItemResponse
+    position: int
+    added_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CollectionResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    cover_color: str
+    visibility: str
+    created_at: datetime
+    updated_at: datetime
+    item_count: int
+    items: List[CollectionItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class CollectionListResponse(BaseModel):
+    collections: List[CollectionResponse]
+    total: int
+
+
 # ============ Study Items Endpoints ============
 
 @router.get("/items", response_model=StudyItemListResponse)
@@ -538,3 +575,225 @@ async def get_game_content(
         best_score=game.best_score,
         best_time_seconds=game.best_time_seconds
     )
+
+
+# ============ Collection Endpoints ============
+
+@router.get("/collections", response_model=CollectionListResponse)
+async def list_collections(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """List all collections for current user."""
+    result = await db.execute(
+        select(Collection)
+        .where(Collection.owner_id == current_user.id)
+        .options(selectinload(Collection.items))
+        .order_by(Collection.updated_at.desc())
+    )
+    collections = result.scalars().all()
+
+    return CollectionListResponse(
+        collections=[CollectionResponse(
+            id=str(c.id),
+            name=c.name,
+            description=c.description,
+            cover_color=c.cover_color,
+            visibility=c.visibility,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+            item_count=len(c.items),
+            items=[]
+        ) for c in collections],
+        total=len(collections)
+    )
+
+
+@router.post("/collections", response_model=CollectionResponse, status_code=status.HTTP_201_CREATED)
+async def create_collection(
+    request: CollectionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Create a new collection."""
+    collection = Collection(
+        owner_id=current_user.id,
+        name=request.name,
+        description=request.description,
+        cover_color=request.cover_color,
+        visibility=request.visibility
+    )
+    db.add(collection)
+    await db.commit()
+    await db.refresh(collection)
+
+    return CollectionResponse(
+        id=str(collection.id),
+        name=collection.name,
+        description=collection.description,
+        cover_color=collection.cover_color,
+        visibility=collection.visibility,
+        created_at=collection.created_at,
+        updated_at=collection.updated_at,
+        item_count=0,
+        items=[]
+    )
+
+
+@router.get("/collections/{collection_id}", response_model=CollectionResponse)
+async def get_collection(
+    collection_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Get a collection with all items."""
+    result = await db.execute(
+        select(Collection)
+        .where(Collection.id == collection_id)
+        .options(
+            selectinload(Collection.items).selectinload(CollectionItem.study_item)
+        )
+    )
+    collection = result.scalars().first()
+
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    if collection.owner_id != current_user.id and collection.visibility == "private":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    items_response = []
+    for ci in sorted(collection.items, key=lambda x: x.position):
+        si = ci.study_item
+        items_response.append(CollectionItemResponse(
+            id=str(ci.id),
+            study_item=StudyItemResponse(
+                id=str(si.id),
+                type=si.type,
+                title=si.title,
+                description=si.description,
+                visibility=si.visibility,
+                tags=si.tags,
+                source=si.source,
+                times_studied=si.times_studied,
+                last_studied_at=si.last_studied_at,
+                created_at=si.created_at,
+                updated_at=si.updated_at
+            ),
+            position=ci.position,
+            added_at=ci.added_at
+        ))
+
+    return CollectionResponse(
+        id=str(collection.id),
+        name=collection.name,
+        description=collection.description,
+        cover_color=collection.cover_color,
+        visibility=collection.visibility,
+        created_at=collection.created_at,
+        updated_at=collection.updated_at,
+        item_count=len(collection.items),
+        items=items_response
+    )
+
+
+@router.delete("/collections/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_collection(
+    collection_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Delete a collection (items are not deleted)."""
+    result = await db.execute(
+        select(Collection).where(Collection.id == collection_id)
+    )
+    collection = result.scalars().first()
+
+    if not collection or collection.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    await db.delete(collection)
+    await db.commit()
+
+
+@router.post("/collections/{collection_id}/items", status_code=status.HTTP_201_CREATED)
+async def add_item_to_collection(
+    collection_id: uuid.UUID,
+    study_item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Add a study item to a collection."""
+    col_result = await db.execute(
+        select(Collection).where(Collection.id == collection_id)
+    )
+    collection = col_result.scalars().first()
+
+    if not collection or collection.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    item_result = await db.execute(
+        select(StudyItem).where(StudyItem.id == study_item_id)
+    )
+    study_item = item_result.scalars().first()
+
+    if not study_item or study_item.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Study item not found")
+
+    existing = await db.execute(
+        select(CollectionItem).where(
+            CollectionItem.collection_id == collection_id,
+            CollectionItem.study_item_id == study_item_id
+        )
+    )
+    if existing.scalars().first():
+        raise HTTPException(status_code=400, detail="Item already in collection")
+
+    max_pos_result = await db.execute(
+        select(CollectionItem.position)
+        .where(CollectionItem.collection_id == collection_id)
+        .order_by(CollectionItem.position.desc())
+        .limit(1)
+    )
+    max_pos = max_pos_result.scalars().first() or -1
+
+    collection_item = CollectionItem(
+        collection_id=collection_id,
+        study_item_id=study_item_id,
+        position=max_pos + 1
+    )
+    db.add(collection_item)
+    await db.commit()
+
+    return {"message": "Item added to collection"}
+
+
+@router.delete("/collections/{collection_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_item_from_collection(
+    collection_id: uuid.UUID,
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_clerk)
+):
+    """Remove a study item from a collection."""
+    col_result = await db.execute(
+        select(Collection).where(Collection.id == collection_id)
+    )
+    collection = col_result.scalars().first()
+
+    if not collection or collection.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    ci_result = await db.execute(
+        select(CollectionItem).where(
+            CollectionItem.collection_id == collection_id,
+            CollectionItem.study_item_id == item_id
+        )
+    )
+    collection_item = ci_result.scalars().first()
+
+    if not collection_item:
+        raise HTTPException(status_code=404, detail="Item not in collection")
+
+    await db.delete(collection_item)
+    await db.commit()
