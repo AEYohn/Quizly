@@ -10,15 +10,23 @@ import { type ReactNode } from "react";
 interface SkeletonBaseProps {
     className?: string;
     children?: ReactNode;
+    /**
+     * Accessible label for the loading skeleton
+     * @default "Loading..."
+     */
+    "aria-label"?: string;
 }
 
 /**
  * Base skeleton component with pulse animation.
  * Use as a building block for other skeleton components.
+ * Includes accessibility attributes for screen readers.
  */
-export function SkeletonBase({ className, children }: SkeletonBaseProps) {
+export function SkeletonBase({ className, children, "aria-label": ariaLabel = "Loading..." }: SkeletonBaseProps) {
     return (
         <div
+            role="status"
+            aria-label={ariaLabel}
             className={cn(
                 "animate-pulse bg-gray-700/50 rounded",
                 className
