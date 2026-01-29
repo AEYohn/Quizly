@@ -305,4 +305,136 @@ export const authApi = {
     request<UserProfile>("/students/profile", { token }),
 };
 
+// Social API Types
+import {
+  Friend,
+  FriendRequest,
+  StudyGroup,
+  UserPreview,
+  ActivityItem,
+} from '@/types/social';
+
+export interface SendFriendRequestRequest {
+  user_id: string;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+export interface QuizCommentRequest {
+  text: string;
+  rating?: number;
+}
+
+export interface QuizComment {
+  id: string;
+  quiz_id: string;
+  user: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  text: string;
+  rating?: number;
+  created_at: string;
+}
+
+// Social API
+export const socialApi = {
+  // Friends
+  getFriends: (token: string) =>
+    request<Friend[]>('/social/friends', { token }),
+
+  searchUsers: (query: string, token: string) =>
+    request<UserPreview[]>(`/social/users/search?q=${encodeURIComponent(query)}`, { token }),
+
+  sendFriendRequest: (userId: string, token: string) =>
+    request<{ id: string }>('/social/friends/request', {
+      method: 'POST',
+      body: { user_id: userId },
+      token,
+    }),
+
+  acceptFriendRequest: (requestId: string, token: string) =>
+    request<Friend>(`/social/friends/request/${requestId}/accept`, {
+      method: 'POST',
+      token,
+    }),
+
+  declineFriendRequest: (requestId: string, token: string) =>
+    request<void>(`/social/friends/request/${requestId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  removeFriend: (userId: string, token: string) =>
+    request<void>(`/social/friends/${userId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  // Groups
+  getGroups: (token: string) =>
+    request<StudyGroup[]>('/social/groups', { token }),
+
+  createGroup: (data: CreateGroupRequest, token: string) =>
+    request<StudyGroup>('/social/groups', {
+      method: 'POST',
+      body: data,
+      token,
+    }),
+
+  getGroup: (groupId: string, token: string) =>
+    request<StudyGroup>(`/social/groups/${groupId}`, { token }),
+
+  joinGroup: (groupId: string, token: string) =>
+    request<void>(`/social/groups/${groupId}/join`, {
+      method: 'POST',
+      token,
+    }),
+
+  leaveGroup: (groupId: string, token: string) =>
+    request<void>(`/social/groups/${groupId}/leave`, {
+      method: 'POST',
+      token,
+    }),
+
+  inviteToGroup: (groupId: string, userId: string, token: string) =>
+    request<void>(`/social/groups/${groupId}/invite`, {
+      method: 'POST',
+      body: { user_id: userId },
+      token,
+    }),
+
+  shareQuizToGroup: (groupId: string, quizId: string, token: string) =>
+    request<void>(`/social/groups/${groupId}/quizzes`, {
+      method: 'POST',
+      body: { quiz_id: quizId },
+      token,
+    }),
+
+  // Comments
+  getQuizComments: (quizId: string) =>
+    request<QuizComment[]>(`/quizzes/${quizId}/comments`),
+
+  addQuizComment: (quizId: string, data: QuizCommentRequest, token: string) =>
+    request<QuizComment>(`/quizzes/${quizId}/comments`, {
+      method: 'POST',
+      body: data,
+      token,
+    }),
+
+  deleteQuizComment: (quizId: string, commentId: string, token: string) =>
+    request<void>(`/quizzes/${quizId}/comments/${commentId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  // Activity
+  getActivityFeed: (token: string) =>
+    request<ActivityItem[]>('/social/activity', { token }),
+};
+
 export { API_URL, ApiError };
