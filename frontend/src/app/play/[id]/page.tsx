@@ -2299,16 +2299,16 @@ export default function PlayGamePage() {
                 </div>
             </div>
 
-            {/* Answer Buttons */}
+            {/* Answer Buttons - 2x2 Grid */}
             {game.current_question && (
-                <div className="flex flex-1 flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3 flex-1">
                     {Object.entries(game.current_question.options).map(
                         ([key, value], index) => (
                             <button
                                 key={key}
                                 onClick={() => selectAnswer(key)}
                                 disabled={hasAnswered}
-                                className={`flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r ${colors[index]} p-4 text-white shadow-lg transition-all ${
+                                className={`flex items-start gap-3 rounded-2xl bg-gradient-to-r ${colors[index]} p-4 text-white shadow-lg transition-all min-h-[120px] ${
                                     hasAnswered && selectedAnswer === key
                                         ? "ring-4 ring-white scale-95"
                                         : "hover:scale-[1.02] active:scale-95"
@@ -2317,7 +2317,7 @@ export default function PlayGamePage() {
                                 <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-2xl flex-shrink-0">
                                     {shapes[index]}
                                 </span>
-                                <span className="flex-1 text-left text-lg font-bold">
+                                <span className="flex-1 text-left text-base font-bold">
                                     <MathText text={value} />
                                 </span>
                             </button>
