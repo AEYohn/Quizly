@@ -76,15 +76,16 @@ export default function LeaderboardScreen() {
         {/* Top 3 Podium */}
         <Card variant="elevated" className={`mb-4 ${cardBg}`}>
           <View style={styles.podium}>
-            {MOCK_LEADERBOARD.slice(0, 3).map((entry, index) => {
-              const positions = [1, 0, 2]; // Silver, Gold, Bronze order
-              const position = positions[index];
-              const heights = [80, 100, 60];
+            {/* Reorder to show: Silver (2nd), Gold (1st), Bronze (3rd) */}
+            {[MOCK_LEADERBOARD[1], MOCK_LEADERBOARD[0], MOCK_LEADERBOARD[2]].map((entry, displayIndex) => {
+              // displayIndex: 0=Silver, 1=Gold, 2=Bronze
+              const heights = [80, 100, 60]; // Silver, Gold, Bronze heights
+              const barColors = ['#E5E7EB', '#FCD34D', '#FDBA74']; // Silver, Gold, Bronze colors
 
               return (
                 <View
                   key={entry.userId}
-                  style={[styles.podiumItem, { order: position }]}
+                  style={styles.podiumItem}
                 >
                   <View
                     style={[
@@ -109,13 +110,8 @@ export default function LeaderboardScreen() {
                     style={[
                       styles.podiumBar,
                       {
-                        height: heights[index],
-                        backgroundColor:
-                          index === 0
-                            ? '#FCD34D'
-                            : index === 1
-                            ? '#E5E7EB'
-                            : '#FDBA74',
+                        height: heights[displayIndex],
+                        backgroundColor: barColors[displayIndex],
                       },
                     ]}
                   >
