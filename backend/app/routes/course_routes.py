@@ -8,6 +8,7 @@ from uuid import UUID
 import uuid as uuid_module
 import random
 import string
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
@@ -850,22 +851,30 @@ async def complete_item(
     # Check if already completed
     existing = await db.execute(
         select(StudentProgress).where(
-            StudentProgress.enrollment_id == enrollment.id,
+            StudentProgress.student_id == enrollment.student_id,
             StudentProgress.item_id == item_id
         )
     )
-    if existing.scalar_one_or_none():
+    existing_progress = existing.scalar_one_or_none()
+    if existing_progress and existing_progress.status == "completed":
         return {"success": True, "message": "Already completed"}
-    
-    # Create progress record
-    progress = StudentProgress(
-        enrollment_id=enrollment.id,
-        item_id=item_id,
-        completed=True
-    )
-    db.add(progress)
+
+    if existing_progress:
+        # Update existing progress to completed
+        existing_progress.status = "completed"
+        existing_progress.completed_at = datetime.now(timezone.utc)
+    else:
+        # Create progress record
+        progress = StudentProgress(
+            student_id=enrollment.student_id,
+            student_name=enrollment.student_name,
+            item_id=item_id,
+            status="completed",
+            completed_at=datetime.now(timezone.utc)
+        )
+        db.add(progress)
     await db.commit()
-    
+
     return {"success": True}
 
 

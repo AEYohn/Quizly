@@ -10,7 +10,7 @@ PlayerAnswer - Individual answer submission
 import uuid
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -26,7 +26,8 @@ from sqlalchemy import Uuid
 
 
 def utc_now() -> datetime:
-    return datetime.utcnow()
+    """Return current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
 
 
 def generate_game_code() -> str:

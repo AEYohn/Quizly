@@ -5,7 +5,7 @@ Self-study quiz creation and practice for students.
 
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -370,7 +370,7 @@ async def update_student_quiz(
             )
             db.add(question)
 
-    quiz.updated_at = datetime.utcnow()
+    quiz.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(quiz)
 
@@ -530,7 +530,7 @@ async def start_practice_session(
         sync_mode=False,  # Self-paced
         auto_advance=False,
         current_question_index=0,
-        started_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
     )
     db.add(game)
     await db.flush()
@@ -678,7 +678,7 @@ async def complete_practice_session(
 
     # Mark game as finished
     game.status = "finished"
-    game.ended_at = datetime.utcnow()
+    game.ended_at = datetime.now(timezone.utc)
     await db.commit()
 
     # Calculate results

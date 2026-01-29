@@ -5,7 +5,7 @@ Endpoints for student learning profiles, mastery tracking, and review queues.
 
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -147,7 +147,7 @@ async def get_student_profile(
                 "score": player.total_score,
                 "rank": 1,  # Would need to query other players for actual rank
                 "accuracy": accuracy,
-                "played_at": player.joined_at.isoformat() if player.joined_at else datetime.utcnow().isoformat()
+                "played_at": player.joined_at.isoformat() if player.joined_at else datetime.now(timezone.utc).isoformat()
             })
 
     # Calculate overall metrics
@@ -203,7 +203,7 @@ async def get_student_profile(
         priority = "high" if data["count"] >= 3 else "medium" if data["count"] >= 2 else "low"
         review_queue.append(ReviewQueueItem(
             concept=concept,
-            due_date=datetime.utcnow().isoformat(),
+            due_date=datetime.now(timezone.utc).isoformat(),
             priority=priority
         ))
 
@@ -336,8 +336,8 @@ async def get_review_queue(
                     priority = "high" if confidence >= 80 else "medium" if confidence >= 60 else "low"
 
                     # Due date based on when it was missed
-                    days_since = (datetime.utcnow() - answer.submitted_at).days if answer.submitted_at else 0
-                    due_date = datetime.utcnow() if days_since >= 1 else datetime.utcnow() + timedelta(days=1)
+                    days_since = (datetime.now(timezone.utc) - answer.submitted_at).days if answer.submitted_at else 0
+                    due_date = datetime.now(timezone.utc) if days_since >= 1 else datetime.now(timezone.utc) + timedelta(days=1)
 
                     review_items.append({
                         "concept": concept,
@@ -349,7 +349,7 @@ async def get_review_queue(
 
     return {
         "user_id": str(user_id),
-        "due_count": len([r for r in review_items if r["due_date"] <= datetime.utcnow().isoformat()]),
+        "due_count": len([r for r in review_items if r["due_date"] <= datetime.now(timezone.utc).isoformat()]),
         "items": sorted(review_items, key=lambda x: (x["priority"] == "high", x["due_date"]), reverse=True)
     }
 
@@ -386,7 +386,7 @@ async def complete_review(
         new_interval = 1
         ease_factor = 2.5
 
-    next_review = datetime.utcnow() + timedelta(days=new_interval)
+    next_review = datetime.now(timezone.utc) + timedelta(days=new_interval)
 
     return {
         "concept": concept,
@@ -417,7 +417,7 @@ def calculate_learning_streak(players: List[Player]) -> int:
 
     # Count consecutive days from today
     streak = 0
-    current_date = datetime.utcnow().date()
+    current_date = datetime.now(timezone.utc).date()
 
     while current_date in activity_dates:
         streak += 1
