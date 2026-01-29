@@ -40,6 +40,7 @@ interface ModuleItem {
     content?: string;
     video_url?: string;
     session_id?: string;
+    quiz_id?: string;
     duration_mins?: number;
     points: number;
     is_published: boolean;
@@ -328,7 +329,7 @@ export default function ClassroomDetailPage() {
                 body: JSON.stringify({
                     title: newItemTitle,
                     item_type: newItemType,
-                    session_id: newItemType === "quiz" ? selectedQuizId : undefined,
+                    quiz_id: newItemType === "quiz" ? selectedQuizId : undefined,
                     points: newItemType === "quiz" ? 100 : 0,
                 }),
             });

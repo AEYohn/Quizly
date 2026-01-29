@@ -95,7 +95,8 @@ class ModuleItem(Base):
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Rich text content for lessons/pages
     video_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sessions.id"), nullable=True)  # Link to quiz session
+    session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sessions.id"), nullable=True)  # Link to legacy quiz session
+    quiz_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("quizzes.id"), nullable=True)  # Link to quiz from library
     duration_mins: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     points: Mapped[int] = mapped_column(Integer, default=0)  # For grading
     due_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

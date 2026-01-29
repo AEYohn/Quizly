@@ -31,7 +31,8 @@ class ModuleItemCreate(BaseModel):
     item_type: str  # lesson, quiz, assignment, video, page
     content: Optional[str] = None
     video_url: Optional[str] = None
-    session_id: Optional[str] = None
+    session_id: Optional[str] = None  # Legacy: link to sessions table
+    quiz_id: Optional[str] = None  # New: link to quizzes table
     duration_mins: Optional[int] = None
     points: int = 0
 
@@ -67,6 +68,7 @@ class ModuleItemResponse(BaseModel):
     content: Optional[str] = None
     video_url: Optional[str] = None
     session_id: Optional[str] = None
+    quiz_id: Optional[str] = None
     duration_mins: Optional[int] = None
     points: int
     is_published: bool
@@ -480,6 +482,7 @@ async def get_course(
                     content=item.content if is_owner else None,  # Only show content to owner
                     video_url=item.video_url,
                     session_id=str(item.session_id) if item.session_id else None,
+                    quiz_id=str(item.quiz_id) if item.quiz_id else None,
                     duration_mins=item.duration_mins,
                     points=item.points,
                     is_published=item.is_published
@@ -745,6 +748,7 @@ async def create_module_item(
         content=request.content,
         video_url=request.video_url,
         session_id=uuid_module.UUID(request.session_id) if request.session_id else None,
+        quiz_id=uuid_module.UUID(request.quiz_id) if request.quiz_id else None,
         duration_mins=request.duration_mins,
         points=request.points
     )
@@ -760,6 +764,7 @@ async def create_module_item(
         content=item.content,
         video_url=item.video_url,
         session_id=str(item.session_id) if item.session_id else None,
+        quiz_id=str(item.quiz_id) if item.quiz_id else None,
         duration_mins=item.duration_mins,
         points=item.points,
         is_published=item.is_published

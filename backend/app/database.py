@@ -204,6 +204,21 @@ def run_migrations(conn):
         except Exception as e:
             print(f"   Migration warning for users.{col_name}: {e}", flush=True)
 
+    # Columns to add to module_items table (quiz_id for linking to quizzes table)
+    module_item_columns = [
+        ("quiz_id", "UUID"),
+    ]
+
+    for col_name, col_type in module_item_columns:
+        try:
+            if not column_exists("module_items", col_name):
+                sql_type = get_type(col_type)
+                alter_sql = text(f"ALTER TABLE module_items ADD COLUMN {col_name} {sql_type}")
+                conn.execute(alter_sql)
+                print(f"   Added column 'module_items.{col_name}'", flush=True)
+        except Exception as e:
+            print(f"   Migration warning for module_items.{col_name}: {e}", flush=True)
+
     print("✅ Migrations complete", flush=True)
 
 
