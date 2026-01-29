@@ -2,9 +2,12 @@ import "~/styles/globals.css";
 
 import { type Metadata, type Viewport } from "next";
 import { Geist } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkProviderWrapper } from "@/components/ClerkProviderWrapper";
 import { AuthProvider } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Force dynamic rendering for all pages to handle Clerk auth during CI builds
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
     title: "Quizly",
@@ -65,11 +68,11 @@ export default function RootLayout({
             </head>
             <body style={{ background: "#030712", margin: 0 }}>
                 <div id="bg-layer" aria-hidden="true" />
-                <ClerkProvider>
+                <ClerkProviderWrapper>
                     <ErrorBoundary>
                         <AuthProvider>{children}</AuthProvider>
                     </ErrorBoundary>
-                </ClerkProvider>
+                </ClerkProviderWrapper>
             </body>
         </html>
     );
