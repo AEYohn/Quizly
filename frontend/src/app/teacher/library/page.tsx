@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,6 +23,7 @@ import {
     Loader2,
     RefreshCw,
 } from "lucide-react";
+import { useAuthToken } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -57,6 +58,7 @@ type ContentItem = Quiz | CodingChallenge;
 
 export default function LibraryPage() {
     const router = useRouter();
+    const { getFreshToken } = useAuthToken();
     const [items, setItems] = useState<ContentItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -76,19 +78,10 @@ export default function LibraryPage() {
     const [generatingCodeFor, setGeneratingCodeFor] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => {
-        fetchContent();
-    }, []);
-
-    const handleRefresh = async () => {
-        setRefreshing(true);
-        await fetchContent();
-        setRefreshing(false);
-    };
-
-    const fetchContent = async () => {
+    const fetchContent = useCallback(async () => {
         try {
-            const token = localStorage.getItem("token");
+            // Get fresh token from Clerk (not stale localStorage)
+            const token = await getFreshToken();
 
             // Fetch quizzes with cache-busting
             const quizzesRes = await fetch(`${API_URL}/quizzes/?_t=${Date.now()}`, {
@@ -120,13 +113,23 @@ export default function LibraryPage() {
         } finally {
             setLoading(false);
         }
+    }, [getFreshToken]);
+
+    useEffect(() => {
+        fetchContent();
+    }, [fetchContent]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await fetchContent();
+        setRefreshing(false);
     };
 
     const deleteItem = async (item: ContentItem) => {
         if (!confirm(`Are you sure you want to delete "${item.title}"?`)) return;
 
         try {
-            const token = localStorage.getItem("token");
+            const token = await getFreshToken();
             const endpoint = item.type === "quiz"
                 ? `${API_URL}/quizzes/${item.id}`
                 : `${API_URL}/coding/${item.id}`;
@@ -166,7 +169,7 @@ export default function LibraryPage() {
         setCreatingGame(true);
 
         try {
-            const token = localStorage.getItem("token");
+            const token = await getFreshToken();
 
             // Check for existing lobby game first
             const checkResponse = await fetch(`${API_URL}/games/quiz/${quiz.id}/active`, {
@@ -232,7 +235,7 @@ export default function LibraryPage() {
     const generateCodeForQuiz = async (quiz: Quiz) => {
         setGeneratingCodeFor(quiz.id);
         try {
-            const token = localStorage.getItem("token");
+            const token = await getFreshToken();
             const response = await fetch(`${API_URL}/games/`, {
                 method: "POST",
                 headers: {
