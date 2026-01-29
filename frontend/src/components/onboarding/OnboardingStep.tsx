@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
-import { Check, ChevronRight, LucideIcon } from "lucide-react";
+import { type ReactNode } from "react";
+import { Check, ChevronRight, type LucideIcon } from "lucide-react";
 
 interface OnboardingStepAction {
     label: string;

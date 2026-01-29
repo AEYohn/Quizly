@@ -2,20 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import {
-    BookOpen,
-    FileQuestion,
-    Users,
-    Play,
+    LogIn,
+    Gamepad2,
     Sparkles,
     X,
 } from "lucide-react";
 import { OnboardingStep } from "./OnboardingStep";
 import {
-    useTeacherOnboarding,
-    type OnboardingStep as OnboardingStepType,
+    useStudentOnboarding,
+    type StudentOnboardingStep,
 } from "@/hooks/useOnboarding";
 
-export function TeacherOnboarding() {
+export function StudentOnboarding() {
     const router = useRouter();
     const {
         currentStep,
@@ -25,7 +23,7 @@ export function TeacherOnboarding() {
         skipOnboarding,
         isStepComplete,
         remainingSteps,
-    } = useTeacherOnboarding();
+    } = useStudentOnboarding();
 
     // Don't render if loading or shouldn't show
     if (isLoading || !shouldShowOnboarding) {
@@ -33,24 +31,14 @@ export function TeacherOnboarding() {
     }
 
     // Handle step actions - navigate and mark as complete
-    const handleCreateCourse = () => {
-        completeStep("create-course");
-        router.push("/courses/new");
+    const handleJoinClass = () => {
+        completeStep("join-class");
+        router.push("/join");
     };
 
-    const handleCreateQuiz = () => {
-        completeStep("create-quiz");
-        router.push("/quizzes/new");
-    };
-
-    const handleInviteStudents = () => {
-        completeStep("invite-students");
-        router.push("/courses");
-    };
-
-    const handleStartSession = () => {
-        completeStep("start-session");
-        router.push("/library");
+    const handleTryQuiz = () => {
+        completeStep("try-quiz");
+        router.push("/student/library");
     };
 
     const handleWelcomeComplete = () => {
@@ -72,8 +60,8 @@ export function TeacherOnboarding() {
                     <X className="w-5 h-5" />
                 </button>
 
-                {/* Gradient header */}
-                <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-6 text-center">
+                {/* Gradient header - green/emerald for students */}
+                <div className="bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 p-6 text-center">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-4">
                         <Sparkles className="w-8 h-8 text-white" />
                     </div>
@@ -82,7 +70,7 @@ export function TeacherOnboarding() {
                     </h2>
                     <p className="text-white/80">
                         {isWelcomeStep
-                            ? "Let's get you set up in just a few steps"
+                            ? "Let's get you started in just 2 quick steps"
                             : `${remainingSteps} step${remainingSteps !== 1 ? "s" : ""} remaining`}
                     </p>
                 </div>
@@ -93,13 +81,12 @@ export function TeacherOnboarding() {
                         /* Welcome screen */
                         <div className="text-center space-y-6">
                             <p className="text-gray-300">
-                                We'll guide you through setting up your first course,
-                                creating quizzes, and inviting students. It only takes
-                                a few minutes!
+                                Join your class and start taking quizzes in minutes.
+                                Your teacher has already set everything up for you!
                             </p>
                             <button
                                 onClick={handleWelcomeComplete}
-                                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl font-semibold text-white transition-all"
+                                className="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 rounded-xl font-semibold text-white transition-all"
                             >
                                 Get Started
                             </button>
@@ -108,50 +95,26 @@ export function TeacherOnboarding() {
                         /* Steps list */
                         <div className="space-y-3">
                             <OnboardingStep
-                                icon={BookOpen}
-                                title="Create Your First Course"
-                                description="Organize your quizzes by subject or class"
-                                isComplete={isStepComplete("create-course")}
-                                isCurrent={currentStep === "create-course"}
+                                icon={LogIn}
+                                title="Join Your Class"
+                                description="Enter your class code to join"
+                                isComplete={isStepComplete("join-class")}
+                                isCurrent={currentStep === "join-class"}
                                 action={{
-                                    label: "Create Course",
-                                    onClick: handleCreateCourse,
+                                    label: "Join Class",
+                                    onClick: handleJoinClass,
                                 }}
                             />
 
                             <OnboardingStep
-                                icon={FileQuestion}
-                                title="Create a Quiz"
-                                description="Build engaging quizzes with AI assistance"
-                                isComplete={isStepComplete("create-quiz")}
-                                isCurrent={currentStep === "create-quiz"}
+                                icon={Gamepad2}
+                                title="Try a Quiz"
+                                description="Take your first quiz and see how it works"
+                                isComplete={isStepComplete("try-quiz")}
+                                isCurrent={currentStep === "try-quiz"}
                                 action={{
-                                    label: "Create Quiz",
-                                    onClick: handleCreateQuiz,
-                                }}
-                            />
-
-                            <OnboardingStep
-                                icon={Users}
-                                title="Invite Students"
-                                description="Share course codes with your students"
-                                isComplete={isStepComplete("invite-students")}
-                                isCurrent={currentStep === "invite-students"}
-                                action={{
-                                    label: "Manage Students",
-                                    onClick: handleInviteStudents,
-                                }}
-                            />
-
-                            <OnboardingStep
-                                icon={Play}
-                                title="Start a Live Session"
-                                description="Host your first interactive quiz session"
-                                isComplete={isStepComplete("start-session")}
-                                isCurrent={currentStep === "start-session"}
-                                action={{
-                                    label: "Go to Library",
-                                    onClick: handleStartSession,
+                                    label: "Browse Quizzes",
+                                    onClick: handleTryQuiz,
                                 }}
                             />
                         </div>
