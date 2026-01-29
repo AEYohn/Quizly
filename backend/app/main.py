@@ -14,11 +14,12 @@ import os
 import uuid
 from sqlalchemy import text
 
-from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes
+from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes, export_routes, privacy_routes
 from .rate_limiter import limiter
 from .exceptions import QuizlyException, quizly_exception_handler
 from .logging_config import setup_logging, get_logger, set_request_context, clear_request_context, log_info, log_error
 from .metrics import get_metrics, get_metrics_content_type, track_request_start, track_request_end, track_error
+from .sentry_config import init_sentry
 
 # Import slowapi for rate limiting
 from slowapi import _rate_limit_exceeded_handler
@@ -27,6 +28,12 @@ from slowapi.errors import RateLimitExceeded
 # Setup structured logging
 setup_logging()
 logger = get_logger("quizly.main")
+
+# Initialize Sentry error monitoring (before app creation)
+if init_sentry():
+    log_info(logger, "Sentry error monitoring initialized")
+else:
+    log_info(logger, "Sentry not configured (SENTRY_DSN not set)")
 
 
 # Database lifecycle
@@ -207,6 +214,10 @@ app.include_router(assignment_routes.router, tags=["assignments"])
 app.include_router(student_quiz_routes.router, prefix="/student", tags=["student-quizzes"])
 # Student library routes
 app.include_router(library_routes.router, prefix="/library", tags=["library"])
+# Data export routes
+app.include_router(export_routes.router, prefix="/exports", tags=["exports"])
+# Privacy and data management routes
+app.include_router(privacy_routes.router, prefix="/privacy", tags=["privacy"])
 
 
 @app.get("/")

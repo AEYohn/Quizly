@@ -1,0 +1,345 @@
+{
+  "_meta": {
+    "description": "Pre-cached AI responses for demo mode",
+    "version": "1.0.0",
+    "last_updated": "2025-01-29"
+  },
+
+  "question_generator": {
+    "recursion": {
+      "questions": [
+        {
+          "id": "q_recursion_demo_1",
+          "concept": "recursion",
+          "difficulty": 0.5,
+          "prompt": "Consider the following recursive function:\n\ndef mystery(n):\n    if n <= 1:\n        return 1\n    return n * mystery(n - 1)\n\nWhat value does mystery(5) return?",
+          "options": [
+            "A. 5",
+            "B. 15",
+            "C. 120",
+            "D. 25"
+          ],
+          "correct_answer": "C",
+          "explanation": "This function computes the factorial of n. mystery(5) = 5 * mystery(4) = 5 * 4 * mystery(3) = 5 * 4 * 3 * mystery(2) = 5 * 4 * 3 * 2 * mystery(1) = 5 * 4 * 3 * 2 * 1 = 120. Option A (5) ignores the recursive multiplication. Option B (15) adds instead of multiplies. Option D (25) squares instead of computing factorial.",
+          "common_traps": ["Adding instead of multiplying", "Only considering one recursive call"],
+          "misconception_trap_option": "B",
+          "target_misconception": "confusing_recursion_with_iteration"
+        },
+        {
+          "id": "q_recursion_demo_2",
+          "concept": "recursion",
+          "difficulty": 0.6,
+          "prompt": "What is the minimum requirement for a recursive function to avoid infinite recursion?",
+          "options": [
+            "A. The function must call itself at least twice",
+            "B. The function must have a base case that doesn't make a recursive call",
+            "C. The function must use a loop internally",
+            "D. The function must return the same value each time"
+          ],
+          "correct_answer": "B",
+          "explanation": "A base case is essential for recursion to terminate. Without a base case, the function would call itself indefinitely, causing a stack overflow. The base case provides a condition where the function returns a value without making another recursive call. Option A is wrong because the number of recursive calls doesn't matter. Option C confuses recursion with iteration. Option D would make the recursion pointless.",
+          "common_traps": ["Thinking loops are needed for recursion", "Not understanding the role of base cases"],
+          "misconception_trap_option": "C",
+          "target_misconception": "thinking_recursion_requires_loops"
+        },
+        {
+          "id": "q_recursion_demo_3",
+          "concept": "recursion",
+          "difficulty": 0.7,
+          "prompt": "What is the time complexity of the naive recursive Fibonacci implementation?\n\ndef fib(n):\n    if n <= 1:\n        return n\n    return fib(n-1) + fib(n-2)",
+          "options": [
+            "A. O(n)",
+            "B. O(n log n)",
+            "C. O(2^n)",
+            "D. O(n^2)"
+          ],
+          "correct_answer": "C",
+          "explanation": "The naive recursive Fibonacci has exponential time complexity O(2^n) because each call branches into two more calls, creating a binary tree of calls. At depth n, there are approximately 2^n nodes in this tree. Option A (O(n)) would be correct for an iterative or memoized solution. Option B and D don't match the branching pattern of this recursion.",
+          "common_traps": ["Thinking recursion depth equals time complexity", "Ignoring the branching factor"],
+          "misconception_trap_option": "A",
+          "target_misconception": "linear_complexity_assumption"
+        }
+      ]
+    },
+    "newtons_laws": {
+      "questions": [
+        {
+          "id": "q_newton_demo_1",
+          "concept": "newtons_laws",
+          "difficulty": 0.5,
+          "prompt": "A book is resting on a table. According to Newton's Third Law, which pair of forces are action-reaction forces?",
+          "options": [
+            "A. The weight of the book and the normal force from the table",
+            "B. The weight of the book and the gravitational pull of the book on Earth",
+            "C. The normal force from the table and the force of the book pushing down on the table",
+            "D. The weight of the book and the friction force"
+          ],
+          "correct_answer": "C",
+          "explanation": "Newton's Third Law states that forces come in pairs acting on different objects. The normal force (table pushing up on book) and the contact force (book pushing down on table) are an action-reaction pair - they act on different objects (book and table) and are equal and opposite. Option A is wrong because weight and normal force both act on the book - they're not an action-reaction pair. Option B describes Earth pulling on the book and the book pulling on Earth, which IS an action-reaction pair, but the question asks about forces involving the table.",
+          "common_traps": ["Confusing equilibrium forces with action-reaction pairs", "Thinking action-reaction forces act on the same object"],
+          "misconception_trap_option": "A",
+          "target_misconception": "confusing_equilibrium_with_action_reaction"
+        },
+        {
+          "id": "q_newton_demo_2",
+          "concept": "newtons_laws",
+          "difficulty": 0.6,
+          "prompt": "A 10 kg box is pushed with a force of 50 N across a frictionless surface. What is the acceleration of the box?",
+          "options": [
+            "A. 0.2 m/s^2",
+            "B. 5 m/s^2",
+            "C. 50 m/s^2",
+            "D. 500 m/s^2"
+          ],
+          "correct_answer": "B",
+          "explanation": "Using Newton's Second Law, F = ma, we solve for acceleration: a = F/m = 50 N / 10 kg = 5 m/s^2. Option A incorrectly divides mass by force (m/F). Option C uses only the force value. Option D multiplies force and mass instead of dividing.",
+          "common_traps": ["Dividing in the wrong order", "Forgetting the formula"],
+          "misconception_trap_option": "A",
+          "target_misconception": "inverting_newtons_second_law"
+        },
+        {
+          "id": "q_newton_demo_3",
+          "concept": "newtons_laws",
+          "difficulty": 0.55,
+          "prompt": "A car is moving at constant velocity on a straight road. What can we conclude about the net force on the car?",
+          "options": [
+            "A. The net force is in the direction of motion",
+            "B. The net force is zero",
+            "C. The net force equals the engine force",
+            "D. The net force is opposite to the direction of motion"
+          ],
+          "correct_answer": "B",
+          "explanation": "According to Newton's First Law, an object moving at constant velocity has zero net force acting on it. The engine force is balanced by friction and air resistance. Many students incorrectly think that motion requires a net force, but this is only true for acceleration, not constant velocity motion.",
+          "common_traps": ["Thinking motion requires force", "Confusing velocity with acceleration"],
+          "misconception_trap_option": "A",
+          "target_misconception": "force_required_for_motion"
+        }
+      ]
+    },
+    "limits": {
+      "questions": [
+        {
+          "id": "q_limits_demo_1",
+          "concept": "limits",
+          "difficulty": 0.5,
+          "prompt": "What is the limit of (x^2 - 4)/(x - 2) as x approaches 2?",
+          "options": [
+            "A. 0",
+            "B. 2",
+            "C. 4",
+            "D. Does not exist"
+          ],
+          "correct_answer": "C",
+          "explanation": "Factor the numerator: (x^2 - 4)/(x - 2) = (x+2)(x-2)/(x-2) = x + 2 for x ≠ 2. As x approaches 2, this approaches 2 + 2 = 4. Direct substitution gives 0/0 (indeterminate), so we must simplify first. Option A comes from incorrectly thinking 0/0 = 0. Option B substitutes x = 2 into just (x - 2). Option D incorrectly assumes indeterminate forms mean the limit doesn't exist.",
+          "common_traps": ["Thinking 0/0 means the limit is 0 or undefined", "Not factoring before evaluating"],
+          "misconception_trap_option": "D",
+          "target_misconception": "indeterminate_means_undefined"
+        },
+        {
+          "id": "q_limits_demo_2",
+          "concept": "limits",
+          "difficulty": 0.6,
+          "prompt": "What is lim(x→∞) (3x^2 + 2x)/(x^2 + 1)?",
+          "options": [
+            "A. 0",
+            "B. 2",
+            "C. 3",
+            "D. ∞"
+          ],
+          "correct_answer": "C",
+          "explanation": "For rational functions as x→∞, we compare the highest degree terms. Divide numerator and denominator by x^2: (3 + 2/x)/(1 + 1/x^2). As x→∞, the terms with x in the denominator go to 0, leaving 3/1 = 3. Option A would be correct if the numerator had lower degree. Option D would be correct if the numerator had higher degree.",
+          "common_traps": ["Not identifying dominant terms", "Incorrectly handling infinity"],
+          "misconception_trap_option": "D",
+          "target_misconception": "infinity_over_infinity_equals_infinity"
+        },
+        {
+          "id": "q_limits_demo_3",
+          "concept": "limits",
+          "difficulty": 0.65,
+          "prompt": "For f(x) = |x|/x, what is lim(x→0) f(x)?",
+          "options": [
+            "A. 1",
+            "B. -1",
+            "C. 0",
+            "D. Does not exist"
+          ],
+          "correct_answer": "D",
+          "explanation": "The left-hand limit (x→0⁻) gives |x|/x = -x/x = -1. The right-hand limit (x→0⁺) gives |x|/x = x/x = 1. Since the left and right limits are different, the overall limit does not exist. Options A and B only consider one side of the limit.",
+          "common_traps": ["Only checking one-sided limits", "Ignoring the absolute value behavior"],
+          "misconception_trap_option": "A",
+          "target_misconception": "ignoring_one_sided_limits"
+        }
+      ]
+    }
+  },
+
+  "exit_ticket_agent": {
+    "sample": {
+      "student_id": 1,
+      "target_concept": "recursion",
+      "micro_lesson": "Remember that every recursive function needs two key parts: a base case that stops the recursion, and a recursive case that breaks the problem into smaller pieces. Think of it like Russian nesting dolls - you keep opening smaller dolls until you reach the smallest one (the base case).",
+      "question": {
+        "prompt": "A recursive function calculates the sum of numbers from 1 to n. Which of the following is the correct base case?",
+        "options": [
+          "A. if n == 0: return 0",
+          "B. if n == 0: return n",
+          "C. if n > 0: return n",
+          "D. return sum(n-1)"
+        ],
+        "correct_answer": "A",
+        "hint": "Think about what happens when you've counted down to zero - what should the sum be at that point?"
+      },
+      "encouragement": "You're making great progress understanding recursion! The key insight about base cases will help you tackle more complex recursive problems."
+    },
+    "struggling_student": {
+      "student_id": 2,
+      "target_concept": "newtons_laws",
+      "micro_lesson": "Newton's Laws can be tricky! Remember: 1st Law - objects keep doing what they're doing unless a force acts on them. 2nd Law - F=ma tells us how forces cause acceleration. 3rd Law - every action has an equal and opposite reaction, but they act on DIFFERENT objects.",
+      "question": {
+        "prompt": "If you push against a wall and it doesn't move, is the wall pushing back on you?",
+        "options": [
+          "A. No, because the wall isn't moving",
+          "B. Yes, with the same force you push with",
+          "C. Yes, but with less force than you push with",
+          "D. Only if you push hard enough"
+        ],
+        "correct_answer": "B",
+        "hint": "Think about Newton's Third Law - what does it say about action and reaction forces?"
+      },
+      "encouragement": "Physics concepts take time to internalize. Keep questioning your intuition - that's how real understanding develops!"
+    }
+  },
+
+  "misconception_tagger": {
+    "sample": {
+      "student_id": 1,
+      "question_id": "q_recursion_demo_1",
+      "misconception_type": "iteration_recursion_confusion",
+      "category": "conceptual",
+      "severity": "moderate",
+      "description": "Student confuses recursive multiplication with iterative addition, suggesting they mentally 'looped' through adding values instead of tracking the recursive call stack.",
+      "root_cause": "The student likely visualized the recursion as a loop (for i in range(1, 6): total += i) rather than as nested function calls that multiply return values.",
+      "evidence": [
+        "Student selected B (15), which is the sum 1+2+3+4+5",
+        "This indicates adding sequential values rather than multiplying recursive returns"
+      ],
+      "suggested_remediation": "Practice tracing recursive calls on paper. Draw the call stack and show how return values propagate back up. Use a simple example like factorial(3) = 3 * factorial(2) = 3 * 2 * factorial(1) = 3 * 2 * 1 = 6.",
+      "related_concepts": ["call stack", "function returns", "factorial"],
+      "confidence": 0.85,
+      "timestamp": "2025-01-29T10:00:00Z"
+    },
+    "physics_example": {
+      "student_id": 3,
+      "question_id": "q_newton_demo_1",
+      "misconception_type": "equilibrium_action_reaction_confusion",
+      "category": "conceptual",
+      "severity": "moderate",
+      "description": "Student confuses forces in equilibrium (acting on one object) with Newton's Third Law action-reaction pairs (acting on different objects).",
+      "root_cause": "The textbook diagrams often show weight and normal force as opposing arrows on the same object, which students misinterpret as action-reaction pairs rather than forces that happen to be equal for equilibrium.",
+      "evidence": [
+        "Student selected A, treating weight and normal force as action-reaction",
+        "Both forces in answer A act on the same object (the book)"
+      ],
+      "suggested_remediation": "Draw force diagrams explicitly showing which object each force acts ON. For Third Law pairs, always identify two different objects. Ask: 'Object A pushes on Object B, so Object B pushes back on Object A.'",
+      "related_concepts": ["free body diagrams", "equilibrium", "force pairs"],
+      "confidence": 0.9,
+      "timestamp": "2025-01-29T10:00:00Z"
+    }
+  },
+
+  "debate_judge": {
+    "sample_judgment": {
+      "debate_id": "demo_debate_1",
+      "question_prompt": "What is the time complexity of the naive recursive Fibonacci?",
+      "correct_answer": "C",
+      "winner_id": 1,
+      "winner_name": "Alice",
+      "reasoning": "Alice correctly identified the exponential nature of the recursive calls by drawing out the call tree. Her explanation showed deep understanding of how each fib(n) call spawns two more calls, leading to 2^n total calls.",
+      "argument_analyses": {
+        "1": {
+          "student_id": 1,
+          "student_name": "Alice",
+          "answer": "C",
+          "argument_quality": 0.9,
+          "strengths": [
+            "Drew a clear call tree diagram",
+            "Correctly counted recursive branches",
+            "Connected tree depth to exponential growth"
+          ],
+          "weaknesses": [
+            "Could have mentioned memoization as optimization"
+          ],
+          "logical_flaws": []
+        },
+        "2": {
+          "student_id": 2,
+          "student_name": "Bob",
+          "answer": "A",
+          "argument_quality": 0.4,
+          "strengths": [
+            "Recognized that recursion has overhead"
+          ],
+          "weaknesses": [
+            "Confused recursion depth with total number of calls",
+            "Didn't consider that each call makes two more calls"
+          ],
+          "logical_flaws": [
+            "Assumed linear number of calls based on input size alone"
+          ]
+        }
+      },
+      "overall_assessment": "This was a productive debate where Alice successfully convinced Bob by visualizing the call tree. Bob's initial confusion about counting recursive calls is common and the discussion helped clarify the exponential branching.",
+      "learning_recommendation": "Both students should practice analyzing recursive time complexity by drawing call trees. Review the difference between recursion depth and total number of recursive calls.",
+      "timestamp": "2025-01-29T10:00:00Z"
+    }
+  },
+
+  "coding_problem_generator": {
+    "recursion": {
+      "id": "coding_recursion_demo_1",
+      "title": "Sum of Digits",
+      "difficulty": "easy",
+      "topic": "recursion",
+      "description": "Write a recursive function that calculates the sum of all digits in a positive integer.\n\nFor example:\n- sum_digits(123) should return 6 (1 + 2 + 3)\n- sum_digits(9999) should return 36 (9 + 9 + 9 + 9)\n- sum_digits(5) should return 5",
+      "starter_code": "def sum_digits(n: int) -> int:\n    # Your recursive solution here\n    pass",
+      "solution": "def sum_digits(n: int) -> int:\n    if n < 10:\n        return n\n    return n % 10 + sum_digits(n // 10)",
+      "test_cases": [
+        {"input": "123", "expected": "6"},
+        {"input": "9999", "expected": "36"},
+        {"input": "5", "expected": "5"},
+        {"input": "10", "expected": "1"},
+        {"input": "999999", "expected": "54"}
+      ],
+      "hints": [
+        "What's the base case? When do you stop recursing?",
+        "How do you get the last digit of a number? (Think about modulo)",
+        "How do you remove the last digit? (Think about integer division)"
+      ],
+      "concepts_tested": ["recursion", "base case", "modulo operator", "integer division"]
+    }
+  },
+
+  "smart_peer_matching": {
+    "sample_match": {
+      "student_a": {
+        "id": 1,
+        "name": "Alice",
+        "answer": "C",
+        "confidence": 0.8
+      },
+      "student_b": {
+        "id": 2,
+        "name": "Bob",
+        "answer": "A",
+        "confidence": 0.6
+      },
+      "match_quality": 0.85,
+      "match_reason": "Different answers with moderate confidence difference - good potential for productive discussion",
+      "discussion_prompts": [
+        "Alice, can you explain why you ruled out option A?",
+        "Bob, what made you confident in choosing A over C?",
+        "Consider: what would happen if you traced through the code step by step?"
+      ]
+    }
+  }
+}
