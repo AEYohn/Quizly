@@ -54,8 +54,9 @@ export function initSentry(): boolean {
             "Non-Error promise rejection captured",
         ],
         // Filter out health check and common endpoints from performance monitoring
-        beforeSendTransaction(event) {
-            const transactionName = event.transaction || "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        beforeSendTransaction(event: any) {
+            const transactionName = event?.transaction || "";
             // Exclude API health checks if they appear
             if (
                 transactionName.includes("/health") ||
@@ -87,7 +88,8 @@ export function captureException(
     }
 
     if (context) {
-        Sentry.withScope((scope) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Sentry.withScope((scope: any) => {
             Object.entries(context).forEach(([key, value]) => {
                 scope.setExtra(key, value);
             });

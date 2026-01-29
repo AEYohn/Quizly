@@ -110,8 +110,9 @@ export function FocusTrap({
      */
     const focusFirstElement = useCallback(() => {
         const focusableElements = getFocusableElements();
-        if (focusableElements.length > 0) {
-            focusableElements[0].focus();
+        const firstElement = focusableElements[0];
+        if (firstElement) {
+            firstElement.focus();
         }
     }, [getFocusableElements]);
 
@@ -128,6 +129,8 @@ export function FocusTrap({
             const firstElement = focusableElements[0];
             const lastElement = focusableElements[focusableElements.length - 1];
             const activeElement = document.activeElement as HTMLElement;
+
+            if (!firstElement || !lastElement) return;
 
             // Shift + Tab: go to previous element, wrap to last if at first
             if (event.shiftKey) {

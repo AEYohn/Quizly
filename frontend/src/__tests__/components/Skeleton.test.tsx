@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { SkeletonBase, SkeletonText, SkeletonCard } from '@/components/ui/Skeleton';
 
 describe('SkeletonBase', () => {
@@ -20,12 +20,13 @@ describe('SkeletonBase', () => {
   });
 
   it('renders children', () => {
-    render(
+    const { container } = render(
       <SkeletonBase>
         <span data-testid="child">Child content</span>
       </SkeletonBase>
     );
-    expect(screen.getByTestId('child')).toBeInTheDocument();
+    const child = container.querySelector('[data-testid="child"]');
+    expect(child).toBeInTheDocument();
   });
 });
 
