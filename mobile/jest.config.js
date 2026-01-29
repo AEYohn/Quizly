@@ -15,5 +15,5 @@ module.exports = {
   },
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
-  testMatch: ["**/__tests__/stores.test.ts"],
+  testMatch: ["**/__tests__/**/*.test.ts"],
 };
