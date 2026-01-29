@@ -3,16 +3,14 @@ Adaptive Learning Service
 Smart algorithms for dynamic thresholds, peer matching, and intervention suggestions.
 """
 
-import math
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-import uuid
+from sqlalchemy import select, and_
 
 from ..db_models import (
-    Response, Question, Session, ConceptMastery, 
-    StudentMisconception, DiscussionLog, SpacedRepetitionItem
+    ConceptMastery, 
+    StudentMisconception, SpacedRepetitionItem
 )
 
 
@@ -458,7 +456,7 @@ class AdaptiveLearningService:
                     vocabulary_used.add(term)
         
         # Calculate scores
-        total_signals = sum(learning_signals.values())
+        sum(learning_signals.values())
         reasoning_depth = min(1.0, total_student_words / 100)  # More words = more depth (capped)
         vocabulary_score = len(vocabulary_used) / len(concept_vocabulary) if concept_vocabulary else 0
         
@@ -684,7 +682,7 @@ class AdaptiveLearningService:
                 StudentMisconception.student_name == student_name,
                 StudentMisconception.concept == concept,
                 StudentMisconception.misconception == misconception,
-                StudentMisconception.is_resolved == False
+                StudentMisconception.is_resolved is False
             )
         )
         result = await self.db.execute(query)
@@ -717,7 +715,7 @@ class AdaptiveLearningService:
                 StudentMisconception.student_name == student_name,
                 StudentMisconception.concept == concept,
                 StudentMisconception.misconception == misconception,
-                StudentMisconception.is_resolved == False
+                StudentMisconception.is_resolved is False
             )
         )
         result = await self.db.execute(query)

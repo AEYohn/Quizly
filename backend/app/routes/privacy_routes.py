@@ -4,10 +4,8 @@ Endpoints for user data management, export, and deletion (GDPR/CCPA compliance).
 """
 
 from datetime import datetime, timezone
-from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -21,7 +19,7 @@ from ..db_models import (
 )
 from ..db_models_learning import (
     ExitTicket, DetailedMisconception, AdaptiveLearningState,
-    PeerDiscussionSession, DebateSession, StudentAssignment
+    PeerDiscussionSession, DebateSession
 )
 from ..models.game import Player, PlayerAnswer
 from ..logging_config import get_logger, log_info, log_error

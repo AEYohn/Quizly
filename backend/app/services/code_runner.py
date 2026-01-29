@@ -9,7 +9,6 @@ Security considerations (following Judge0 best practices):
 - Compilation step for compiled languages (C++)
 """
 
-import subprocess
 import tempfile
 import os
 import json
@@ -528,7 +527,7 @@ class Main {{
             try:
                 json.loads(input_str)
                 return input_str
-            except:
+            except:  # noqa: E722
                 return json.dumps(input_str)
 
         # Fallback for other types
@@ -624,7 +623,7 @@ class Main {{
                     source_file = compiled_binary + lang_config["extension"]
                     if os.path.exists(source_file):
                         os.unlink(source_file)
-                except:
+                except:  # noqa: E722
                     pass
         
         # Determine overall status
@@ -862,7 +861,7 @@ using namespace std;
                 # Kill the process on timeout
                 try:
                     process.kill()
-                except:
+                except:  # noqa: E722
                     pass
                 return TestCaseResult(
                     test_case_index=test_index,
@@ -891,7 +890,7 @@ using namespace std;
             if temp_file:
                 try:
                     os.unlink(temp_file)
-                except:
+                except:  # noqa: E722
                     pass
     
     def _normalize_python_to_json(self, s: str) -> str:
@@ -923,7 +922,7 @@ using namespace std;
             actual_json = json.loads(actual)
             expected_json = json.loads(expected)
             return actual_json == expected_json
-        except:
+        except:  # noqa: E722
             pass
 
         # Try normalizing Python output to JSON and compare
@@ -939,7 +938,7 @@ using namespace std;
             actual_json = json.loads(actual_normalized)
             expected_json = json.loads(expected_normalized)
             return actual_json == expected_json
-        except:
+        except:  # noqa: E722
             pass
 
         # Try numeric comparison (handles float precision)
@@ -947,7 +946,7 @@ using namespace std;
             actual_num = float(actual)
             expected_num = float(expected)
             return abs(actual_num - expected_num) < 1e-6
-        except:
+        except:  # noqa: E722
             pass
 
         # Case-insensitive string comparison as fallback

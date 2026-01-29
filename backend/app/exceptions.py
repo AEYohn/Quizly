@@ -8,7 +8,7 @@ Provides consistent error response format across all endpoints:
 }
 """
 
-from typing import Optional, Any, Dict
+from typing import Optional, Dict
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 

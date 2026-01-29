@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -18,7 +18,7 @@ import json
 from ..services.game_host import game_host, HostEvent
 from ..services.insights_service import insights_service
 from ..database import get_db
-from ..models.game import GameSession, Player, Quiz, PlayerAnswer
+from ..models.game import GameSession, Player, Quiz
 from ..db_models_learning import PeerDiscussionSession
 
 router = APIRouter(prefix="/host", tags=["game-host"])

@@ -159,7 +159,7 @@ Respond in JSON format:
                     "D. [LLM required for option generation]"
                 ],
                 "correct_answer": "A",
-                "hint": f"[LLM required for hint generation]"
+                "hint": "[LLM required for hint generation]"
             },
             "encouragement": "",
             "performance_summary": {

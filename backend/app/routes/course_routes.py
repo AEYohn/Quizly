@@ -220,7 +220,7 @@ async def list_public_courses(
     offset: int = Query(0, ge=0)
 ):
     """List all public courses for browsing (no auth required)."""
-    query = select(Course).where(Course.is_public == True, Course.is_published == True)
+    query = select(Course).where(Course.is_public is True, Course.is_published is True)
     
     if subject:
         query = query.where(Course.difficulty_level == subject)  # or add subject field

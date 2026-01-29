@@ -6,7 +6,7 @@ CRUD operations for quizzes and questions.
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -376,7 +376,7 @@ async def list_public_quizzes(
     result = await db.execute(
         select(Quiz)
         .options(selectinload(Quiz.questions))
-        .where(Quiz.is_public == True)
+        .where(Quiz.is_public is True)
         .order_by(Quiz.updated_at.desc())
         .limit(50)
     )
@@ -424,7 +424,7 @@ async def get_public_quiz(
     result = await db.execute(
         select(Quiz)
         .options(selectinload(Quiz.questions))
-        .where(Quiz.id == quiz_id, Quiz.is_public == True)
+        .where(Quiz.id == quiz_id, Quiz.is_public is True)
     )
     quiz = result.scalars().first()
 

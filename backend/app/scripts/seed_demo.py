@@ -20,19 +20,18 @@ import asyncio
 import uuid
 import random
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from sqlalchemy import select
 
 from ..database import engine, async_session, Base
 from ..db_models import (
     User, Course, CourseModule, ModuleItem, CourseEnrollment,
-    Session, Question, Response, Misconception,
-    ConceptMastery, StudentMisconception, SessionParticipant
+    Misconception,
+    ConceptMastery, StudentMisconception
 )
 from ..db_models_learning import (
-    ExitTicket, DetailedMisconception, AdaptiveLearningState,
-    PeerDiscussionSession
+    ExitTicket, PeerDiscussionSession
 )
 from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer
 
@@ -933,20 +932,20 @@ async def seed_demo_data():
         print("\n" + "=" * 50)
         print("Demo data seeded successfully!")
         print("=" * 50)
-        print(f"\nTeachers created:")
+        print("\nTeachers created:")
         print(f"  - {demo_teacher.name} ({demo_teacher.email})")
         print(f"  - {empty_teacher.name} ({empty_teacher.email})")
         print(f"\nStudents created: {len(students)}")
-        print(f"  - High performers: 5")
-        print(f"  - Medium performers: 6")
-        print(f"  - Low performers: 4")
+        print("  - High performers: 5")
+        print("  - Medium performers: 6")
+        print("  - Low performers: 4")
         print(f"\nCourses created: {len(COURSES_DATA)}")
         for c in COURSES_DATA:
             print(f"  - {c['code']}: {c['name']}")
         print(f"\nQuizzes created: {len(all_quizzes)}")
-        print(f"\nDemo game session ready:")
+        print("\nDemo game session ready:")
         print(f"  - Join code: {DEMO_GAME_CODE}")
-        print(f"  - Status: lobby (waiting for students)")
+        print("  - Status: lobby (waiting for students)")
 
 
 if __name__ == "__main__":

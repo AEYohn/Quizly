@@ -12,13 +12,13 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..db_models import User
 from ..db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession
-from ..models.game import Player, PlayerAnswer, GameSession, Quiz
+from ..models.game import Player, GameSession
 from ..auth_clerk import get_current_user_clerk
 
 # Add experimentation folder to path for AI agents
@@ -29,7 +29,7 @@ if str(EXPERIMENTATION_PATH) not in sys.path:
 # Import AI agents
 try:
     from exit_ticket_agent import ExitTicketAgent
-    from misconception_tagger import MisconceptionTagger, MisconceptionResult
+    from misconception_tagger import MisconceptionTagger, MisconceptionResult  # noqa: F401
     from adaptive_engine import AdaptiveDifficultyEngine
     from debate_judge import DebateJudge
     EXIT_TICKET_AGENT = ExitTicketAgent()
@@ -535,7 +535,7 @@ async def get_student_misconceptions(
     )
 
     if not include_resolved:
-        query = query.where(DetailedMisconception.is_resolved == False)
+        query = query.where(DetailedMisconception.is_resolved is False)
 
     query = query.order_by(desc(DetailedMisconception.created_at)).limit(limit)
 
@@ -1545,7 +1545,7 @@ async def get_student_dashboard(
     misc_result = await db.execute(
         select(DetailedMisconception)
         .where(DetailedMisconception.student_name == student_name)
-        .where(DetailedMisconception.is_resolved == False)
+        .where(DetailedMisconception.is_resolved is False)
         .order_by(desc(DetailedMisconception.created_at))
         .limit(10)
     )
@@ -1560,7 +1560,6 @@ async def get_student_dashboard(
     adaptive_state = adaptive_result.scalar_one_or_none()
 
     # Get game history - find all players with this nickname
-    from sqlalchemy.orm import selectinload
     player_result = await db.execute(
         select(Player)
         .options(
@@ -1569,7 +1568,7 @@ async def get_student_dashboard(
             selectinload(Player.game).selectinload(GameSession.players),  # Load all players for ranking
         )
         .where(Player.nickname == student_name)
-        .where(Player.is_active == True)
+        .where(Player.is_active is True)
         .order_by(desc(Player.joined_at))
         .limit(10)
     )

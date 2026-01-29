@@ -15,12 +15,7 @@ from ..database import get_db
 from ..db_models import User
 from ..auth_clerk import (
     get_current_user_clerk,
-    get_or_create_user_from_clerk,
-    ClerkTokenPayload,
-    verify_clerk_token,
-    get_user_by_clerk_id,
 )
-from ..auth import UserResponse
 from ..models.game import Player
 from ..db_models_learning import ExitTicket
 
@@ -198,10 +193,10 @@ async def link_guest_player(
                     print(f"[link-guest] Player exists but already linked to user_id={existing_player.user_id}")
                     result_data["player_reason"] = "Player already linked to another user"
                 else:
-                    print(f"[link-guest] Player not found")
+                    print("[link-guest] Player not found")
                     result_data["player_reason"] = "Player not found"
         else:
-            print(f"[link-guest] No player_id/game_id provided, skipping player link")
+            print("[link-guest] No player_id/game_id provided, skipping player link")
 
         # Link exit ticket if provided
         if link_data.exit_ticket_id:
@@ -220,7 +215,7 @@ async def link_guest_player(
                     result_data["exit_ticket_linked"] = True
                     result_data["exit_ticket_id"] = str(ticket.id)
                 else:
-                    print(f"[link-guest] Exit ticket not found or already linked")
+                    print("[link-guest] Exit ticket not found or already linked")
                     result_data["exit_ticket_linked"] = False
                     result_data["exit_ticket_reason"] = "Exit ticket not found or already linked"
             except Exception as te:

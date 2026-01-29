@@ -11,7 +11,7 @@ The Game Host provides:
 import os
 import json
 import random
-from typing import Optional, Dict, Any, AsyncGenerator
+from typing import Dict, Any, AsyncGenerator
 from enum import Enum
 
 import google.generativeai as genai
@@ -306,7 +306,7 @@ Provide a JSON analysis with:
 
         try:
             return reaction.format(**context)
-        except:
+        except:  # noqa: E722
             return reaction
 
     def reset_game(self):

@@ -15,9 +15,8 @@ from typing import Optional, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..db_models import Course
-from sqlalchemy import String, Text, Integer, Float, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Text, Integer, Boolean, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID as PgUUID
 
 from ..database import Base
 

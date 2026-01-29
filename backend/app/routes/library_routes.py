@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,7 +12,7 @@ from ..database import get_db
 from ..auth_clerk import get_current_user_clerk
 from ..db_models import (
     User, StudyItem, FlashcardDeck, Flashcard,
-    StudyNote, GameContent, Collection, CollectionItem, LibraryStudySession
+    StudyNote, GameContent, Collection, CollectionItem
 )
 
 router = APIRouter()

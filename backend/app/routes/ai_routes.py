@@ -47,7 +47,7 @@ def extract_question_count(message: str) -> int:
 
 
 # Import schemas
-from ..schemas import (
+from ..schemas import (  # noqa: E402
     QuestionGenerateRequest,
     QuestionGenerateResponse,
     QuestionResponse,
@@ -230,10 +230,6 @@ async def generate_coding_problem(request: Request, data: CodingProblemRequest):
         # Optionally save to database
         if data.save_to_db:
             # Import here to avoid circular imports
-            from ..database import get_db
-            from ..db_models import CodingProblem, TestCase
-            from sqlalchemy.ext.asyncio import AsyncSession
-            import uuid
             
             # This would need to be done with proper DB session
             # For now, just return the problem
@@ -747,8 +743,7 @@ Return ONLY valid JSON:
 # ==============================================================================
 
 # Import the new schemas
-from ..schemas import (
-    DiscussionMessage,
+from ..schemas import (  # noqa: E402
     StudentReplyRequest, 
     TeacherInterventionRequest,
     DiscussionContinueResponse,
@@ -1080,7 +1075,6 @@ async def chat_generate(request: Request, data: ChatGenerateRequest):
     
     # Add attachments to prompt
     if data.attachments:
-        import base64
         for att in data.attachments:
             # Handle base64 content (extract after data: prefix)
             content = att.content
@@ -1094,7 +1088,7 @@ async def chat_generate(request: Request, data: ChatGenerateRequest):
                     "data": content
                 }
                 prompt_parts.append(image_part)
-                prompt_parts.append(f"\n[Image uploaded]\n")
+                prompt_parts.append("\n[Image uploaded]\n")
             elif att.type == "pdf":
                 # Create PDF part for Gemini (Gemini 2.0 supports PDFs directly)
                 pdf_part = {
@@ -1233,7 +1227,7 @@ Return ONLY valid JSON in this exact format:
             coding_problem=result.get("coding_problem"),
         )
         
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         # If JSON parsing fails, return the raw text as message
         return ChatGenerateResponse(
             message=f"I generated some content but couldn't format it properly. Here's what I created:\n\n{response.text[:1000]}",

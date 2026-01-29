@@ -15,7 +15,7 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-from .database import Base
+from .database import Base  # noqa: E402
 
 
 class User(Base):

@@ -4,7 +4,6 @@ Verifies Clerk JWTs and syncs users to local database.
 """
 
 import os
-import uuid
 import httpx
 import jwt
 from typing import Optional

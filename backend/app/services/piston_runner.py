@@ -11,7 +11,6 @@ Docs: https://github.com/engineer-man/piston
 """
 
 import httpx
-import asyncio
 import json
 import os
 from typing import List, Dict, Optional
@@ -287,7 +286,7 @@ class PistonRunner:
             actual_json = json.loads(actual)
             expected_json = json.loads(expected)
             return actual_json == expected_json
-        except:
+        except:  # noqa: E722
             pass
 
         # Numeric comparison
@@ -295,7 +294,7 @@ class PistonRunner:
             actual_num = float(actual)
             expected_num = float(expected)
             return abs(actual_num - expected_num) < 1e-6
-        except:
+        except:  # noqa: E722
             pass
 
         # Case-insensitive
@@ -420,7 +419,7 @@ class PistonRunner:
                 try:
                     json.loads(input_data)
                     stdin_data = input_data
-                except:
+                except:  # noqa: E722
                     stdin_data = json.dumps(input_data)
             else:
                 stdin_data = json.dumps(input_data)
@@ -539,7 +538,7 @@ class PistonRunner:
                 if response.status_code == 200:
                     self._runtimes_cache = response.json()
                     return self._runtimes_cache
-        except:
+        except:  # noqa: E722
             pass
 
         # Return our supported languages if API call fails

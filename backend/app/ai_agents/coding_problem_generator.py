@@ -310,7 +310,7 @@ if __name__ == "__main__":
         call_args = []
         
         for p in params:
-            cpp_type = TYPE_MAPPINGS["cpp"].get(p["type"], p["type"])
+            TYPE_MAPPINGS["cpp"].get(p["type"], p["type"])
             
             if p["type"] == "list[int]":
                 parse_lines.append(f'    vector<int> {p["name"]} = parseIntArray(getJsonValue(line, "{p["name"]}"));')
@@ -490,8 +490,8 @@ if __name__ == "__main__":
     
     print(f"\nTitle: {problem['title']}")
     print(f"Function: {problem['function_name']}")
-    print(f"\nPython Starter Code:")
+    print("\nPython Starter Code:")
     print(problem['starter_code']['python'])
-    print(f"\nC++ Starter Code:")
+    print("\nC++ Starter Code:")
     print(problem['starter_code']['cpp'])
     print(f"\nTest Cases: {len(problem.get('test_cases', []))}")

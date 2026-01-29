@@ -361,7 +361,7 @@ class Judge0Runner:
             return ""
         try:
             return base64.b64decode(text).decode()
-        except:
+        except:  # noqa: E722
             return text
 
     def _compare_outputs(self, actual: str, expected: str) -> bool:
@@ -378,7 +378,7 @@ class Judge0Runner:
             actual_json = json.loads(actual)
             expected_json = json.loads(expected)
             return actual_json == expected_json
-        except:
+        except:  # noqa: E722
             pass
 
         # Numeric comparison
@@ -386,7 +386,7 @@ class Judge0Runner:
             actual_num = float(actual)
             expected_num = float(expected)
             return abs(actual_num - expected_num) < 1e-6
-        except:
+        except:  # noqa: E722
             pass
 
         # Case-insensitive
@@ -606,7 +606,7 @@ class Judge0Runner:
                 try:
                     json.loads(input_data)
                     stdin_data = input_data
-                except:
+                except:  # noqa: E722
                     stdin_data = json.dumps(input_data)
             else:
                 stdin_data = json.dumps(input_data)
@@ -757,7 +757,7 @@ class Judge0Runner:
                 try:
                     json.loads(input_data)
                     stdin_data = input_data
-                except:
+                except:  # noqa: E722
                     stdin_data = json.dumps(input_data)
             else:
                 stdin_data = json.dumps(input_data)
@@ -861,7 +861,7 @@ class Judge0Runner:
                 )
                 if response.status_code == 200:
                     return response.json()
-        except:
+        except:  # noqa: E722
             pass
 
         # Return our supported languages if API call fails

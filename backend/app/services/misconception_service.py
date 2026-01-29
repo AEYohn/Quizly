@@ -6,7 +6,6 @@ Async service wrapper for analyzing student misconceptions using AI.
 import os
 import json
 from typing import Dict, Any, Optional, List
-from dataclasses import asdict
 
 try:
     import google.generativeai as genai

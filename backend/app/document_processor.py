@@ -14,8 +14,7 @@ For larger documents: Use Gemini File API (up to 2GB, stored 48h)
 import os
 import json
 import base64
-import hashlib
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 

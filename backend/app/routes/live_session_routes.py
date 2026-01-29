@@ -6,9 +6,7 @@ Now redundant file storage replaced with Database.
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-import uuid
 
 
 def utc_now() -> datetime:
@@ -16,9 +14,9 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-from ..database import get_db
-from ..services.session_service import SessionService
-from ..schemas import (
+from ..database import get_db  # noqa: E402
+from ..services.session_service import SessionService  # noqa: E402
+from ..schemas import (  # noqa: E402
     LiveSessionStartRequest, 
     LiveSessionResponse, 
     LiveSessionQuestion,

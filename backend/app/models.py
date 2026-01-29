@@ -4,7 +4,6 @@ SQLAlchemy models for Quizly database.
 """
 
 from datetime import datetime
-from typing import Optional, List
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship, DeclarativeBase
 

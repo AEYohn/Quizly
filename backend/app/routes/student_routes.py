@@ -4,18 +4,17 @@ Endpoints for student learning profiles, mastery tracking, and review queues.
 """
 
 from typing import List, Optional
-from uuid import UUID
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..auth import get_current_user
 from ..db_models import User
-from ..models.game import Player, PlayerAnswer, GameSession, Quiz, QuizQuestion
+from ..models.game import Player, GameSession
 
 router = APIRouter()
 
@@ -160,8 +159,8 @@ async def get_student_profile(
     avg_confidence = sum(a.confidence for a in answers_with_confidence) / len(answers_with_confidence) if answers_with_confidence else 0.0
 
     # Calculate calibration status
-    avg_confidence_correct = sum(a.confidence for a in answers_with_confidence if a.is_correct) / max(1, len([a for a in answers_with_confidence if a.is_correct]))
-    avg_confidence_incorrect = sum(a.confidence for a in answers_with_confidence if not a.is_correct) / max(1, len([a for a in answers_with_confidence if not a.is_correct]))
+    sum(a.confidence for a in answers_with_confidence if a.is_correct) / max(1, len([a for a in answers_with_confidence if a.is_correct]))
+    sum(a.confidence for a in answers_with_confidence if not a.is_correct) / max(1, len([a for a in answers_with_confidence if not a.is_correct]))
 
     calibration_gap = avg_confidence - overall_accuracy
     if calibration_gap > 20:

@@ -3,9 +3,9 @@ Response Routes
 API endpoints for student responses and WebSocket handling.
 """
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 from datetime import datetime, timezone
 
 

@@ -7,23 +7,23 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file before other imports
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-import os
-import uuid
-from sqlalchemy import text
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+import os  # noqa: E402
+import uuid  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
-from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes, export_routes, privacy_routes
-from .rate_limiter import limiter
-from .exceptions import QuizlyException, quizly_exception_handler
-from .logging_config import setup_logging, get_logger, set_request_context, clear_request_context, log_info, log_error
-from .metrics import get_metrics, get_metrics_content_type, track_request_start, track_request_end, track_error
-from .sentry_config import init_sentry
+from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes, export_routes, privacy_routes  # noqa: E402
+from .rate_limiter import limiter  # noqa: E402
+from .exceptions import QuizlyException, quizly_exception_handler  # noqa: E402
+from .logging_config import setup_logging, get_logger, set_request_context, clear_request_context, log_info, log_error  # noqa: E402
+from .metrics import get_metrics, get_metrics_content_type, track_request_start, track_request_end, track_error  # noqa: E402
+from .sentry_config import init_sentry  # noqa: E402
 
 # Import slowapi for rate limiting
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
 
 # Setup structured logging
 setup_logging()
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     # Initialize database (always - SQLite for local, PostgreSQL for production)
     try:
         from .database import init_db, close_db
-        from .db_models import Base  # noqa: Import models to register them
+        from .db_models import Base  # noqa: F401
 
         log_info(logger, "Initializing database")
         await init_db()

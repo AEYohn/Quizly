@@ -12,18 +12,14 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from pathlib import Path
 
 from ..schemas import (
-    MaterialProcessRequest,
     MaterialProcessResponse,
     ExtractedQuestion,
-    CurriculumSetupRequest,
     GenerateFromCurriculumRequest,
-    QuestionResponse,
-    QuestionGenerateResponse,
 )
 
 # Import document processor
 try:
-    from ..document_processor import DocumentProcessor, ProcessedDocument
+    from ..document_processor import DocumentProcessor, ProcessedDocument  # noqa: F401
     DOC_PROCESSOR_AVAILABLE = True
     doc_processor = DocumentProcessor()
 except ImportError as e:

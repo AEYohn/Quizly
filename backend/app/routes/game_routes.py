@@ -6,18 +6,18 @@ Kahoot-style multiplayer game management.
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..auth_clerk import get_current_user_clerk as get_current_user
 from ..db_models import User
-from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer, generate_game_code
-from ..websocket_manager import manager, active_timers, GameTimer
+from ..models.game import Quiz, GameSession, Player, PlayerAnswer, generate_game_code
+from ..websocket_manager import manager
 from ..rate_limiter import limiter, ANSWER_RATE_LIMIT
 from .websocket_routes import broadcast_game_state, start_question_timer, stop_game_timer
 from ..services.smart_peer_service import get_peer_name
@@ -1325,7 +1325,6 @@ async def get_player_analytics(
 
     misconceptions = []
     time_analysis = []
-    concept_performance = {}
 
     for answer in player.answers:
         question = questions.get(answer.question_id)
@@ -2024,11 +2023,8 @@ def generate_game_csv_export(game: GameSession) -> str:
 # Peer Matching for Async Discussions
 # ==============================================================================
 
-from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Set
-import asyncio
-import time
+from collections import defaultdict  # noqa: E402
+import time  # noqa: E402
 
 # In-memory storage for peer matching (consider Redis for production scale)
 peer_queues: Dict[str, Dict[int, List[Dict]]] = defaultdict(lambda: defaultdict(list))  # game_id -> question_index -> list of waiting players
@@ -2120,11 +2116,11 @@ async def find_peer_for_discussion(
 
         # Determine mentor/learner roles
         if request.is_correct:
-            mentor_id, mentor_name = player_key, request.player_name
-            learner_id, learner_name = match_found["player_id"], match_found["player_name"]
+            _mentor_id, mentor_name = player_key, request.player_name
+            _learner_id, learner_name = match_found["player_id"], match_found["player_name"]
         else:
-            mentor_id, mentor_name = match_found["player_id"], match_found["player_name"]
-            learner_id, learner_name = player_key, request.player_name
+            _mentor_id, mentor_name = match_found["player_id"], match_found["player_name"]
+            _learner_id, learner_name = player_key, request.player_name
 
         # Store match for both players
         match_info_requester = {
@@ -2405,7 +2401,7 @@ async def smart_peer_chat(
                 }
 
     # Add user message to history
-    peer_name = get_peer_name(request.player_id)
+    get_peer_name(request.player_id)
     if request.message:
         smart_chat_histories[history_key].append({
             "role": "student",
@@ -2708,7 +2704,7 @@ async def get_game_misconception_insights(
                         "description": f"Student answered {answer.answer}, correct was {q.correct_answer}",
                         "root_cause": "Analysis not available",
                         "evidence": [],
-                        "remediation": f"Review the question explanation",
+                        "remediation": "Review the question explanation",
                         "related_concepts": [],
                         "confidence": 0.0
                     }

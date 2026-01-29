@@ -11,8 +11,7 @@ Set CODE_RUNNER environment variable to "piston", "judge0", or "local"
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
-import asyncio
+from typing import List, Optional
 import os
 
 # Code execution engine: "piston" (default/free), "judge0", or "local"
@@ -25,28 +24,22 @@ if os.getenv("USE_JUDGE0", "").lower() == "true":
 if CODE_RUNNER == "judge0":
     from app.services.judge0_runner import (
         judge0_runner as code_runner,
-        ExecutionStatus,
         validate_language,
         get_supported_languages,
-        ALLOWED_LANGUAGES,
         LANGUAGE_IDS
     )
 elif CODE_RUNNER == "piston":
     from app.services.piston_runner import (
         piston_runner as code_runner,
-        ExecutionStatus,
         validate_language,
-        get_supported_languages,
-        ALLOWED_LANGUAGES
+        get_supported_languages
     )
     LANGUAGE_IDS = None
 else:
     from app.services.code_runner import (
         code_runner,
-        ExecutionStatus,
         validate_language,
-        get_supported_languages,
-        ALLOWED_LANGUAGES
+        get_supported_languages
     )
     LANGUAGE_IDS = None
 

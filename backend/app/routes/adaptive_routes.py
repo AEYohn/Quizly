@@ -5,9 +5,8 @@ API endpoints for smart peer matching, intervention detection, and spaced repeti
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel
-from datetime import datetime
 
 from ..database import get_db
 from ..services.adaptive_learning_service import AdaptiveLearningService

@@ -120,8 +120,8 @@ class RedisConnectionManager:
 
     def __init__(self, redis_url: str):
         self.redis_url = redis_url
-        self._redis: Optional["Redis"] = None
-        self._pubsub: Optional["PubSub"] = None
+        self._redis: Optional["Redis"] = None  # noqa: F821
+        self._pubsub: Optional["PubSub"] = None  # noqa: F821
         self._subscriber_task: Optional[asyncio.Task] = None
 
         # Local connections (same as ConnectionManager)
@@ -305,7 +305,7 @@ def create_connection_manager() -> ConnectionManager | RedisConnectionManager:
     """
     redis_url = os.getenv("REDIS_URL")
     if redis_url:
-        logger.info(f"Creating Redis-backed ConnectionManager")
+        logger.info("Creating Redis-backed ConnectionManager")
         return RedisConnectionManager(redis_url)
     else:
         logger.info("Creating in-memory ConnectionManager (no REDIS_URL set)")

@@ -6,7 +6,7 @@ Generates personalized practice questions for student assignments.
 
 import os
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 import google.generativeai as genai
 
@@ -52,7 +52,7 @@ class AssignmentService:
         ])
 
         # Identify the main topic from the questions
-        topics = [m.get('question', '')[:50] for m in misconceptions[:3]]
+        [m.get('question', '')[:50] for m in misconceptions[:3]]
 
         prompt = f"""Generate {num_questions} practice questions for a student who made these mistakes:
 

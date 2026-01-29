@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 
 from ..database import get_db
-from ..db_models import CodingProblem, TestCase, CodeSubmission, Session, User
+from ..db_models import CodingProblem, TestCase, CodeSubmission, User
 from ..auth_clerk import get_current_user_clerk as get_current_user, get_current_user_clerk_optional as get_current_user_optional
 
 
@@ -183,7 +183,7 @@ async def list_public_coding_problems(
     """List public coding problems (for the explore page)."""
     query = select(CodingProblem).options(
         selectinload(CodingProblem.test_cases)
-    ).where(CodingProblem.is_public == True)
+    ).where(CodingProblem.is_public is True)
     
     if subject:
         query = query.where(CodingProblem.subject == subject)
@@ -257,7 +257,6 @@ async def generate_coding_problem(
     import google.generativeai as genai
     import os
     import json
-    import base64
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -890,16 +889,6 @@ async def get_leaderboard(
 ):
     """Get leaderboard for a problem."""
     # Get best submission per student
-    query = """
-        SELECT DISTINCT ON (student_name)
-            student_name,
-            score,
-            execution_time_ms,
-            submitted_at
-        FROM code_submissions
-        WHERE problem_id = :problem_id AND status = 'accepted'
-        ORDER BY student_name, score DESC, execution_time_ms ASC
-    """
     
     # For now, simple query
     result = await db.execute(

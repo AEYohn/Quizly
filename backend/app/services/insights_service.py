@@ -13,7 +13,6 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from uuid import UUID
 from collections import Counter
 
 import google.generativeai as genai
@@ -25,8 +24,8 @@ if str(EXPERIMENTATION_PATH) not in sys.path:
 
 # Import experimentation tools
 try:
-    from analytics.confidence_analyzer import ConfidenceAnalyzer, StudentResponse, create_response_from_dict
-    from analytics.misconception_clusters import MisconceptionClusterer, ErrorInstance, create_error_from_response
+    from analytics.confidence_analyzer import ConfidenceAnalyzer, StudentResponse, create_response_from_dict  # noqa: F401
+    from analytics.misconception_clusters import MisconceptionClusterer, ErrorInstance, create_error_from_response  # noqa: F401
     from ai_agents.misconception_tagger import MisconceptionTagger
     ANALYTICS_AVAILABLE = True
 except ImportError as e:

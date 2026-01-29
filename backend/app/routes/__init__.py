@@ -1,16 +1,16 @@
 """Routes package for Quizly API."""
 
 from . import (
-    auth_routes,
-    auth_routes_enhanced,
-    session_routes, 
-    response_routes, 
-    analytics_routes, 
-    ai_routes,
-    curriculum_routes,
-    live_session_routes,
-    adaptive_routes,
-    quiz_routes,
-    game_routes,
-    websocket_routes,
+    auth_routes as auth_routes,
+    auth_routes_enhanced as auth_routes_enhanced,
+    session_routes as session_routes,
+    response_routes as response_routes,
+    analytics_routes as analytics_routes,
+    ai_routes as ai_routes,
+    curriculum_routes as curriculum_routes,
+    live_session_routes as live_session_routes,
+    adaptive_routes as adaptive_routes,
+    quiz_routes as quiz_routes,
+    game_routes as game_routes,
+    websocket_routes as websocket_routes,
 )

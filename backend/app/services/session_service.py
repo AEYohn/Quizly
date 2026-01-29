@@ -3,9 +3,9 @@ Session Service
 Handles business logic for session management using sqlalchemy (Async).
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import uuid
 from datetime import datetime, timezone

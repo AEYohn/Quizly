@@ -2,15 +2,13 @@
 WebSocket Routes for real-time game synchronization.
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from uuid import UUID
 import json
 
-from ..database import get_db, async_session
-from ..models.game import GameSession, Quiz, Player
+from ..database import async_session
+from ..models.game import Player
 from ..websocket_manager import manager, GameTimer, active_timers
 
 router = APIRouter()

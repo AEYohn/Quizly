@@ -5,7 +5,7 @@ Extended models for exit tickets, misconception tracking, and adaptive learning.
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
 from sqlalchemy import String, Text, Float, Integer, Boolean, ForeignKey, DateTime, JSON, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -331,6 +331,6 @@ class StudentAssignment(Base):
 
 
 # Import User, Session, Question for type hints (avoiding circular imports)
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING  # noqa: E402
 if TYPE_CHECKING:
     from .db_models import User, Session, Question

@@ -25,7 +25,7 @@ from typing import Dict, Any, Optional, List
 
 try:
     import google.generativeai as genai
-    from google.generativeai.types import content_types
+    from google.generativeai.types import content_types  # noqa: F401
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
@@ -679,12 +679,12 @@ async def generate_smart_peer_response(
 
             # Log detailed initial assessment
             confidence_level = "HIGH" if (confidence or 50) >= 70 else "LOW" if (confidence or 50) < 40 else "MEDIUM"
-            print(f"[smart_peer] === INITIAL ASSESSMENT ===")
+            print("[smart_peer] === INITIAL ASSESSMENT ===")
             print(f"[smart_peer]   Confidence: {confidence or 50}% ({confidence_level})")
             print(f"[smart_peer]   Error type: {state.error_type}")
             print(f"[smart_peer]   Probing depth: {state.probing_depth} (2=scaffolding, 3=standard, 4=challenge overconfidence)")
             print(f"[smart_peer]   Likely misconception: {likely_misconception}")
-            print(f"[smart_peer] ==========================")
+            print("[smart_peer] ==========================")
 
         print(f"[smart_peer] student_count={student_message_count}, phase={state.phase}, gave_lesson={gave_lesson}")
 
@@ -899,13 +899,13 @@ def _fallback_response(
         if is_correct:
             return {
                 "name": peer_name,
-                "message": f"Hey! Nice work. Quick question - what made you confident that was the answer?",
+                "message": "Hey! Nice work. Quick question - what made you confident that was the answer?",
                 "ready_for_check": False
             }
         else:
             return {
                 "name": peer_name,
-                "message": f"Hey! Interesting choice. What do you think makes something fit this definition vs not?",
+                "message": "Hey! Interesting choice. What do you think makes something fit this definition vs not?",
                 "ready_for_check": False
             }
     elif student_responses < 2:

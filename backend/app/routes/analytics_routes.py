@@ -6,13 +6,13 @@ API endpoints for session and user analytics.
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import math
 
 from ..database import get_db
-from ..db_models import Session, Question, Response, SessionParticipant, Misconception
+from ..db_models import Session, Question, Response, Misconception
 
 router = APIRouter()
 
@@ -303,7 +303,7 @@ async def get_misconception_clusters(
     
     r_query = select(Response).where(
         Response.session_id == s_uuid,
-        Response.is_correct == False
+        Response.is_correct is False
     )
     r_result = await db.execute(r_query)
     wrong_responses = list(r_result.scalars().all())
@@ -377,7 +377,7 @@ async def get_course_trends(
     - Students needing support
     """
     import uuid
-    from ..models.game import GameSession, Player, PlayerAnswer, Quiz
+    from ..models.game import GameSession, Player
     from sqlalchemy.orm import selectinload
 
     try:
@@ -599,7 +599,7 @@ async def get_misconceptions(
     
     Returns list of detected misconceptions from sessions.
     """
-    query = select(Misconception).where(Misconception.is_active == True)
+    query = select(Misconception).where(Misconception.is_active is True)
     
     if creator_id:
         query = query.where(Misconception.creator_id == creator_id)

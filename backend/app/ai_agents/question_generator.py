@@ -122,7 +122,7 @@ class QuestionBankGenerator:
         
         prev_context = ""
         if previous_prompts:
-            prev_context = f"\n\nAvoid these previously asked questions:\n" + "\n".join(f"- {p}" for p in previous_prompts[-5:])
+            prev_context = "\n\nAvoid these previously asked questions:\n" + "\n".join(f"- {p}" for p in previous_prompts[-5:])
         
         # Enhanced misconception targeting
         misconception_instruction = ""
@@ -367,8 +367,8 @@ if __name__ == "__main__":
     gen = QuestionBankGenerator()
     
     print("Testing single question generation...")
-    q = gen.generate_question(CS70_CONCEPTS[0], difficulty=0.5)
-    print(f"\nGenerated question:")
+    q = gen.generate_question(CS70_CONCEPTS[0], difficulty=0.5)  # noqa: F821
+    print("\nGenerated question:")
     print(f"  Prompt: {q['prompt']}")
     print(f"  Options: {q['options']}")
     print(f"  Answer: {q['correct_answer']}")

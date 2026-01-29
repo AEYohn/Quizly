@@ -81,8 +81,8 @@ async def explore_sessions(
     """
     # Base query - public sessions only
     query = select(Session).where(
-        Session.is_public == True,
-        Session.is_template == True
+        Session.is_public is True,
+        Session.is_template is True
     )
     
     # Search filter
@@ -258,7 +258,7 @@ async def toggle_like(
     """Toggle like on a public session."""
     # Check session exists and is public
     result = await db.execute(
-        select(Session).where(Session.id == session_id, Session.is_public == True)
+        select(Session).where(Session.id == session_id, Session.is_public is True)
     )
     session = result.scalar_one_or_none()
     
@@ -316,7 +316,7 @@ async def get_creator_profile(
     sessions_result = await db.execute(
         select(Session).where(
             Session.creator_id == creator_id,
-            Session.is_public == True
+            Session.is_public is True
         ).order_by(desc(Session.play_count))
     )
     public_sessions = sessions_result.scalars().all()
@@ -382,8 +382,8 @@ async def get_popular_tags(
     # This is a simple implementation - in production you'd want a proper tags table
     result = await db.execute(
         select(Session.tags).where(
-            Session.is_public == True,
-            Session.tags != None
+            Session.is_public is True,
+            Session.tags is not None
         )
     )
     

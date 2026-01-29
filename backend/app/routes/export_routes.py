@@ -18,7 +18,7 @@ from sqlalchemy.orm import selectinload
 from ..database import get_db
 from ..auth_clerk import get_current_user_clerk as get_current_user
 from ..db_models import User
-from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer
+from ..models.game import Quiz, GameSession, Player
 
 router = APIRouter()
 
@@ -221,7 +221,7 @@ async def export_quiz_analytics_json(
     sessions = result.scalars().all()
 
     # Build question lookup and initialize stats
-    questions_map = {q.id: q for q in quiz.questions}
+    {q.id: q for q in quiz.questions}
     question_stats = {}
 
     for question in quiz.questions:
