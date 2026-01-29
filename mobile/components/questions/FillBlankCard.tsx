@@ -77,7 +77,7 @@ export function FillBlankCard({
         elements.push(
           <TextInput
             key={`input-${blankIndex}`}
-            ref={(ref) => (inputRefs.current[blankIndex] = ref)}
+            ref={(ref) => { inputRefs.current[blankIndex] = ref; }}
             value={answers[blankIndex]}
             onChangeText={(value) => handleChange(blankIndex, value)}
             onSubmitEditing={() => handleSubmitEditing(blankIndex)}

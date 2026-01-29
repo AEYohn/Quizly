@@ -8,12 +8,14 @@ import {
   Pressable,
   Image,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useRef } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { Button, Card, Input } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { aiApi, studentQuizApi, QuizQuestion } from "@/lib/api";
@@ -43,6 +45,7 @@ export default function CreateQuizScreen() {
   const [step, setStep] = useState<CreateStep>("chat");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isProcessingPDF, setIsProcessingPDF] = useState(false);
   const [error, setError] = useState("");
 
   // Chat state
@@ -192,11 +195,107 @@ export default function CreateQuizScreen() {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: "application/pdf",
+        copyToCacheDirectory: true,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        // Handle PDF - would need to read and convert to base64
-        Alert.alert("Coming Soon", "PDF upload will be available soon!");
+      if (result.canceled || !result.assets[0]) return;
+
+      const file = result.assets[0];
+
+      // Check file size (limit to 10MB)
+      const fileInfo = await FileSystem.getInfoAsync(file.uri);
+      if (fileInfo.exists && 'size' in fileInfo && fileInfo.size && fileInfo.size > 10 * 1024 * 1024) {
+        Alert.alert("File Too Large", "Please select a PDF under 10MB");
+        return;
+      }
+
+      setIsProcessingPDF(true);
+
+      // Add a message to chat history
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "user", content: `[PDF uploaded: ${file.name}]` },
+      ]);
+
+      try {
+        const token = await getToken();
+
+        if (!token) {
+          // Demo mode - generate sample questions
+          setTimeout(() => {
+            const demoQuestions: GeneratedQuestion[] = [
+              {
+                id: `pdf-${Date.now()}-1`,
+                question_text: "Based on the document, what is the main topic discussed?",
+                question_type: "multiple_choice",
+                options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
+                correct_answer: "A",
+                explanation: "This is a demo question generated from the PDF.",
+                points: 100,
+                time_limit: 30,
+              },
+              {
+                id: `pdf-${Date.now()}-2`,
+                question_text: "What key concept is explained in the document?",
+                question_type: "multiple_choice",
+                options: { A: "Concept 1", B: "Concept 2", C: "Concept 3", D: "Concept 4" },
+                correct_answer: "B",
+                explanation: "This is a demo question generated from the PDF.",
+                points: 100,
+                time_limit: 30,
+              },
+            ];
+
+            setChatHistory((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `I've analyzed the PDF and generated ${demoQuestions.length} questions. You can review and edit them before saving.`,
+              },
+            ]);
+
+            setQuestions((prev) => [...prev, ...demoQuestions]);
+            setIsProcessingPDF(false);
+          }, 2000);
+          return;
+        }
+
+        // Read the PDF file as base64
+        const base64 = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const response = await aiApi.chatGenerate(
+          {
+            message: "Generate quiz questions from this PDF document",
+            pdf_base64: base64,
+          },
+          token
+        );
+
+        // Add AI response to history
+        setChatHistory((prev) => [
+          ...prev,
+          { role: "assistant", content: response.message },
+        ]);
+
+        // Add generated questions
+        if (response.questions.length > 0) {
+          const newQuestions = response.questions.map((q, i) => ({
+            ...q,
+            id: `pdf-${Date.now()}-${i}`,
+          }));
+          setQuestions((prev) => [...prev, ...newQuestions]);
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to process PDF";
+        setChatHistory((prev) => [
+          ...prev,
+          { role: "assistant", content: `Error processing PDF: ${errorMessage}` },
+        ]);
+        Alert.alert("Error", "Failed to process PDF. Please try again.");
+      } finally {
+        setIsProcessingPDF(false);
       }
     } catch (err) {
       Alert.alert("Error", "Failed to pick document");
@@ -345,6 +444,16 @@ export default function CreateQuizScreen() {
           </View>
         )}
 
+        {/* PDF Processing */}
+        {isProcessingPDF && (
+          <View className="items-start mb-3">
+            <View className="bg-gray-100 p-3 rounded-2xl rounded-bl-sm flex-row items-center">
+              <ActivityIndicator size="small" color="#6366F1" />
+              <Text className="text-gray-500 ml-2">Processing PDF...</Text>
+            </View>
+          </View>
+        )}
+
         {/* Generated Questions Preview */}
         {questions.length > 0 && (
           <Card variant="outline" className="mt-4">
@@ -399,9 +508,16 @@ export default function CreateQuizScreen() {
           </Pressable>
           <Pressable
             onPress={handlePickDocument}
-            className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center active:bg-gray-200"
+            disabled={isProcessingPDF}
+            className={`w-10 h-10 rounded-full items-center justify-center ${
+              isProcessingPDF ? "bg-primary-100" : "bg-gray-100 active:bg-gray-200"
+            }`}
           >
-            <FileText size={20} color="#6B7280" />
+            {isProcessingPDF ? (
+              <ActivityIndicator size="small" color="#6366F1" />
+            ) : (
+              <FileText size={20} color="#6B7280" />
+            )}
           </Pressable>
         </View>
 
