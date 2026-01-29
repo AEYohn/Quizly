@@ -36,17 +36,22 @@ export function TrueFalseCard({
     const isSelected = selected === value;
     const isCorrectAnswer = question.correct_answer === value;
 
+    // Use inline hex colors for light variants since theme doesn't have them
+    const successLight = isDark ? '#065F46' : '#D1FAE5';
+    const errorLight = isDark ? '#7F1D1D' : '#FEE2E2';
+    const brandLight = isDark ? '#312E81' : '#E0E7FF';
+
     if (showFeedback) {
       if (isCorrectAnswer) {
         return {
-          bg: colors.successLight,
+          bg: successLight,
           border: colors.success,
           icon: colors.success,
         };
       }
       if (isSelected && !isCorrectAnswer) {
         return {
-          bg: colors.errorLight,
+          bg: errorLight,
           border: colors.error,
           icon: colors.error,
         };
@@ -55,7 +60,7 @@ export function TrueFalseCard({
 
     if (isSelected) {
       return {
-        bg: colors.brandLight,
+        bg: brandLight,
         border: colors.brand,
         icon: colors.brand,
       };
