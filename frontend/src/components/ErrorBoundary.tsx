@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import { captureException } from "@/lib/sentry";
 
 interface Props {
     children: ReactNode;
@@ -46,8 +47,13 @@ export class ErrorBoundary extends Component<Props, State> {
         // Log error to console in development
         console.error("ErrorBoundary caught an error:", error, errorInfo);
 
-        // In production, you might want to send this to an error reporting service
-        // Example: Sentry.captureException(error, { extra: errorInfo });
+        // Report error to Sentry in production
+        if (process.env.NODE_ENV === "production") {
+            captureException(error, {
+                componentStack: errorInfo.componentStack,
+                errorBoundary: true,
+            });
+        }
     }
 
     handleReset = (): void => {

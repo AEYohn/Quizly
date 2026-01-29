@@ -24,6 +24,9 @@ slowapi==0.1.9
 # Metrics
 prometheus-client==0.21.0
 
+# Error Monitoring
+sentry-sdk[fastapi]==1.40.0
+
 # Validation
 pydantic==2.9.0
 pydantic-settings==2.5.0

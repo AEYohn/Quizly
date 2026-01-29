@@ -19,6 +19,7 @@ from .rate_limiter import limiter
 from .exceptions import QuizlyException, quizly_exception_handler
 from .logging_config import setup_logging, get_logger, set_request_context, clear_request_context, log_info, log_error
 from .metrics import get_metrics, get_metrics_content_type, track_request_start, track_request_end, track_error
+from .sentry_config import init_sentry
 
 # Import slowapi for rate limiting
 from slowapi import _rate_limit_exceeded_handler
@@ -27,6 +28,12 @@ from slowapi.errors import RateLimitExceeded
 # Setup structured logging
 setup_logging()
 logger = get_logger("quizly.main")
+
+# Initialize Sentry error monitoring (before app creation)
+if init_sentry():
+    log_info(logger, "Sentry error monitoring initialized")
+else:
+    log_info(logger, "Sentry not configured (SENTRY_DSN not set)")
 
 
 # Database lifecycle
