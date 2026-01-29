@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Animated, {
   useAnimatedStyle,
@@ -24,9 +24,10 @@ import {
 } from "react-native-gesture-handler";
 import { Button, Card } from "@/components/ui";
 import { QuestionCard } from "@/components/game";
-import { Flashcard } from "@/components/study";
+import { FlashcardDeck, StudySessionSummary } from "@/components/study";
 import { useAuth } from "@/providers/AuthProvider";
 import { useHaptics } from "@/hooks";
+import { useStudyStore } from "@/stores/studyStore";
 import { studentQuizApi, QuizQuestion } from "@/lib/api";
 import {
   ArrowLeft,
@@ -43,7 +44,7 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
-type StudyMode = "overview" | "practice" | "flashcards";
+type StudyMode = "overview" | "practice" | "flashcards" | "flashcards-summary";
 type PracticeState = "playing" | "result";
 
 interface AnswerResult {
@@ -59,7 +60,22 @@ export default function QuizDetailScreen() {
   const { getToken } = useAuth();
   const haptics = useHaptics();
 
+  // Study store for spaced repetition
+  const {
+    initializeCard,
+    recordReview,
+    startSession,
+    endSession,
+    getStudyStats,
+    currentSession
+  } = useStudyStore();
+
   const [mode, setMode] = useState<StudyMode>("overview");
+  const [sessionStats, setSessionStats] = useState<{
+    cardsReviewed: number;
+    correctCount: number;
+    timeSpent: number;
+  } | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -95,11 +111,45 @@ export default function QuizDetailScreen() {
     haptics.medium();
   };
 
-  const handleStartFlashcards = () => {
+  const handleStartFlashcards = useCallback(() => {
+    // Initialize cards for spaced repetition if not already done
+    if (id) {
+      questions.forEach((q, index) => {
+        const cardId = `${id}-q${index}`;
+        initializeCard(cardId, id);
+      });
+      startSession(id);
+    }
     setCurrentQuestionIndex(0);
     setMode("flashcards");
     haptics.medium();
-  };
+  }, [id, questions, initializeCard, startSession, haptics]);
+
+  const handleCardReviewed = useCallback((cardId: string, quality: 0 | 1 | 2 | 3 | 4 | 5) => {
+    recordReview(cardId, quality);
+  }, [recordReview]);
+
+  const handleDeckComplete = useCallback(() => {
+    const stats = endSession();
+    if (stats) {
+      setSessionStats({
+        cardsReviewed: stats.cardsReviewed,
+        correctCount: stats.correctCount,
+        timeSpent: stats.totalTime,
+      });
+    } else if (currentSession) {
+      // Fallback if endSession returns null but we have a session
+      setSessionStats({
+        cardsReviewed: currentSession.cardsReviewed.length,
+        correctCount: currentSession.correctCount,
+        timeSpent: Math.floor(
+          (Date.now() - new Date(currentSession.startedAt).getTime()) / 1000
+        ),
+      });
+    }
+    setMode("flashcards-summary");
+    haptics.success();
+  }, [endSession, currentSession, haptics]);
 
   const handleSelectAnswer = (answer: string) => {
     if (showResult) return;
@@ -191,6 +241,21 @@ export default function QuizDetailScreen() {
           onPress: () => setMode("overview"),
         },
       ]);
+    } else if (mode === "flashcards") {
+      Alert.alert("Exit Flashcards?", "Your session progress will be saved.", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Exit",
+          style: "destructive",
+          onPress: () => {
+            endSession();
+            setMode("overview");
+          },
+        },
+      ]);
+    } else if (mode === "flashcards-summary") {
+      setMode("overview");
+      setSessionStats(null);
     } else {
       setMode("overview");
     }
@@ -428,99 +493,49 @@ export default function QuizDetailScreen() {
     );
   };
 
-  // Flashcard Mode
+  // Flashcard Mode with spaced repetition
   const renderFlashcards = () => {
-    if (!currentQuestion) return null;
+    if (!questions.length) return null;
+
+    // Transform questions to flashcard format
+    const flashcards = questions.map((q, index) => ({
+      id: `${id}-q${index}`,
+      questionText: q.question_text,
+      answerText: q.options[q.correct_answer] || q.correct_answer,
+      explanation: q.explanation,
+    }));
 
     return (
       <GestureHandlerRootView className="flex-1">
-        <View className="flex-1 justify-center items-center px-4">
-          {/* Progress */}
-          <View className="w-full mb-6">
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-gray-500">
-                Card {currentQuestionIndex + 1} of {totalQuestions}
-              </Text>
-              <Text className="text-primary-600 font-medium">
-                {Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100)}%
-              </Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-primary-500 rounded-full"
-                style={{
-                  width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%`,
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Swipeable Flashcard */}
-          <GestureDetector gesture={panGesture}>
-            <Animated.View style={animatedCardStyle}>
-              <Flashcard
-                question={currentQuestion.question_text}
-                answer={
-                  currentQuestion.options[currentQuestion.correct_answer] ||
-                  currentQuestion.correct_answer
-                }
-                explanation={currentQuestion.explanation}
-              />
-            </Animated.View>
-          </GestureDetector>
-
-          {/* Navigation Buttons */}
-          <View className="flex-row items-center justify-between w-full mt-8 px-4">
-            <Pressable
-              onPress={goToPrevCard}
-              disabled={currentQuestionIndex === 0}
-              className={`w-14 h-14 rounded-full items-center justify-center ${
-                currentQuestionIndex === 0 ? "bg-gray-100" : "bg-gray-200 active:bg-gray-300"
-              }`}
-            >
-              <ChevronLeft
-                size={28}
-                color={currentQuestionIndex === 0 ? "#D1D5DB" : "#374151"}
-              />
-            </Pressable>
-
-            <Text className="text-gray-500">Swipe to navigate</Text>
-
-            <Pressable
-              onPress={goToNextCard}
-              disabled={currentQuestionIndex === totalQuestions - 1}
-              className={`w-14 h-14 rounded-full items-center justify-center ${
-                currentQuestionIndex === totalQuestions - 1
-                  ? "bg-gray-100"
-                  : "bg-gray-200 active:bg-gray-300"
-              }`}
-            >
-              <ChevronRight
-                size={28}
-                color={
-                  currentQuestionIndex === totalQuestions - 1
-                    ? "#D1D5DB"
-                    : "#374151"
-                }
-              />
-            </Pressable>
-          </View>
-
-          {/* Done Button */}
-          {currentQuestionIndex === totalQuestions - 1 && (
-            <Button
-              className="mt-8"
-              size="lg"
-              onPress={() => {
-                setMode("overview");
-                haptics.success();
-              }}
-            >
-              Finish Review
-            </Button>
-          )}
+        <View className="flex-1 pt-4">
+          <FlashcardDeck
+            cards={flashcards}
+            onCardReviewed={handleCardReviewed}
+            onDeckComplete={handleDeckComplete}
+          />
         </View>
       </GestureHandlerRootView>
+    );
+  };
+
+  // Flashcard Summary Screen
+  const renderFlashcardsSummary = () => {
+    const studyStats = getStudyStats();
+
+    return (
+      <StudySessionSummary
+        cardsReviewed={sessionStats?.cardsReviewed || 0}
+        correctCount={sessionStats?.correctCount || 0}
+        timeSpent={sessionStats?.timeSpent || 0}
+        cardsDueTomorrow={studyStats.dueTomorrow}
+        onContinue={() => {
+          handleStartFlashcards();
+        }}
+        onDone={() => {
+          setMode("overview");
+          setSessionStats(null);
+        }}
+      />
     );
   };
 
@@ -550,6 +565,8 @@ export default function QuizDetailScreen() {
             ? `${currentQuestionIndex + 1}/${totalQuestions}`
             : mode === "flashcards"
             ? "Flashcards"
+            : mode === "flashcards-summary"
+            ? "Session Complete"
             : ""}
         </Text>
         <View className="w-16" />
@@ -558,6 +575,7 @@ export default function QuizDetailScreen() {
       {mode === "overview" && renderOverview()}
       {mode === "practice" && renderPractice()}
       {mode === "flashcards" && renderFlashcards()}
+      {mode === "flashcards-summary" && renderFlashcardsSummary()}
     </SafeAreaView>
   );
 }
