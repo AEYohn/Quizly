@@ -271,7 +271,7 @@ export default function PracticePage() {
                 <div className="flex-1">
                     <h2 className="text-2xl font-semibold mb-8">{question.question_text}</h2>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-3">
                         {(["A", "B", "C", "D"] as const).map((opt) => {
                             if (!question.options[opt]) return null;
 
@@ -295,10 +295,10 @@ export default function PracticePage() {
                                     key={opt}
                                     onClick={() => !answerResult && setSelectedAnswer(opt)}
                                     disabled={!!answerResult}
-                                    className={`p-4 rounded-xl border-2 text-left transition-all flex items-start gap-3 min-h-[80px] ${bgColor}`}
+                                    className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${bgColor}`}
                                 >
                                     <span
-                                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-semibold flex-shrink-0 ${
+                                        className={`w-10 h-10 rounded-lg flex items-center justify-center font-semibold ${
                                             isSelected || isCorrect
                                                 ? "bg-emerald-600 text-white"
                                                 : isWrong
@@ -307,14 +307,14 @@ export default function PracticePage() {
                                         }`}
                                     >
                                         {answerResult && isCorrect ? (
-                                            <Check className="w-4 h-4" />
+                                            <Check className="w-5 h-5" />
                                         ) : answerResult && isWrong ? (
-                                            <X className="w-4 h-4" />
+                                            <X className="w-5 h-5" />
                                         ) : (
                                             opt
                                         )}
                                     </span>
-                                    <span className="flex-1 text-sm">{question.options[opt]}</span>
+                                    <span className="flex-1">{question.options[opt]}</span>
                                 </button>
                             );
                         })}

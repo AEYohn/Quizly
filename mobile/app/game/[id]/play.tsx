@@ -19,6 +19,8 @@ type GamePhase = "waiting" | "question" | "submitted" | "results";
 interface PlayerScore {
   totalScore: number;
   currentStreak: number;
+  maxStreak: number;
+  correctAnswers: number;
   lastPointsEarned: number;
   lastIsCorrect: boolean;
 }
@@ -45,9 +47,12 @@ export default function GamePlayScreen() {
   const [playerScore, setPlayerScore] = useState<PlayerScore>({
     totalScore: 0,
     currentStreak: 0,
+    maxStreak: 0,
+    correctAnswers: 0,
     lastPointsEarned: 0,
     lastIsCorrect: false,
   });
+  const [quizTitle, setQuizTitle] = useState("");
 
   const answerStartTime = useRef<number>(0);
 
@@ -70,12 +75,14 @@ export default function GamePlayScreen() {
 
   const handleScoreUpdate = useCallback((data: ScoreUpdateMessage) => {
     if (data.player_id === playerId) {
-      setPlayerScore({
+      setPlayerScore((prev) => ({
         totalScore: data.total_score,
         currentStreak: data.current_streak,
+        maxStreak: Math.max(prev.maxStreak, data.current_streak),
+        correctAnswers: prev.correctAnswers + (data.is_correct ? 1 : 0),
         lastPointsEarned: data.points_earned,
         lastIsCorrect: data.is_correct,
-      });
+      }));
     }
   }, [playerId]);
 
@@ -92,9 +99,13 @@ export default function GamePlayScreen() {
         playerId,
         nickname,
         score: playerScore.totalScore.toString(),
+        correct: playerScore.correctAnswers.toString(),
+        total: totalQuestions.toString(),
+        quizTitle,
+        streak: playerScore.maxStreak.toString(),
       },
     });
-  }, [id, playerId, nickname, playerScore.totalScore, isGuest, addGuestGame, router]);
+  }, [id, playerId, nickname, playerScore, totalQuestions, quizTitle, isGuest, addGuestGame, router]);
 
   const { isConnected, disconnect } = useGameSocket({
     gameId: id,
