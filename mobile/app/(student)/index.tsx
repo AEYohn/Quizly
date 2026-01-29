@@ -2,8 +2,9 @@ import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native"
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/providers/AuthProvider";
-import { useGameStore, useUserStore } from "@/stores";
+import { useGameStore, useUserStore, useProgressionStore } from "@/stores";
 import { Card, PressableCard, Button, EmptyState } from "@/components/ui";
+import { XPBar, StreakBadge } from "@/components/progression";
 import {
   Gamepad2,
   Plus,
@@ -13,14 +14,20 @@ import {
   Clock,
   ChevronRight,
 } from "lucide-react-native";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { nickname, isGuest, isSignedIn, guestData } = useAuth();
   const { recentGames } = useGameStore();
   const { stats, lastNickname } = useUserStore();
+  const { checkAndUpdateStreak } = useProgressionStore();
   const [refreshing, setRefreshing] = useState(false);
+
+  // Check and update streak on mount
+  useEffect(() => {
+    checkAndUpdateStreak();
+  }, [checkAndUpdateStreak]);
 
   const displayName = nickname || lastNickname || guestData?.nickname || "Student";
   const gamesPlayed = stats.totalGamesPlayed || guestData?.gamesPlayed?.length || 0;
@@ -62,15 +69,23 @@ export default function DashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header */}
-        <View className="mb-6">
-          <Text className="text-2xl font-bold text-gray-900">
-            Hey, {displayName}! 👋
-          </Text>
-          <Text className="text-gray-500 mt-1">
-            {isGuest ? "Playing as guest" : "Ready to learn?"}
-          </Text>
+        {/* Header with Streak */}
+        <View className="flex-row items-center justify-between mb-6">
+          <View className="flex-1">
+            <Text className="text-2xl font-bold text-gray-900">
+              Hey, {displayName}!
+            </Text>
+            <Text className="text-gray-500 mt-1">
+              {isGuest ? "Playing as guest" : "Ready to learn?"}
+            </Text>
+          </View>
+          <StreakBadge size="md" />
         </View>
+
+        {/* XP Progress */}
+        <Card variant="elevated" className="mb-6">
+          <XPBar showLevel={true} />
+        </Card>
 
         {/* Quick Actions */}
         <View className="flex-row gap-4 mb-6">
