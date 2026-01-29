@@ -55,7 +55,9 @@ export default function SearchScreen() {
     <SafeAreaView className={`flex-1 ${bgColor}`}>
       {/* Header */}
       <View style={styles.header}>
-        <Button variant="ghost" icon={ArrowLeft} onPress={() => router.back()} />
+        <Button variant="ghost" icon={ArrowLeft} onPress={() => router.back()}>
+          {' '}
+        </Button>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           Find Friends
         </Text>

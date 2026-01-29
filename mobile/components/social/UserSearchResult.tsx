@@ -22,6 +22,10 @@ export function UserSearchResult({
 }: UserSearchResultProps) {
   const { colors, isDark } = useTheme();
 
+  // Light color variants
+  const successLight = isDark ? '#064E3B' : '#D1FAE5';
+  const brandLight = isDark ? '#312E81' : '#EEF2FF';
+
   return (
     <Pressable
       onPress={onPress}
@@ -46,14 +50,14 @@ export function UserSearchResult({
       </View>
 
       {isFriend ? (
-        <View style={[styles.badge, { backgroundColor: colors.successLight }]}>
+        <View style={[styles.badge, { backgroundColor: successLight }]}>
           <Check size={16} color={colors.success} />
           <Text style={[styles.badgeText, { color: colors.success }]}>
             Friends
           </Text>
         </View>
       ) : isPending ? (
-        <View style={[styles.badge, { backgroundColor: colors.brandLight }]}>
+        <View style={[styles.badge, { backgroundColor: brandLight }]}>
           <Text style={[styles.badgeText, { color: colors.brand }]}>
             Pending
           </Text>

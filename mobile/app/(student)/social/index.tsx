@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Users, UserPlus, UsersRound, Bell } from 'lucide-react-native';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useSocialStore } from '@/stores/socialStore';
-import { Card, PressableCard } from '@/components/ui';
+import { PressableCard } from '@/components/ui';
 
 export default function SocialHubScreen() {
   const router = useRouter();
@@ -14,6 +14,11 @@ export default function SocialHubScreen() {
 
   const bgColor = isDark ? 'bg-gray-900' : 'bg-gray-50';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
+
+  // Light color variants
+  const brandLight = isDark ? '#312E81' : '#EEF2FF';
+  const successLight = isDark ? '#064E3B' : '#D1FAE5';
+  const warningLight = isDark ? '#78350F' : '#FEF3C7';
 
   const incomingRequests = pendingRequests.filter(
     (r) => r.direction === 'incoming'
@@ -34,7 +39,7 @@ export default function SocialHubScreen() {
             style={styles.gridItem}
             onPress={() => router.push('/social/friends')}
           >
-            <View style={[styles.iconBox, { backgroundColor: colors.brandLight }]}>
+            <View style={[styles.iconBox, { backgroundColor: brandLight }]}>
               <Users size={24} color={colors.brand} />
             </View>
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
@@ -52,7 +57,7 @@ export default function SocialHubScreen() {
             style={styles.gridItem}
             onPress={() => router.push('/social/search')}
           >
-            <View style={[styles.iconBox, { backgroundColor: colors.successLight }]}>
+            <View style={[styles.iconBox, { backgroundColor: successLight }]}>
               <UserPlus size={24} color={colors.success} />
             </View>
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
@@ -65,14 +70,14 @@ export default function SocialHubScreen() {
             )}
           </PressableCard>
 
-          {/* Groups */}
+          {/* Groups - placeholder for now */}
           <PressableCard
             variant="outline"
             className={cardBg}
             style={styles.gridItem}
-            onPress={() => router.push('/social/groups')}
+            onPress={() => {}}
           >
-            <View style={[styles.iconBox, { backgroundColor: colors.warningLight }]}>
+            <View style={[styles.iconBox, { backgroundColor: warningLight }]}>
               <UsersRound size={24} color={colors.warning} />
             </View>
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>

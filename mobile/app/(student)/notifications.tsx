@@ -81,7 +81,9 @@ export default function NotificationsScreen() {
     <SafeAreaView className={`flex-1 ${bgColor}`}>
       {/* Header */}
       <View style={styles.header}>
-        <Button variant="ghost" icon={ArrowLeft} onPress={() => router.back()} />
+        <Button variant="ghost" icon={ArrowLeft} onPress={() => router.back()}>
+          {' '}
+        </Button>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           Notifications
         </Text>
