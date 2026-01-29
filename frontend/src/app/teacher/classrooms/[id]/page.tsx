@@ -23,6 +23,11 @@ import {
     ToggleRight,
     UserMinus,
     Layers,
+    BarChart3,
+    TrendingUp,
+    TrendingDown,
+    AlertTriangle,
+    Target,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -77,6 +82,38 @@ interface Quiz {
     subject?: string;
 }
 
+interface StudentPerformance {
+    nickname: string;
+    accuracy: number;
+    avg_confidence: number;
+    sessions_participated: number;
+    total_questions: number;
+    overconfident_errors: number;
+    needs_support: boolean;
+    trend: string;
+}
+
+interface ClassAnalytics {
+    course_id: string;
+    sessions: Array<{
+        session_id: string;
+        quiz_title: string;
+        game_code: string;
+        played_at: string;
+        player_count: number;
+        class_accuracy: number;
+    }>;
+    student_performance: StudentPerformance[];
+    students_needing_support: string[];
+    overall_trend: string;
+    summary: string;
+    class_stats: {
+        total_students: number;
+        avg_accuracy: number;
+        students_struggling: number;
+    };
+}
+
 export default function ClassroomDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -85,9 +122,11 @@ export default function ClassroomDetailPage() {
     const [course, setCourse] = useState<Course | null>(null);
     const [students, setStudents] = useState<Student[]>([]);
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+    const [analytics, setAnalytics] = useState<ClassAnalytics | null>(null);
+    const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [activeTab, setActiveTab] = useState<"content" | "students">("content");
+    const [activeTab, setActiveTab] = useState<"content" | "students" | "analytics">("content");
 
     // UI states
     const [copiedCode, setCopiedCode] = useState(false);
@@ -168,6 +207,31 @@ export default function ClassroomDetailPage() {
             console.error("Failed to fetch quizzes:", err);
         }
     }
+
+    async function fetchAnalytics() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        setAnalyticsLoading(true);
+        try {
+            const response = await fetch(`${API_URL}/analytics/course/${courseId}/trends`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAnalytics(data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch analytics:", err);
+        }
+        setAnalyticsLoading(false);
+    }
+
+    useEffect(() => {
+        if (activeTab === "analytics" && !analytics) {
+            fetchAnalytics();
+        }
+    }, [activeTab]);
 
     async function toggleEnrollment() {
         if (!course) return;
@@ -283,9 +347,14 @@ export default function ClassroomDetailPage() {
                 setNewItemType("lesson");
                 setSelectedQuizId("");
                 setShowAddItemModal(null);
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("Failed to create item:", response.status, errorData);
+                alert(`Failed to add item: ${errorData.detail || response.statusText}`);
             }
         } catch (err) {
             console.error("Failed to create item:", err);
+            alert("Failed to add item. Please try again.");
         }
         setCreatingItem(false);
     }
@@ -535,6 +604,22 @@ export default function ClassroomDetailPage() {
                             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />
                         )}
                     </button>
+                    <button
+                        onClick={() => setActiveTab("analytics")}
+                        className={`px-5 py-3 font-medium transition-colors relative ${
+                            activeTab === "analytics"
+                                ? "text-white"
+                                : "text-gray-500 hover:text-gray-300"
+                        }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            Analytics
+                        </span>
+                        {activeTab === "analytics" && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />
+                        )}
+                    </button>
                 </div>
 
                 {/* Content Tab */}
@@ -721,6 +806,181 @@ export default function ClassroomDetailPage() {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Analytics Tab */}
+                {activeTab === "analytics" && (
+                    <div>
+                        {analyticsLoading ? (
+                            <div className="flex items-center justify-center py-16">
+                                <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+                            </div>
+                        ) : !analytics || analytics.sessions.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-gray-700 bg-gray-900/50 p-12 text-center">
+                                <BarChart3 className="mx-auto h-12 w-12 text-gray-600 mb-4" />
+                                <p className="text-gray-400 font-medium">No quiz data yet</p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Host quizzes with this class to see student performance analytics
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* Class Stats Overview */}
+                                <div className="grid grid-cols-4 gap-4">
+                                    <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                        <p className="text-sm text-gray-400 mb-1">Total Students</p>
+                                        <p className="text-2xl font-bold text-white">{analytics.class_stats.total_students}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                        <p className="text-sm text-gray-400 mb-1">Class Average</p>
+                                        <p className="text-2xl font-bold text-emerald-400">{analytics.class_stats.avg_accuracy}%</p>
+                                    </div>
+                                    <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
+                                        <p className="text-sm text-gray-400 mb-1">Quiz Sessions</p>
+                                        <p className="text-2xl font-bold text-white">{analytics.sessions.length}</p>
+                                    </div>
+                                    <div className={`rounded-xl border p-5 ${
+                                        analytics.class_stats.students_struggling > 0
+                                            ? "bg-red-500/5 border-red-500/30"
+                                            : "bg-gray-900 border-gray-800"
+                                    }`}>
+                                        <p className="text-sm text-gray-400 mb-1">Need Support</p>
+                                        <p className={`text-2xl font-bold ${
+                                            analytics.class_stats.students_struggling > 0 ? "text-red-400" : "text-white"
+                                        }`}>{analytics.class_stats.students_struggling}</p>
+                                    </div>
+                                </div>
+
+                                {/* Overall Trend */}
+                                {analytics.overall_trend !== "insufficient_data" && (
+                                    <div className={`rounded-xl border p-4 flex items-center gap-3 ${
+                                        analytics.overall_trend === "improving"
+                                            ? "bg-emerald-500/5 border-emerald-500/30"
+                                            : analytics.overall_trend === "declining"
+                                            ? "bg-red-500/5 border-red-500/30"
+                                            : "bg-gray-900 border-gray-800"
+                                    }`}>
+                                        {analytics.overall_trend === "improving" ? (
+                                            <TrendingUp className="h-5 w-5 text-emerald-400" />
+                                        ) : analytics.overall_trend === "declining" ? (
+                                            <TrendingDown className="h-5 w-5 text-red-400" />
+                                        ) : (
+                                            <Target className="h-5 w-5 text-gray-400" />
+                                        )}
+                                        <span className={`font-medium ${
+                                            analytics.overall_trend === "improving" ? "text-emerald-400" :
+                                            analytics.overall_trend === "declining" ? "text-red-400" : "text-gray-400"
+                                        }`}>
+                                            Class performance is {analytics.overall_trend}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Students Needing Support */}
+                                {analytics.students_needing_support.length > 0 && (
+                                    <div className="rounded-xl bg-red-500/5 border border-red-500/30 p-5">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <AlertTriangle className="h-5 w-5 text-red-400" />
+                                            <h3 className="font-semibold text-red-400">Students Needing Support</h3>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {analytics.students_needing_support.map((name, i) => (
+                                                <span key={i} className="px-3 py-1 rounded-full bg-red-500/10 text-red-300 text-sm">
+                                                    {name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Student Performance Table */}
+                                <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-gray-800">
+                                        <h3 className="font-semibold text-white">Student Performance</h3>
+                                    </div>
+                                    <div className="grid grid-cols-12 gap-4 px-5 py-3 bg-gray-800/50 text-sm font-medium text-gray-400 border-b border-gray-800">
+                                        <div className="col-span-3">Student</div>
+                                        <div className="col-span-2 text-center">Accuracy</div>
+                                        <div className="col-span-2 text-center">Confidence</div>
+                                        <div className="col-span-2 text-center">Sessions</div>
+                                        <div className="col-span-2 text-center">Trend</div>
+                                        <div className="col-span-1 text-center">Status</div>
+                                    </div>
+                                    <div className="divide-y divide-gray-800/50 max-h-96 overflow-y-auto">
+                                        {analytics.student_performance.map((student, i) => (
+                                            <div key={i} className="grid grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-gray-800/30 transition-colors">
+                                                <div className="col-span-3 font-medium text-white">{student.nickname}</div>
+                                                <div className="col-span-2 text-center">
+                                                    <span className={`font-semibold ${
+                                                        student.accuracy >= 70 ? "text-emerald-400" :
+                                                        student.accuracy >= 50 ? "text-amber-400" : "text-red-400"
+                                                    }`}>{student.accuracy}%</span>
+                                                </div>
+                                                <div className="col-span-2 text-center text-gray-400">{student.avg_confidence}%</div>
+                                                <div className="col-span-2 text-center text-gray-400">{student.sessions_participated}</div>
+                                                <div className="col-span-2 text-center">
+                                                    {student.trend === "improving" ? (
+                                                        <span className="text-emerald-400 flex items-center justify-center gap-1">
+                                                            <TrendingUp className="h-4 w-4" /> Up
+                                                        </span>
+                                                    ) : student.trend === "declining" ? (
+                                                        <span className="text-red-400 flex items-center justify-center gap-1">
+                                                            <TrendingDown className="h-4 w-4" /> Down
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-500">—</span>
+                                                    )}
+                                                </div>
+                                                <div className="col-span-1 text-center">
+                                                    {student.needs_support ? (
+                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-500/20">
+                                                            <AlertTriangle className="h-3 w-3 text-red-400" />
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/20">
+                                                            <Check className="h-3 w-3 text-emerald-400" />
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Recent Quiz Sessions */}
+                                <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-gray-800">
+                                        <h3 className="font-semibold text-white">Recent Quiz Sessions</h3>
+                                    </div>
+                                    <div className="divide-y divide-gray-800/50">
+                                        {analytics.sessions.slice(0, 5).map((session, i) => (
+                                            <div key={i} className="px-5 py-4 flex items-center justify-between hover:bg-gray-800/30 transition-colors">
+                                                <div>
+                                                    <p className="font-medium text-white">{session.quiz_title}</p>
+                                                    <p className="text-sm text-gray-500">
+                                                        {session.played_at ? new Date(session.played_at).toLocaleDateString() : "—"}
+                                                        {" · "}{session.player_count} students
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <span className={`text-lg font-bold ${
+                                                        session.class_accuracy >= 70 ? "text-emerald-400" :
+                                                        session.class_accuracy >= 50 ? "text-amber-400" : "text-red-400"
+                                                    }`}>{session.class_accuracy}%</span>
+                                                    <Link
+                                                        href={`/teacher/game/${session.session_id}/results`}
+                                                        className="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 text-sm hover:bg-gray-800 hover:text-white transition-colors"
+                                                    >
+                                                        View Details
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}

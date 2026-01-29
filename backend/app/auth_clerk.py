@@ -195,7 +195,7 @@ async def get_or_create_user_from_clerk(
             await db.refresh(existing_user)
             return existing_user
 
-    # Create new user
+    # Create new user - handle race condition with try/except
     name = clerk_payload.full_name or clerk_payload.email or "User"
     role = clerk_payload.role or "student"
 
@@ -207,9 +207,23 @@ async def get_or_create_user_from_clerk(
         hashed_password=None  # Clerk handles auth, no password needed
     )
     db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    return new_user
+
+    try:
+        await db.commit()
+        await db.refresh(new_user)
+        return new_user
+    except Exception as e:
+        # Race condition: another request created the user first
+        # Rollback and fetch the existing user
+        await db.rollback()
+        result = await db.execute(
+            select(User).where(User.clerk_user_id == clerk_payload.user_id)
+        )
+        existing_user = result.scalars().first()
+        if existing_user:
+            return existing_user
+        # If still not found, re-raise the original error
+        raise e
 
 
 async def get_current_user_clerk(

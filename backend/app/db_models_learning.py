@@ -158,6 +158,12 @@ class PeerDiscussionSession(Base):
     """
     Track AI peer discussion sessions after wrong answers.
     Stores full transcript and AI-generated summary for both student and teacher review.
+
+    Enhanced with adaptive discussion tracking:
+    - Probing questions asked and depth
+    - Hint usage (auto vs requested)
+    - Misconception detection and resolution
+    - Phase progression through discussion
     """
     __tablename__ = "peer_discussion_sessions"
 
@@ -201,6 +207,35 @@ class PeerDiscussionSession(Base):
 
     # Status
     status: Mapped[str] = mapped_column(String(50), default="ongoing")  # ongoing, completed, abandoned
+
+    # === NEW: Adaptive Discussion Tracking ===
+    # Initial assessment
+    error_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # conceptual, procedural, careless, overconfident
+    probing_depth: Mapped[int] = mapped_column(Integer, default=3)  # 2-4 based on initial assessment
+
+    # Probing phase tracking
+    probing_questions_asked: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Hint tracking
+    hints_given: Mapped[int] = mapped_column(Integer, default=0)  # Total hints (0-3)
+    hints_auto: Mapped[int] = mapped_column(Integer, default=0)  # Auto-triggered hints
+    hints_requested: Mapped[int] = mapped_column(Integer, default=0)  # Student-requested hints
+
+    # Stuck detection
+    stuck_count: Mapped[int] = mapped_column(Integer, default=0)  # Times student repeated same wrong idea
+    stuck_recoveries: Mapped[int] = mapped_column(Integer, default=0)  # Times we changed approach
+
+    # Misconception tracking
+    misconceptions_detected: Mapped[dict] = mapped_column(JSON, default=list)  # [{type, description, evidence, resolved}]
+    misconceptions_resolved: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Phase progression
+    phases_visited: Mapped[dict] = mapped_column(JSON, default=list)  # ["probing", "hinting", "targeted", "explaining"]
+    final_phase: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Student journey
+    confusion_areas: Mapped[dict] = mapped_column(JSON, default=list)  # Areas where student showed confusion
+    student_reasoning_points: Mapped[dict] = mapped_column(JSON, default=list)  # Key reasoning quotes
 
     # Metadata
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { MessageCircle, Send, Loader2, Lightbulb, ThumbsUp, Users, Bot, ChevronDown, ChevronUp, HelpCircle, Paperclip, X, Image, FileText, ChevronRight } from "lucide-react";
+import { MessageCircle, Send, Loader2, Lightbulb, ThumbsUp, Users, Bot, ChevronDown, ChevronUp, HelpCircle, Paperclip, X, Image, FileText, ChevronRight, Sparkles, AlertCircle } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -41,6 +41,15 @@ interface Attachment {
     name: string;
     data: string; // base64
     previewUrl?: string;
+}
+
+// Adaptive discussion state from backend
+interface AdaptiveState {
+    phase: "probing" | "hinting" | "targeted" | "explaining" | null;
+    hintsGiven: number;
+    canRequestHint: boolean;
+    stuckDetected: boolean;
+    misconceptionsCount: number;
 }
 
 interface PeerMessage {
@@ -195,6 +204,14 @@ export default function PeerDiscussion({
     const [masteryAnswer, setMasteryAnswer] = useState<string | null>(null);
     const [masteryAttempts, setMasteryAttempts] = useState(0);
     const [uploadingFile, setUploadingFile] = useState(false);
+    const [requestingHint, setRequestingHint] = useState(false);
+    const [adaptiveState, setAdaptiveState] = useState<AdaptiveState>({
+        phase: null,
+        hintsGiven: 0,
+        canRequestHint: true,
+        stuckDetected: false,
+        misconceptionsCount: 0
+    });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const lastMessageTimestamp = useRef<number>(0);
@@ -415,11 +432,11 @@ export default function PeerDiscussion({
 
             if (response.ok) {
                 const data = await response.json();
-                const peerName = data.name || aiName;
+                // Always use the consistent aiName from peerMatch, ignore data.name to prevent mismatch
                 setMessages([{
                     id: `ai_${Date.now()}`,
                     sender_id: "ai",
-                    sender_name: peerName,
+                    sender_name: aiName,
                     content: data.message,
                     timestamp: Date.now() / 1000
                 }]);
@@ -540,21 +557,32 @@ export default function PeerDiscussion({
             if (response.ok) {
                 const data = await response.json();
                 console.log("[PeerDiscussion] API response:", data);
-                console.log("[PeerDiscussion] isCorrect:", isCorrect, "ask_if_ready:", data.ask_if_ready);
+                console.log("[PeerDiscussion] isCorrect:", isCorrect, "ask_if_ready:", data.ask_if_ready, "phase:", data.phase);
 
                 const aiMessage = data.message;
-                const peerName = data.name || aiName;
+                // Always use the consistent aiName from peerMatch, ignore data.name to prevent mismatch
 
                 setMessages(prev => [...prev, {
                     id: `ai_${Date.now()}`,
                     sender_id: "ai",
-                    sender_name: peerName,
+                    sender_name: aiName,
                     content: aiMessage,
                     timestamp: Date.now() / 1000
                 }]);
 
                 // Save AI response to backend
                 saveMessage("peer", aiMessage);
+
+                // Update adaptive state from response
+                if (data.phase !== undefined) {
+                    setAdaptiveState({
+                        phase: data.phase,
+                        hintsGiven: data.hints_given || 0,
+                        canRequestHint: data.can_request_hint !== false,
+                        stuckDetected: data.stuck_detected || false,
+                        misconceptionsCount: data.misconceptions_count || 0
+                    });
+                }
 
                 // Check if AI signals it's time for the mastery check
                 if (isCorrect && !data.follow_up_question) {
@@ -573,6 +601,65 @@ export default function PeerDiscussion({
         } catch (error) {
             console.error("Smart peer API error:", error);
             fallbackAIResponse(userMessage, aiName);
+        }
+    };
+
+    const requestHint = async () => {
+        if (requestingHint || !adaptiveState.canRequestHint) return;
+
+        setRequestingHint(true);
+        const aiName = peerMatch?.ai_peer_name || "Alex";
+
+        try {
+            const response = await fetch(`${API_URL}/games/${gameId}/peer/request-hint`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    player_id: playerId,
+                    question_index: questionIndex,
+                    context: {
+                        student_answer: studentAnswer,
+                        is_correct: isCorrect,
+                        reasoning: studentReasoning,
+                        confidence: confidence,
+                        question: {
+                            question_text: question.question_text,
+                            options: question.options,
+                            correct_answer: correctAnswer,
+                            explanation: question.explanation
+                        }
+                    }
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("[PeerDiscussion] Hint response:", data);
+
+                setMessages(prev => [...prev, {
+                    id: `hint_${Date.now()}`,
+                    sender_id: "ai",
+                    sender_name: aiName,
+                    content: data.message,
+                    timestamp: Date.now() / 1000
+                }]);
+
+                // Save hint to backend
+                saveMessage("peer", `[Hint ${data.hints_given}] ${data.message}`);
+
+                // Update adaptive state
+                setAdaptiveState({
+                    phase: data.phase || "hinting",
+                    hintsGiven: data.hints_given || 0,
+                    canRequestHint: data.can_request_hint !== false,
+                    stuckDetected: data.stuck_detected || false,
+                    misconceptionsCount: data.misconceptions_count || 0
+                });
+            }
+        } catch (error) {
+            console.error("Failed to request hint:", error);
+        } finally {
+            setRequestingHint(false);
         }
     };
 
@@ -764,7 +851,10 @@ export default function PeerDiscussion({
     }
 
     const isRealPeer = matchStatus === "matched";
-    const peerName = peerMatch?.peer_name || peerMatch?.ai_peer_name || "Study Buddy";
+    // Use consistent peer name throughout - prioritize ai_peer_name for AI, peer_name for real peers
+    const peerName = isRealPeer
+        ? (peerMatch?.peer_name || "Study Buddy")
+        : (peerMatch?.ai_peer_name || "Alex");
 
     return (
         <div className="bg-gray-800 rounded-2xl overflow-hidden border border-gray-700">
@@ -798,6 +888,53 @@ export default function PeerDiscussion({
                     </div>
                 )}
             </div>
+
+            {/* Adaptive Progress Indicator - shows phase and hints */}
+            {!isCorrect && !discussionComplete && adaptiveState.phase && (
+                <div className="px-4 py-2 bg-gray-750 border-b border-gray-700">
+                    <div className="flex items-center justify-between">
+                        {/* Phase indicator */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                                {["probing", "hinting", "targeted", "explaining"].map((phase, idx) => (
+                                    <div
+                                        key={phase}
+                                        className={`h-1.5 w-6 rounded-full transition-colors ${
+                                            adaptiveState.phase === phase
+                                                ? "bg-sky-400"
+                                                : idx < ["probing", "hinting", "targeted", "explaining"].indexOf(adaptiveState.phase || "probing")
+                                                    ? "bg-sky-600"
+                                                    : "bg-gray-600"
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-xs text-gray-400 capitalize">
+                                {adaptiveState.phase === "probing" && "Exploring your thinking..."}
+                                {adaptiveState.phase === "hinting" && "Giving hints..."}
+                                {adaptiveState.phase === "targeted" && "Addressing misconception..."}
+                                {adaptiveState.phase === "explaining" && "Explaining concept..."}
+                            </span>
+                        </div>
+
+                        {/* Hint count */}
+                        {adaptiveState.hintsGiven > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-amber-400">
+                                <Lightbulb className="h-3 w-3" />
+                                <span>{adaptiveState.hintsGiven}/3 hints</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Stuck indicator */}
+                    {adaptiveState.stuckDetected && (
+                        <div className="mt-1 flex items-center gap-1 text-xs text-amber-300">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>Let me try a different approach...</span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Question Context - collapsible */}
             <div className="border-b border-gray-700">
@@ -982,7 +1119,6 @@ export default function PeerDiscussion({
                                                 setMasteryAnswer(key);
                                                 if (key === correctAnswer) {
                                                     // Correct! Add success message and show insight
-                                                    const peerName = peerMatch?.ai_peer_name || "Quizzy";
                                                     setMessages(prev => [...prev, {
                                                         id: `success_${Date.now()}`,
                                                         sender_id: "ai",
@@ -997,7 +1133,6 @@ export default function PeerDiscussion({
                                                     // Wrong again - hide check and continue discussion
                                                     setMasteryAttempts(prev => prev + 1);
                                                     setShowMasteryCheck(false);
-                                                    const peerName = peerMatch?.ai_peer_name || "Quizzy";
                                                     const wrongText = question.options[key] || key;
                                                     setMessages(prev => [...prev, {
                                                         id: `ai_${Date.now()}`,
@@ -1112,6 +1247,22 @@ export default function PeerDiscussion({
                         >
                             <Send className="h-5 w-5" />
                         </button>
+
+                        {/* Hint Request Button */}
+                        {!isCorrect && adaptiveState.canRequestHint && !showMasteryCheck && !askIfReady && (
+                            <button
+                                onClick={requestHint}
+                                disabled={requestingHint || !adaptiveState.canRequestHint}
+                                className="w-10 h-10 rounded-full bg-amber-600/20 border border-amber-500/30 flex items-center justify-center text-amber-400 hover:bg-amber-600/30 hover:border-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title={`Need a hint? (${3 - adaptiveState.hintsGiven} left)`}
+                            >
+                                {requestingHint ? (
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                    <Sparkles className="h-5 w-5" />
+                                )}
+                            </button>
+                        )}
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
                         {messages.length > 0 && messages[messages.length - 1]?.sender_id !== playerId
@@ -1120,6 +1271,9 @@ export default function PeerDiscussion({
                                 ? "Chat with your peer to understand the concept better"
                                 : "Paste or attach images of your work"
                         }
+                        {!isCorrect && adaptiveState.canRequestHint && adaptiveState.hintsGiven < 3 && (
+                            <span className="ml-2 text-amber-400">✨ Stuck? Click the sparkle for a hint!</span>
+                        )}
                     </p>
                 </div>
             ) : (

@@ -20,6 +20,7 @@ from ..models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer,
 from ..websocket_manager import manager, active_timers, GameTimer
 from ..rate_limiter import limiter, ANSWER_RATE_LIMIT
 from .websocket_routes import broadcast_game_state, start_question_timer, stop_game_timer
+from ..services.smart_peer_service import get_peer_name
 
 router = APIRouter()
 
@@ -2184,9 +2185,8 @@ async def find_peer_for_discussion(
                 # Remove from queue
                 queue[:] = [w for w in queue if w["player_id"] != player_key]
 
-                # Create AI peer match
-                ai_names = ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey"]
-                ai_name = ai_names[hash(player_key) % len(ai_names)]
+                # Create AI peer match - use consistent name function from smart_peer_service
+                ai_name = get_peer_name(player_key)
                 room_id = f"{game_key}_{q_idx}_{player_key}_ai"
 
                 ai_match = {
@@ -2331,10 +2331,18 @@ class SmartChatResponse(BaseModel):
     follow_up_question: Optional[str] = None
     ready_for_check: bool = False  # True when student should try the question again
     ask_if_ready: bool = False  # True when AI gave lesson and asks if ready to try again
+    # New adaptive fields
+    phase: Optional[str] = None  # "probing" | "hinting" | "targeted" | "explaining"
+    hints_given: int = 0
+    can_request_hint: bool = True
+    stuck_detected: bool = False
+    misconceptions_count: int = 0
 
 
 # In-memory chat history storage per player/question (consider Redis for production)
 smart_chat_histories: Dict[str, List[Dict[str, str]]] = {}
+# In-memory discussion state storage per player/question
+smart_chat_states: Dict[str, Dict[str, Any]] = {}
 
 
 @router.post("/{game_id}/peer/smart-chat", response_model=SmartChatResponse)
@@ -2350,15 +2358,23 @@ async def smart_peer_chat(
     - Shows actual option text, not just "A" or "C"
     - Asks about concepts and reasoning, not letter choices
     - Helps students discover the answer through guided discussion
+
+    Adaptive features:
+    - Adjusts probing depth based on confidence/error type
+    - Detects when student is stuck and changes approach
+    - Provides graduated hints (3 levels)
+    - Personalizes final explanation to student's journey
     """
-    from ..services.smart_peer_service import generate_smart_peer_response, get_peer_name
+    from ..services.smart_peer_service import generate_smart_peer_response, get_peer_name, DiscussionState
 
     # Get chat history key
     history_key = f"{game_id}_{request.player_id}_{request.question_index}"
 
-    # Initialize history if needed
+    # Initialize history and state if needed
     if history_key not in smart_chat_histories:
         smart_chat_histories[history_key] = []
+    if history_key not in smart_chat_states:
+        smart_chat_states[history_key] = None
 
     # Get context from request or fetch from DB
     context = request.context or {}
@@ -2406,7 +2422,12 @@ async def smart_peer_chat(
             "data": request.attachment.data
         }
 
-    # Generate AI response
+    # Restore discussion state
+    discussion_state = None
+    if smart_chat_states[history_key]:
+        discussion_state = DiscussionState.from_dict(smart_chat_states[history_key])
+
+    # Generate AI response with adaptive logic
     response = await generate_smart_peer_response(
         question=question_data,
         student_answer=student_answer,
@@ -2416,7 +2437,9 @@ async def smart_peer_chat(
         chat_history=smart_chat_histories[history_key],
         player_id=request.player_id,
         confidence=confidence,
-        attachment=attachment_data
+        attachment=attachment_data,
+        discussion_state=discussion_state,
+        hint_requested=False
     )
 
     # Add AI response to history
@@ -2425,6 +2448,10 @@ async def smart_peer_chat(
         "name": response["name"],
         "content": response["message"]
     })
+
+    # Save updated discussion state
+    if response.get("discussion_state"):
+        smart_chat_states[history_key] = response["discussion_state"]
 
     # Keep history limited
     if len(smart_chat_histories[history_key]) > 20:
@@ -2435,7 +2462,131 @@ async def smart_peer_chat(
         message=response["message"],
         follow_up_question=response.get("follow_up_question"),
         ready_for_check=response.get("ready_for_check", False),
-        ask_if_ready=response.get("ask_if_ready", False)
+        ask_if_ready=response.get("ask_if_ready", False),
+        # New adaptive fields
+        phase=response.get("phase"),
+        hints_given=response.get("hints_given", 0),
+        can_request_hint=response.get("can_request_hint", True),
+        stuck_detected=response.get("stuck_detected", False),
+        misconceptions_count=response.get("misconceptions_count", 0)
+    )
+
+
+class HintRequest(BaseModel):
+    """Request for a hint during peer discussion."""
+    player_id: str
+    question_index: int
+    context: Optional[Dict[str, Any]] = None
+
+
+@router.post("/{game_id}/peer/request-hint", response_model=SmartChatResponse)
+async def request_hint(
+    game_id: UUID,
+    request: HintRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Request a hint during peer discussion.
+
+    Provides graduated hints (up to 3 levels):
+    - Level 1: Direction hint - conceptual nudge
+    - Level 2: Contrast hint - key distinction
+    - Level 3: Strong scaffolding - most of the reasoning
+
+    Returns the hint as a peer message.
+    """
+    from ..services.smart_peer_service import generate_smart_peer_response, get_peer_name, DiscussionState
+
+    # Get chat history key
+    history_key = f"{game_id}_{request.player_id}_{request.question_index}"
+
+    # Check if we have state and history
+    if history_key not in smart_chat_histories:
+        smart_chat_histories[history_key] = []
+    if history_key not in smart_chat_states:
+        smart_chat_states[history_key] = None
+
+    # Restore discussion state
+    discussion_state = None
+    if smart_chat_states[history_key]:
+        discussion_state = DiscussionState.from_dict(smart_chat_states[history_key])
+    else:
+        discussion_state = DiscussionState()
+
+    # Check if hints are available
+    if discussion_state.hints_given >= 3:
+        return SmartChatResponse(
+            name=get_peer_name(request.player_id),
+            message="I've already given you all my hints! Let me explain the concept instead...",
+            phase="explaining",
+            hints_given=discussion_state.hints_given,
+            can_request_hint=False
+        )
+
+    # Get context from request or fetch from DB
+    context = request.context or {}
+    question_data = context.get("question", {})
+    student_answer = context.get("student_answer", "A")
+    is_correct = context.get("is_correct", False)
+    student_reasoning = context.get("reasoning")
+    confidence = context.get("confidence")
+
+    # If no question in context, try to fetch from DB
+    if not question_data:
+        result = await db.execute(
+            select(GameSession)
+            .options(selectinload(GameSession.quiz).selectinload(Quiz.questions))
+            .where(GameSession.id == game_id)
+        )
+        game = result.scalars().first()
+
+        if game:
+            questions = sorted(game.quiz.questions, key=lambda q: q.order)
+            if 0 <= request.question_index < len(questions):
+                q = questions[request.question_index]
+                question_data = {
+                    "question_text": q.question_text,
+                    "options": q.options,
+                    "correct_answer": q.correct_answer,
+                    "explanation": q.explanation
+                }
+
+    # Generate hint response
+    response = await generate_smart_peer_response(
+        question=question_data,
+        student_answer=student_answer,
+        student_reasoning=student_reasoning,
+        correct_answer=question_data.get("correct_answer", "A"),
+        is_correct=is_correct,
+        chat_history=smart_chat_histories[history_key],
+        player_id=request.player_id,
+        confidence=confidence,
+        discussion_state=discussion_state,
+        hint_requested=True  # This triggers hint generation
+    )
+
+    # Add hint to history
+    smart_chat_histories[history_key].append({
+        "role": "peer",
+        "name": response["name"],
+        "content": response["message"]
+    })
+
+    # Save updated state
+    if response.get("discussion_state"):
+        smart_chat_states[history_key] = response["discussion_state"]
+
+    return SmartChatResponse(
+        name=response["name"],
+        message=response["message"],
+        follow_up_question=response.get("follow_up_question"),
+        ready_for_check=response.get("ready_for_check", False),
+        ask_if_ready=response.get("ask_if_ready", False),
+        phase=response.get("phase"),
+        hints_given=response.get("hints_given", 0),
+        can_request_hint=response.get("can_request_hint", True),
+        stuck_detected=response.get("stuck_detected", False),
+        misconceptions_count=response.get("misconceptions_count", 0)
     )
 
 
@@ -2445,17 +2596,23 @@ async def clear_smart_chat_history(
     player_id: str,
     question_index: Optional[int] = Query(None)
 ):
-    """Clear chat history for a player (optionally for specific question)."""
+    """Clear chat history and state for a player (optionally for specific question)."""
     if question_index is not None:
         history_key = f"{game_id}_{player_id}_{question_index}"
         if history_key in smart_chat_histories:
             del smart_chat_histories[history_key]
+        if history_key in smart_chat_states:
+            del smart_chat_states[history_key]
     else:
-        # Clear all histories for this player in this game
+        # Clear all histories and states for this player in this game
         keys_to_delete = [k for k in smart_chat_histories.keys()
                          if k.startswith(f"{game_id}_{player_id}_")]
         for key in keys_to_delete:
             del smart_chat_histories[key]
+        keys_to_delete = [k for k in smart_chat_states.keys()
+                         if k.startswith(f"{game_id}_{player_id}_")]
+        for key in keys_to_delete:
+            del smart_chat_states[key]
 
     return {"status": "cleared"}
 

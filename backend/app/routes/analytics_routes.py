@@ -360,18 +360,195 @@ async def get_misconception_clusters(
 
 
 @router.get("/course/{course_id}/trends")
-async def get_course_trends(course_id: int, limit: int = 10):
+async def get_course_trends(
+    course_id: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Get mastery trends over recent sessions for a course.
-    
+    Get mastery trends over recent sessions for a course/class.
+
     GET /analytics/course/{course_id}/trends
+
+    Returns comprehensive class-level analytics including:
+    - Per-student performance across all sessions
+    - Quiz-by-quiz progress
+    - Concept mastery trends
+    - Students needing support
     """
+    import uuid
+    from ..models.game import GameSession, Player, PlayerAnswer, Quiz
+    from sqlalchemy.orm import selectinload
+
+    try:
+        c_uuid = uuid.UUID(course_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid course ID format")
+
+    # Get all game sessions for this course
+    sessions_query = select(GameSession).where(
+        GameSession.course_id == c_uuid
+    ).options(
+        selectinload(GameSession.players).selectinload(Player.answers),
+        selectinload(GameSession.quiz)
+    ).order_by(GameSession.created_at.desc()).limit(limit)
+
+    result = await db.execute(sessions_query)
+    sessions = result.scalars().all()
+
+    if not sessions:
+        return {
+            "course_id": course_id,
+            "sessions": [],
+            "student_performance": [],
+            "concept_trends": {},
+            "overall_trend": "no_data",
+            "summary": "No quiz sessions found for this class"
+        }
+
+    # Aggregate student performance across all sessions
+    student_data: Dict[str, Dict[str, Any]] = {}
+    session_summaries = []
+
+    for session in sessions:
+        quiz_title = session.quiz.title if session.quiz else "Unknown Quiz"
+        session_summary = {
+            "session_id": str(session.id),
+            "quiz_title": quiz_title,
+            "game_code": session.game_code,
+            "played_at": session.created_at.isoformat() if session.created_at else None,
+            "player_count": len(session.players),
+            "class_accuracy": 0.0
+        }
+
+        total_correct = 0
+        total_answers = 0
+
+        for player in session.players:
+            student_key = player.nickname.lower()
+
+            if student_key not in student_data:
+                student_data[student_key] = {
+                    "nickname": player.nickname,
+                    "total_correct": 0,
+                    "total_answers": 0,
+                    "total_confidence": 0,
+                    "sessions_participated": 0,
+                    "quiz_scores": [],
+                    "overconfident_errors": 0,
+                    "needs_support": False
+                }
+
+            student_data[student_key]["sessions_participated"] += 1
+
+            player_correct = 0
+            player_total = 0
+            player_confidence_sum = 0
+
+            for answer in player.answers:
+                student_data[student_key]["total_answers"] += 1
+                player_total += 1
+                total_answers += 1
+
+                if answer.is_correct:
+                    student_data[student_key]["total_correct"] += 1
+                    player_correct += 1
+                    total_correct += 1
+                elif answer.confidence and answer.confidence >= 70:
+                    student_data[student_key]["overconfident_errors"] += 1
+
+                if answer.confidence:
+                    player_confidence_sum += answer.confidence
+                    student_data[student_key]["total_confidence"] += answer.confidence
+
+            if player_total > 0:
+                quiz_score = round(player_correct / player_total * 100, 1)
+                student_data[student_key]["quiz_scores"].append({
+                    "quiz_title": quiz_title,
+                    "score": quiz_score,
+                    "played_at": session.created_at.isoformat() if session.created_at else None
+                })
+
+        if total_answers > 0:
+            session_summary["class_accuracy"] = round(total_correct / total_answers * 100, 1)
+
+        session_summaries.append(session_summary)
+
+    # Calculate final student metrics
+    student_performance = []
+    students_needing_support = []
+
+    for key, data in student_data.items():
+        accuracy = round(data["total_correct"] / data["total_answers"] * 100, 1) if data["total_answers"] > 0 else 0
+        avg_confidence = round(data["total_confidence"] / data["total_answers"], 1) if data["total_answers"] > 0 else 0
+
+        # Flag students needing support
+        needs_support = (
+            accuracy < 60 or
+            data["overconfident_errors"] >= 3 or
+            (data["sessions_participated"] >= 2 and accuracy < 50)
+        )
+
+        student_perf = {
+            "nickname": data["nickname"],
+            "accuracy": accuracy,
+            "avg_confidence": avg_confidence,
+            "sessions_participated": data["sessions_participated"],
+            "total_questions": data["total_answers"],
+            "overconfident_errors": data["overconfident_errors"],
+            "needs_support": needs_support,
+            "trend": _calculate_trend(data["quiz_scores"]) if len(data["quiz_scores"]) >= 2 else "insufficient_data"
+        }
+
+        student_performance.append(student_perf)
+
+        if needs_support:
+            students_needing_support.append(data["nickname"])
+
+    # Sort by accuracy (lowest first for easy identification of struggling students)
+    student_performance.sort(key=lambda x: x["accuracy"])
+
+    # Calculate overall class trend
+    if len(session_summaries) >= 2:
+        recent_avg = sum(s["class_accuracy"] for s in session_summaries[:3]) / min(3, len(session_summaries))
+        older_avg = sum(s["class_accuracy"] for s in session_summaries[-3:]) / min(3, len(session_summaries))
+        overall_trend = "improving" if recent_avg > older_avg + 5 else "declining" if recent_avg < older_avg - 5 else "stable"
+    else:
+        overall_trend = "insufficient_data"
+
     return {
         "course_id": course_id,
-        "sessions": [],
-        "concept_trends": {},
-        "overall_trend": "no_data"
+        "sessions": session_summaries,
+        "student_performance": student_performance,
+        "students_needing_support": students_needing_support,
+        "overall_trend": overall_trend,
+        "summary": f"{len(student_performance)} students across {len(sessions)} quiz sessions",
+        "class_stats": {
+            "total_students": len(student_performance),
+            "avg_accuracy": round(sum(s["accuracy"] for s in student_performance) / len(student_performance), 1) if student_performance else 0,
+            "students_struggling": len(students_needing_support)
+        }
     }
+
+
+def _calculate_trend(quiz_scores: List[Dict]) -> str:
+    """Calculate performance trend from quiz scores."""
+    if len(quiz_scores) < 2:
+        return "insufficient_data"
+
+    # Sort by date and compare recent to older
+    sorted_scores = sorted(quiz_scores, key=lambda x: x.get("played_at") or "")
+    recent = sorted_scores[-2:]
+    older = sorted_scores[:-2] if len(sorted_scores) > 2 else sorted_scores[:1]
+
+    recent_avg = sum(s["score"] for s in recent) / len(recent)
+    older_avg = sum(s["score"] for s in older) / len(older)
+
+    if recent_avg > older_avg + 10:
+        return "improving"
+    elif recent_avg < older_avg - 10:
+        return "declining"
+    return "stable"
 
 
 @router.post("/session/{session_id}/export")

@@ -74,6 +74,22 @@ export default function MathText({ text, className = "" }: MathTextProps) {
             return `<code class="rounded bg-gray-700 px-1.5 py-0.5 font-mono text-sm text-cyan-300">${type} ${name} = ${value}</code>`;
         });
 
+        // Detect C++ style namespaced identifiers with underscores (std::map::value_type, std::pair<...>)
+        // This must run BEFORE subscript conversion to prevent value_type becoming value<sub>type</sub>
+        result = result.replace(/\b(std::[a-zA-Z_][a-zA-Z0-9_:<>,\s]*)/g, (match) => {
+            if (match.includes('class="')) return match;
+            return `<code class="rounded bg-gray-700 px-1.5 py-0.5 font-mono text-sm text-cyan-300">${escapeHtml(match)}</code>`;
+        });
+
+        // Detect common programming identifiers with underscores that should NOT be subscripts
+        // Pattern: word_word or word_word_word (like snake_case identifiers, type names)
+        // Only match if they look like code (have multiple underscores or are all lowercase/mixed with underscores)
+        result = result.replace(/\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b/gi, (match) => {
+            if (match.includes('class="')) return match;
+            // Skip if it's already inside a tag
+            return `<code class="rounded bg-gray-700 px-1.5 py-0.5 font-mono text-sm text-cyan-300">${escapeHtml(match)}</code>`;
+        });
+
         // Process display math first ($$...$$)
         result = result.replace(/\$\$([^$]+)\$\$/g, (_, latex) => {
             try {
@@ -113,16 +129,25 @@ export default function MathText({ text, className = "" }: MathTextProps) {
             }
         });
 
-        // Subscripts: x_i, a_1
+        // Subscripts: x_i, a_1 (but ONLY for math-like patterns, NOT code identifiers)
+        // Skip if already in a code tag or if it looks like a snake_case identifier
         result = result.replace(/(\w+)_(\w+)/g, (match, base, sub) => {
-            try {
-                return katex.renderToString(`${base}_{${sub}}`, {
-                    displayMode: false,
-                    throwOnError: false,
-                });
-            } catch {
-                return match;
+            // Don't convert if it looks like code (snake_case with lowercase)
+            if (/^[a-z][a-z0-9]*_[a-z0-9]+$/i.test(match) && match === match.toLowerCase()) {
+                return match; // Keep as-is, likely a code identifier
             }
+            // Only convert short math-like subscripts (x_i, a_1, etc.)
+            if (base.length <= 2 && sub.length <= 2) {
+                try {
+                    return katex.renderToString(`${base}_{${sub}}`, {
+                        displayMode: false,
+                        throwOnError: false,
+                    });
+                } catch {
+                    return match;
+                }
+            }
+            return match;
         });
 
         // Cardinality/absolute value: |S|, |x|
