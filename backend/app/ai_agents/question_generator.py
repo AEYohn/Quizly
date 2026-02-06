@@ -20,18 +20,20 @@ except ImportError:
 
 
 def shuffle_options(question: Dict) -> Dict:
-    """Shuffle options and update correct_answer to match new position."""
+    """Shuffle options and update correct_answer + explanation to match new positions."""
+    import re
+
     options = question.get("options", [])
     correct_answer = question.get("correct_answer", "A")
-    
+
     if not options or len(options) < 4:
         return question
-    
+
     # Find the correct option text
     correct_idx = ord(correct_answer[0].upper()) - ord('A')
     if correct_idx < 0 or correct_idx >= len(options):
         return question
-    
+
     # Strip the letter prefixes to get just the answer text
     option_texts = []
     for opt in options:
@@ -41,23 +43,62 @@ def shuffle_options(question: Dict) -> Dict:
             option_texts.append(opt[3:])
         else:
             option_texts.append(opt)
-    
+
+    # Save original order for remapping
+    original_order = list(option_texts)
     correct_text = option_texts[correct_idx]
-    
+
     # Shuffle the option texts
     random.shuffle(option_texts)
-    
+
+    # Build old→new letter mapping
+    letter_map = {}
+    for old_idx, text in enumerate(original_order):
+        new_idx = option_texts.index(text)
+        old_letter = chr(ord('A') + old_idx)
+        new_letter = chr(ord('A') + new_idx)
+        letter_map[old_letter] = new_letter
+
     # Find new position of correct answer
     new_correct_idx = option_texts.index(correct_text)
     new_correct_letter = chr(ord('A') + new_correct_idx)
-    
+
     # Rebuild options with letter prefixes
     new_options = [f"{chr(ord('A') + i)}. {text}" for i, text in enumerate(option_texts)]
-    
+
+    # Remap letter references in explanation so they match shuffled order
+    explanation = question.get("explanation", "")
+    if explanation and letter_map:
+        # Use placeholders to avoid double-replacement (A→C then C→B)
+        for old_letter, new_letter in letter_map.items():
+            placeholder = f"__OPTION_{old_letter}__"
+            # Match patterns like "Option A", "option A", "A.", "A)", "A is", "A:"
+            explanation = re.sub(
+                rf'\b(Option\s+){old_letter}\b',
+                rf'\1{placeholder}',
+                explanation,
+                flags=re.IGNORECASE,
+            )
+            explanation = re.sub(
+                rf'\b{old_letter}([.)\s:,])',
+                rf'{placeholder}\1',
+                explanation,
+            )
+        # Replace placeholders with final letters
+        for old_letter, new_letter in letter_map.items():
+            placeholder = f"__OPTION_{old_letter}__"
+            explanation = explanation.replace(placeholder, new_letter)
+        question["explanation"] = explanation
+
+    # Also remap misconception_trap_option if present
+    trap = question.get("misconception_trap_option", "")
+    if trap and len(trap) == 1 and trap.upper() in letter_map:
+        question["misconception_trap_option"] = letter_map[trap.upper()]
+
     # Update question
     question["options"] = new_options
     question["correct_answer"] = new_correct_letter
-    
+
     return question
 
 
