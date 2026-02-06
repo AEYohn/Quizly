@@ -5,6 +5,7 @@ import { Geist } from "next/font/google";
 import { ClerkProviderWrapper } from "@/components/ClerkProviderWrapper";
 import { AuthProvider } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { QueryProvider } from "@/lib/QueryProvider";
 
 // Force dynamic rendering for all pages to handle Clerk auth during CI builds
 export const dynamic = "force-dynamic";
@@ -69,9 +70,11 @@ export default function RootLayout({
             <body style={{ background: "#030712", margin: 0 }}>
                 <div id="bg-layer" aria-hidden="true" />
                 <ClerkProviderWrapper>
-                    <ErrorBoundary>
-                        <AuthProvider>{children}</AuthProvider>
-                    </ErrorBoundary>
+                    <QueryProvider>
+                        <ErrorBoundary>
+                            <AuthProvider>{children}</AuthProvider>
+                        </ErrorBoundary>
+                    </QueryProvider>
                 </ClerkProviderWrapper>
             </body>
         </html>

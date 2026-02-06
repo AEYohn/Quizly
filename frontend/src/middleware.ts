@@ -10,6 +10,11 @@ const isPublicRoute = createRouteMatcher([
     "/play(.*)",           // Game play pages
     "/explore(.*)",        // Public explore/marketplace
     "/practice(.*)",       // Public quiz practice (shareable links)
+    "/learn(.*)",          // Conversational learning + scroll mode
+    "/compete(.*)",        // Leaderboard / compete
+    "/feed(.*)",           // TikTok-style feed with tabs
+    // "/v/(.*)" removed — single design, no variant routes
+    "/progress(.*)",       // Learning progress dashboard
     "/api/webhooks(.*)",   // Webhooks
 ]);
 

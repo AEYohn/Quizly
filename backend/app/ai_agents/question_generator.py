@@ -209,30 +209,19 @@ Return ONLY valid JSON matching this structure:
         """Check if question has real educational content (not placeholders)."""
         prompt = question.get("prompt", "")
         options = question.get("options", [])
-        
-        # Check for placeholder patterns
-        placeholder_patterns = [
-            "correct understanding of",
-            "common misconception about",
-            "overgeneralization of",
-            "confusion with a related",
-            "which of the following best describes"
-        ]
-        
-        prompt_lower = prompt.lower()
-        if any(pattern in prompt_lower for pattern in placeholder_patterns):
+
+        # Reject obvious placeholder/fallback markers
+        if "[LLM Required]" in prompt or "[LLM required" in prompt:
             return False
-        
-        # Check options for placeholder patterns
-        for opt in options:
-            opt_lower = opt.lower()
-            if any(pattern in opt_lower for pattern in placeholder_patterns):
-                return False
-        
-        # Ensure we have enough options
+
+        # Ensure we have enough options with real content
         if len(options) < 4:
             return False
-        
+
+        for opt in options:
+            if "[LLM required" in opt or len(opt.strip()) < 5:
+                return False
+
         return True
     
     def _fallback_question(self, concept: Dict, difficulty: float) -> Dict:

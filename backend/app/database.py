@@ -46,12 +46,31 @@ else:
         separator = "&" if "?" in DATABASE_URL else "?"
         DATABASE_URL += f"{separator}sslmode=disable"
 
+# Engine kwargs
+_engine_kwargs: dict = {
+    "echo": os.getenv("DEBUG", "false").lower() == "true",
+    "pool_pre_ping": True,
+}
+
+# SQLite-specific: enable WAL mode + busy timeout to prevent "database is locked"
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+if _is_sqlite:
+    from sqlalchemy import event as _sa_event
+
+    _engine_kwargs["connect_args"] = {"timeout": 30}  # 30s busy timeout
+
 # Create async engine
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=os.getenv("DEBUG", "false").lower() == "true",
-    pool_pre_ping=True,
-)
+engine = create_async_engine(DATABASE_URL, **_engine_kwargs)
+
+# Enable WAL mode for SQLite (much better concurrent read/write)
+if _is_sqlite:
+    @_sa_event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
 # Session factory
 async_session = async_sessionmaker(
@@ -223,24 +242,50 @@ def run_migrations(conn):
 
 
 async def init_db():
-    """Create all tables and run migrations."""
+    """Initialize database: run Alembic migrations, then create any missing tables."""
     # Import all models so they're registered with Base
     from .db_models import User, Course, Session, Question, Response  # noqa
     from .models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer  # noqa
-    # Import learning models for exit tickets, misconceptions, etc.
     from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession, StudentAssignment  # noqa
+    from .db_models_content_pool import ContentItem, UserContentInteraction, UserTopicPreference  # noqa
+    from .db_models_assessment import FamiliarityAssessment  # noqa
 
+    # Run Alembic migrations via subprocess (avoids nested event loop issues)
+    import subprocess
+    import os
+
+    backend_dir = os.path.dirname(os.path.dirname(__file__))
+    try:
+        print("   Running Alembic migrations...", flush=True)
+        result = subprocess.run(
+            ["python", "-m", "alembic", "upgrade", "head"],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            print("   Alembic migrations complete", flush=True)
+        else:
+            print(f"   Alembic migration note: {result.stderr.strip()}", flush=True)
+            # Fall back to create_all if Alembic fails
+            async with engine.begin() as conn:
+                print("   Falling back to create_all...", flush=True)
+                await conn.run_sync(Base.metadata.create_all)
+                print("   Tables created via create_all", flush=True)
+    except Exception as e:
+        print(f"   Alembic migration note: {e}", flush=True)
+        async with engine.begin() as conn:
+            print("   Falling back to create_all...", flush=True)
+            await conn.run_sync(Base.metadata.create_all)
+            print("   Tables created via create_all", flush=True)
+
+    # Run legacy column migrations for backwards compatibility
     async with engine.begin() as conn:
-        # Create tables that don't exist
-        print("   Creating tables...", flush=True)
-        await conn.run_sync(Base.metadata.create_all)
-        print("   Tables ready", flush=True)
-        # Add missing columns to existing tables
         try:
             await conn.run_sync(run_migrations)
         except Exception as e:
-            print(f"   Migration error: {e}", flush=True)
-            raise
+            print(f"   Legacy migration note: {e}", flush=True)
 
 
 async def close_db():

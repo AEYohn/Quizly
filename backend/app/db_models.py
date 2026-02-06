@@ -24,7 +24,7 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For authenticated users
     role: Mapped[str] = mapped_column(String(50), nullable=False)  # 'teacher' or 'student'
     clerk_user_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)  # Clerk auth
@@ -43,7 +43,7 @@ class Course(Base):
     
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     teacher_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     cover_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -71,7 +71,7 @@ class CourseModule(Base):
     
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     course_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("courses.id"), nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -90,7 +90,7 @@ class ModuleItem(Base):
     
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     module_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("course_modules.id"), nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     item_type: Mapped[str] = mapped_column(String(50), nullable=False)  # lesson, quiz, assignment, video, page
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Rich text content for lessons/pages
@@ -116,7 +116,7 @@ class CourseEnrollment(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     course_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("courses.id"), nullable=False)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)  # For anonymous students
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)  # For anonymous students
     role: Mapped[str] = mapped_column(String(50), default="student")  # student, ta, observer
     enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -134,7 +134,7 @@ class StudentProgress(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("module_items.id"), nullable=False)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="not_started")  # not_started, in_progress, completed
     score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # For quizzes/assignments
     time_spent_mins: Mapped[int] = mapped_column(Integer, default=0)
@@ -153,7 +153,7 @@ class Session(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     course_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("courses.id"), nullable=True)
     creator_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    topic: Mapped[str] = mapped_column(String(255), nullable=False)
+    topic: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # For marketplace listing
     status: Mapped[str] = mapped_column(String(50), default="draft")  # draft, active, completed
     mode: Mapped[str] = mapped_column(String(50), default="live")  # 'live' or 'async'
@@ -246,7 +246,7 @@ class Response(Base):
     question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions.id"), nullable=False)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     student_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For anonymous
-    answer: Mapped[str] = mapped_column(String(255), nullable=False)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
     reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     confidence: Mapped[int] = mapped_column(Integer, default=50)
     response_type: Mapped[str] = mapped_column(String(50), default="mcq")  # mcq, code, image, text
@@ -271,7 +271,7 @@ class SessionParticipant(Base):
     
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sessions.id"), nullable=False)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     
     # Relationships
@@ -281,11 +281,11 @@ class SessionParticipant(Base):
 class ConceptMastery(Base):
     """Track student mastery of concepts across sessions."""
     __tablename__ = "concept_mastery"
-    
+
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    concept: Mapped[str] = mapped_column(String(255), nullable=False)
+    concept: Mapped[str] = mapped_column(Text, nullable=False)
     mastery_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0-100
     total_attempts: Mapped[int] = mapped_column(Integer, default=0)
     correct_attempts: Mapped[int] = mapped_column(Integer, default=0)
@@ -293,15 +293,25 @@ class ConceptMastery(Base):
     next_review_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)  # Spaced repetition
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    # BKT (Bayesian Knowledge Tracing) parameters
+    p_learned: Mapped[float] = mapped_column(Float, default=0.1)
+    p_guess: Mapped[float] = mapped_column(Float, default=0.15)
+    p_slip: Mapped[float] = mapped_column(Float, default=0.1)
+    p_transit: Mapped[float] = mapped_column(Float, default=0.2)
+
+    # Thompson Sampling parameters
+    ts_alpha: Mapped[float] = mapped_column(Float, default=1.0)
+    ts_beta: Mapped[float] = mapped_column(Float, default=1.0)
+
 
 class StudentMisconception(Base):
     """Track persistent misconceptions per student."""
     __tablename__ = "student_misconceptions"
     
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    concept: Mapped[str] = mapped_column(String(255), nullable=False)
+    concept: Mapped[str] = mapped_column(Text, nullable=False)
     misconception: Mapped[str] = mapped_column(Text, nullable=False)
     occurrence_count: Mapped[int] = mapped_column(Integer, default=1)
     is_resolved: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -317,7 +327,7 @@ class DiscussionLog(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sessions.id"), nullable=False)
     question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions.id"), nullable=False)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
     discussion_partner: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # AI or peer name
     discussion_type: Mapped[str] = mapped_column(String(50), default="ai_peer")  # ai_peer, human_peer, teacher
     messages: Mapped[dict] = mapped_column(JSON, default=list)  # Full conversation
@@ -336,9 +346,9 @@ class SpacedRepetitionItem(Base):
     __tablename__ = "spaced_repetition_items"
     
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    concept: Mapped[str] = mapped_column(String(255), nullable=False)
+    concept: Mapped[str] = mapped_column(Text, nullable=False)
     question_template: Mapped[dict] = mapped_column(JSON, nullable=False)  # Question to show
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5)  # SM-2 algorithm
     interval_days: Mapped[int] = mapped_column(Integer, default=1)
@@ -356,7 +366,7 @@ class CodingProblem(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sessions.id"), nullable=True)
     creator_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)  # Problem statement (markdown)
     difficulty: Mapped[str] = mapped_column(String(50), default="medium")  # easy, medium, hard
     subject: Mapped[str] = mapped_column(String(100), default="programming")  # programming, math, data-structures
@@ -407,7 +417,7 @@ class CodeSubmission(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     problem_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("coding_problems.id"), nullable=False)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    student_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
     session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sessions.id"), nullable=True)
     code: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[str] = mapped_column(String(50), nullable=False)  # python, javascript, java, cpp
@@ -435,7 +445,7 @@ class Misconception(Base):
     question_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("questions.id"), nullable=True)
     creator_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)  # Teacher who owns this
 
-    topic: Mapped[str] = mapped_column(String(255), nullable=False)  # e.g., "Recursion"
+    topic: Mapped[str] = mapped_column(Text, nullable=False)  # e.g., "Recursion"
     misconception: Mapped[str] = mapped_column(Text, nullable=False)  # The actual misconception
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Detailed explanation
     affected_count: Mapped[int] = mapped_column(Integer, default=0)  # Number of students affected
@@ -459,7 +469,7 @@ class StudyItem(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)  # quiz, flashcard_deck, note, game
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     visibility: Mapped[str] = mapped_column(String(20), default="private")  # private, class, public
     tags: Mapped[Optional[List[str]]] = mapped_column(JSON, default=list)
@@ -557,7 +567,7 @@ class Collection(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     cover_color: Mapped[str] = mapped_column(String(20), default="#3B82F6")  # Tailwind blue-500
     visibility: Mapped[str] = mapped_column(String(20), default="private")
@@ -612,6 +622,73 @@ class LibraryStudySession(Base):
     collection: Mapped["Collection"] = relationship()
 
 
+class SyllabusCache(Base):
+    """Cached AI-generated syllabus skill trees."""
+    __tablename__ = "syllabus_cache"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    subject: Mapped[str] = mapped_column(Text, index=True)
+    student_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    tree_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SubjectResource(Base):
+    """Uploaded resource metadata for AI-enhanced content generation."""
+    __tablename__ = "subject_resources"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    subject: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    student_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    file_name: Mapped[str] = mapped_column(Text, nullable=False)
+    file_type: Mapped[str] = mapped_column(String(50), nullable=False)  # pdf, text, image
+    summary: Mapped[str] = mapped_column(Text, default="")
+    concepts_json: Mapped[dict] = mapped_column(JSON, default=list)  # ["concept1", ...]
+    objectives_json: Mapped[dict] = mapped_column(JSON, default=list)  # ["Students will..."]
+    key_content: Mapped[str] = mapped_column(Text, default="")  # Truncated for LLM injection (~1000 chars)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class LearningSession(Base):
+    """Conversational adaptive learning session."""
+    __tablename__ = "learning_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    student_name: Mapped[str] = mapped_column(Text, nullable=False)
+    topic: Mapped[str] = mapped_column(Text, nullable=False)
+    phase: Mapped[str] = mapped_column(String(50), default="starting")  # starting, diagnostic, learning, reviewing, ended
+    state_json: Mapped[dict] = mapped_column(JSON, default=dict)  # Full orchestrator state
+    plan_json: Mapped[dict] = mapped_column(JSON, default=dict)  # Concepts, order, difficulty plan
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    questions_answered: Mapped[int] = mapped_column(Integer, default=0)
+    questions_correct: Mapped[int] = mapped_column(Integer, default=0)
+    concepts_covered: Mapped[dict] = mapped_column(JSON, default=list)  # List of concept strings
+    messages_json: Mapped[dict] = mapped_column(JSON, default=list)  # Chat history
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    # Relationships
+    student: Mapped[Optional["User"]] = relationship()
+
+
+class CodebaseAnalysis(Base):
+    """Cached GitHub repository analysis for 'Learn this Project'."""
+    __tablename__ = "codebase_analyses"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    github_url: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    repo_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    analysis_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    tech_stack_json: Mapped[dict] = mapped_column(JSON, default=list)
+    student_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    syllabus_subject: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
 # Import extended learning models to register them
 from . import db_models_learning  # noqa
+from . import db_models_content_pool  # noqa
+from . import db_models_assessment  # noqa
 

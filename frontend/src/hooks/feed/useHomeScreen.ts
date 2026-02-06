@@ -1,0 +1,252 @@
+"use client";
+
+import { useState, useCallback, useRef, useEffect } from "react";
+import { scrollApi, syllabusApi, learnApi, resourcesApi, codebaseApi } from "~/lib/api";
+import { useAuth } from "~/lib/auth";
+import { useScrollSessionStore } from "~/stores/scrollSessionStore";
+
+export function useHomeScreen() {
+    const auth = useAuth();
+    const store = useScrollSessionStore();
+
+    const [loadingMessage, setLoadingMessage] = useState("Setting up your feed...");
+
+    const feedStartingRef = useRef(false);
+    const answerStartTime = useRef(Date.now());
+
+    // Time-relative label
+    const timeAgo = useCallback((iso: string | null) => {
+        if (!iso) return "";
+        const normalized = /[Z+\-]\d{0,2}:?\d{0,2}$/.test(iso) ? iso : iso + "Z";
+        const diff = Date.now() - new Date(normalized).getTime();
+        if (diff < 0 || diff < 60000) return "just now";
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `${mins}m ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `${days}d ago`;
+        return `${Math.floor(days / 7)}w ago`;
+    }, []);
+
+    // Quick-start: tap a topic and go
+    const handleQuickStart = useCallback(async (topic: string) => {
+        if (feedStartingRef.current || store.isLoading) return;
+        feedStartingRef.current = true;
+        store.setTopicInput(topic);
+        store.setIsLoading(true);
+        store.setError(null);
+        setLoadingMessage("Resuming...");
+
+        const timeout5s = setTimeout(() => {
+            if (feedStartingRef.current) setLoadingMessage("Generating questions...");
+        }, 5000);
+        const timeout15s = setTimeout(() => {
+            if (feedStartingRef.current) setLoadingMessage("Almost ready...");
+        }, 15000);
+        const timeout30s = setTimeout(() => {
+            if (feedStartingRef.current) setLoadingMessage("This is taking longer than usual...");
+        }, 30000);
+        const timeout = setTimeout(() => {
+            if (feedStartingRef.current) {
+                feedStartingRef.current = false;
+                store.setIsLoading(false);
+                store.setError("Feed took too long to start. Tap to try again.");
+                setLoadingMessage("Setting up your feed...");
+            }
+        }, 60000);
+
+        try {
+            const studentName = auth.user?.name || "Student";
+            const resumeRes = await scrollApi.resumeFeed(topic, studentName);
+            if (resumeRes.success) {
+                store.setSessionId(resumeRes.data.session_id);
+                store.setTopic(topic);
+                store.setCards(resumeRes.data.cards);
+                store.setCurrentIdx(0);
+                store.setStats(resumeRes.data.stats);
+                store.clearCardState();
+                answerStartTime.current = Date.now();
+                return;
+            }
+
+            setLoadingMessage("Setting up your feed...");
+            const prefs = store.preferences;
+            const apiPrefs = {
+                difficulty: prefs.difficulty,
+                content_mix: prefs.contentMix,
+                question_style: prefs.questionStyle,
+            };
+            const res = await scrollApi.startFeed(
+                topic, studentName, auth.user?.id,
+                store.notesInput.trim() || undefined, apiPrefs,
+            );
+            if (!res.success) { store.setError(res.error ?? "Failed to start feed"); return; }
+            store.setSessionId(res.data.session_id);
+            store.setTopic(topic);
+            store.setCards(res.data.cards);
+            store.setCurrentIdx(0);
+            store.setStats(res.data.stats);
+            store.clearCardState();
+            answerStartTime.current = Date.now();
+        } catch (err) {
+            store.setError(err instanceof Error ? err.message : "Something went wrong");
+        } finally {
+            clearTimeout(timeout5s);
+            clearTimeout(timeout15s);
+            clearTimeout(timeout30s);
+            clearTimeout(timeout);
+            feedStartingRef.current = false;
+            store.setIsLoading(false);
+            setLoadingMessage("Setting up your feed...");
+        }
+    }, [store, auth.user]);
+
+    // Subject selection → generate syllabus
+    const handleSubjectSelect = useCallback(async (subject: string) => {
+        store.setSelectedSubject(subject);
+        store.setSyllabusLoading(true);
+        store.setError(null);
+        try {
+            const res = await syllabusApi.generate(subject, auth.user?.id);
+            if (res.success) {
+                store.setSyllabus(res.data);
+                store.setSelectedSubject(res.data.subject);
+                const firstTopics = res.data.units
+                    .flatMap((u) => u.topics)
+                    .slice(0, 2);
+                firstTopics.forEach((t, i) => {
+                    setTimeout(() => {
+                        scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                    }, i * 3000);
+                });
+                resourcesApi.list(res.data.subject, auth.user?.id).then((rRes) => {
+                    if (rRes.success) {
+                        store.setSubjectResources(rRes.data.resources.map((r) => ({
+                            id: r.id,
+                            file_name: r.file_name,
+                            file_type: r.file_type,
+                            concepts_count: r.concepts_count,
+                        })));
+                    }
+                }).catch(() => {});
+            } else {
+                store.setError(res.error ?? "Failed to generate syllabus");
+            }
+        } catch (err) {
+            store.setError(err instanceof Error ? err.message : "Failed to generate syllabus");
+        } finally {
+            store.setSyllabusLoading(false);
+        }
+    }, [store, auth.user?.id]);
+
+    // PDF upload → extract topic → generate syllabus
+    const handlePdfUpload = useCallback(async (files: FileList) => {
+        store.setSyllabusLoading(true);
+        store.setError(null);
+        try {
+            const formData = new FormData();
+            Array.from(files).forEach((f) => formData.append("files", f));
+            if (auth.user?.id) formData.append("student_id", auth.user.id);
+
+            const res = await resourcesApi.pdfToSyllabus(formData);
+            if (!res.success) {
+                store.setError(res.error ?? "Failed to process document");
+                return;
+            }
+
+            store.setSyllabus(res.data.syllabus);
+            store.setSelectedSubject(res.data.subject);
+            store.setSubjectResources(res.data.resources.filter((r) => r.id).map((r) => ({
+                id: r.id!,
+                file_name: r.file_name,
+                file_type: "pdf",
+                concepts_count: r.concepts_count,
+            })));
+
+            // Pre-generate content for first 2 topics
+            const firstTopics = (res.data.syllabus as { units: Array<{ topics: Array<{ name: string; concepts: string[] }> }> }).units
+                .flatMap((u) => u.topics)
+                .slice(0, 2);
+            firstTopics.forEach((t, i) => {
+                setTimeout(() => {
+                    scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                }, i * 3000);
+            });
+        } catch (err) {
+            store.setError(err instanceof Error ? err.message : "Failed to process document");
+        } finally {
+            store.setSyllabusLoading(false);
+        }
+    }, [store, auth.user?.id]);
+
+    // Delete a subject and all its data
+    const handleDeleteSubject = useCallback(async (subject: string) => {
+        const studentName = auth.user?.name || "Student";
+        try {
+            const res = await learnApi.deleteSubject(subject, studentName);
+            if (res.success) {
+                // Remove from history
+                const updated = store.history.filter((h) => h.subject !== subject);
+                store.setHistory(updated, store.historyOverall ?? { total_subjects: 0, total_sessions: 0, total_questions: 0, total_xp: 0, concepts_mastered: 0 });
+                // Clear syllabus if it was the selected one
+                if (store.selectedSubject === subject) {
+                    store.clearSyllabus();
+                }
+            } else {
+                store.setError(res.error ?? "Failed to delete subject");
+            }
+        } catch (err) {
+            store.setError(err instanceof Error ? err.message : "Failed to delete subject");
+        }
+    }, [store, auth.user?.name]);
+
+    // Codebase analysis: "Learn this Project"
+    const handleCodebaseAnalyze = useCallback(async (githubUrl: string) => {
+        if (!githubUrl.trim()) return;
+        store.setCodebaseLoading(true);
+        store.setError(null);
+        try {
+            const res = await codebaseApi.analyze(githubUrl, auth.user?.id);
+            if (res.success) {
+                store.setCodebaseAnalysis(res.data.analysis);
+                if (res.data.syllabus) {
+                    store.setSyllabus(res.data.syllabus);
+                }
+                store.setSelectedSubject(res.data.syllabus_subject);
+            } else {
+                store.setError(res.error ?? "Failed to analyze repository");
+            }
+        } catch (err) {
+            store.setError(err instanceof Error ? err.message : "Failed to analyze repository");
+        } finally {
+            store.setCodebaseLoading(false);
+        }
+    }, [store, auth.user?.id]);
+
+    // Fetch learning history on mount (for personalized home)
+    useEffect(() => {
+        if (store.sessionId || store.syllabus) return;
+        const studentName = auth.user?.name || "Student";
+        store.setHistoryLoading(true);
+        learnApi.getHistory(studentName).then((res) => {
+            if (res.success) {
+                store.setHistory(res.data.subjects, res.data.overall);
+                store.setSuggestions(res.data.suggestions ?? []);
+                store.setActiveSession(res.data.active_session ?? null);
+            }
+        }).finally(() => store.setHistoryLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [store.sessionId, store.syllabus]);
+
+    return {
+        loadingMessage,
+        timeAgo,
+        handleQuickStart,
+        handleSubjectSelect,
+        handlePdfUpload,
+        handleDeleteSubject,
+        handleCodebaseAnalyze,
+        answerStartTime,
+    };
+}

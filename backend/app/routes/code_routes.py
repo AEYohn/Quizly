@@ -22,21 +22,21 @@ if os.getenv("USE_JUDGE0", "").lower() == "true":
     CODE_RUNNER = "judge0"
 
 if CODE_RUNNER == "judge0":
-    from app.services.judge0_runner import (
+    from ..services.judge0_runner import (
         judge0_runner as code_runner,
         validate_language,
         get_supported_languages,
         LANGUAGE_IDS
     )
 elif CODE_RUNNER == "piston":
-    from app.services.piston_runner import (
+    from ..services.piston_runner import (
         piston_runner as code_runner,
         validate_language,
         get_supported_languages
     )
     LANGUAGE_IDS = None
 else:
-    from app.services.code_runner import (
+    from ..services.code_runner import (
         code_runner,
         validate_language,
         get_supported_languages

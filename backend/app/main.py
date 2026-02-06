@@ -14,7 +14,7 @@ import os  # noqa: E402
 import uuid  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
-from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes, export_routes, privacy_routes  # noqa: E402
+from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes, export_routes, privacy_routes, learn_routes  # noqa: E402
 from .rate_limiter import limiter  # noqa: E402
 from .exceptions import QuizlyException, quizly_exception_handler  # noqa: E402
 from .logging_config import setup_logging, get_logger, set_request_context, clear_request_context, log_info, log_error  # noqa: E402
@@ -50,30 +50,7 @@ async def lifespan(app: FastAPI):
 
         log_info(logger, "Initializing database")
         await init_db()
-        log_info(logger, "Database connected")
-
-        # Run pending migrations
-        try:
-            from .database import engine
-            from sqlalchemy import text
-            async with engine.begin() as conn:
-                # Add course_id to quizzes if not exists
-                await conn.execute(text("""
-                    ALTER TABLE quizzes
-                    ADD COLUMN IF NOT EXISTS course_id UUID REFERENCES courses(id) ON DELETE SET NULL;
-                """))
-                # Add timer columns to game_sessions if not exists
-                await conn.execute(text("""
-                    ALTER TABLE game_sessions
-                    ADD COLUMN IF NOT EXISTS timer_end_at TIMESTAMPTZ;
-                """))
-                await conn.execute(text("""
-                    ALTER TABLE game_sessions
-                    ADD COLUMN IF NOT EXISTS timer_duration INTEGER;
-                """))
-                log_info(logger, "Database migrations complete")
-        except Exception as e:
-            log_info(logger, f"Migration note: {e}")
+        log_info(logger, "Database connected and migrations applied")
 
     except ImportError as e:
         log_error(logger, "Database not configured", error=str(e))
@@ -125,7 +102,7 @@ app.add_exception_handler(QuizlyException, quizly_exception_handler)
 
 # CORS configuration
 # Allow both dev ports by default so the frontend (3000/3001) can reach the API during development
-origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
+origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if "*" in origins else origins,  # Support wildcard
@@ -218,6 +195,8 @@ app.include_router(library_routes.router, prefix="/library", tags=["library"])
 app.include_router(export_routes.router, prefix="/exports", tags=["exports"])
 # Privacy and data management routes
 app.include_router(privacy_routes.router, prefix="/privacy", tags=["privacy"])
+# Conversational learning routes
+app.include_router(learn_routes.router, prefix="/learn", tags=["learning"])
 
 
 @app.get("/")

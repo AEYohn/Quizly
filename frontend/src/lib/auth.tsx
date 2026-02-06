@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const savedToken = localStorage.getItem("quizly_token");
             const savedUser = localStorage.getItem("quizly_user");
 
-            if (savedToken && savedUser) {
+            if (savedToken && savedUser && !user) {
                 try {
                     const parsedUser = JSON.parse(savedUser);
                     // Only use legacy auth if it's not a Clerk user

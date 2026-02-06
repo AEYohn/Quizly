@@ -124,7 +124,15 @@ async function fetchApi<T>(
 
                 const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
                 // Handle standardized error format from QuizlyException
-                const errorMessage = error.message || error.detail || `HTTP ${response.status}`;
+                // FastAPI validation errors return detail as array of objects
+                let errorMessage: string;
+                if (typeof error.detail === 'string') {
+                    errorMessage = error.detail;
+                } else if (Array.isArray(error.detail)) {
+                    errorMessage = error.detail.map((e: { msg?: string }) => e.msg ?? 'Validation error').join('; ');
+                } else {
+                    errorMessage = error.message || `HTTP ${response.status}`;
+                }
                 return { success: false, error: errorMessage };
             }
 
@@ -1082,6 +1090,676 @@ export const studentApi = {
         }>(`/students/review-complete?concept=${encodeURIComponent(concept)}&quality=${quality}`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
+        }),
+};
+
+// ============================================
+// Learn API (Conversational Adaptive Learning)
+// ============================================
+
+export interface LearnSessionResponse {
+    session_id: string;
+    messages: Array<{ role: string; content: string; action?: string; agent?: string }>;
+    question?: {
+        id: string;
+        prompt: string;
+        options: string[];
+        concept: string;
+        difficulty: number;
+    };
+    plan?: { concepts: string[]; starting_difficulty: number; session_type: string; rationale: string };
+    phase: string;
+}
+
+export interface LearnAnswerResponse {
+    session_id: string;
+    assessment: {
+        is_correct: boolean;
+        correct_answer: string;
+        explanation: string;
+        quadrant: string;
+    };
+    action: string;
+    message: string;
+    agent?: string;
+    question?: {
+        id: string;
+        prompt: string;
+        options: string[];
+        concept: string;
+        difficulty: number;
+    };
+    lesson?: { title: string; content: string; concept: string };
+    phase: string;
+    progress: {
+        questions_answered: number;
+        questions_correct: number;
+        accuracy: number;
+        current_concept?: string;
+        concepts_remaining: number;
+    };
+}
+
+export interface LearnMessageResponse {
+    session_id: string;
+    action: string;
+    message: string;
+    agent?: string;
+    discussion_phase?: string;
+    ready_to_retry?: boolean;
+    question?: {
+        id: string;
+        prompt: string;
+        options: string[];
+        concept: string;
+        difficulty: number;
+    };
+}
+
+export interface LearnEndResponse {
+    session_id: string;
+    action: string;
+    message: string;
+    summary: {
+        questions_answered: number;
+        questions_correct: number;
+        accuracy: number;
+        concepts_covered: string[];
+        mastery_updates: Array<{ concept: string; score: number }>;
+        duration_minutes: number;
+    };
+}
+
+export interface LearnProgressResponse {
+    student_name: string;
+    mastery: Array<{
+        concept: string;
+        score: number;
+        attempts: number;
+        correct: number;
+        last_seen: string | null;
+    }>;
+    recent_sessions: Array<{
+        id: string;
+        topic: string;
+        phase: string;
+        questions_answered: number;
+        questions_correct: number;
+        accuracy: number;
+        started_at: string | null;
+        ended_at: string | null;
+    }>;
+    summary: {
+        total_concepts: number;
+        mastered: number;
+        in_progress: number;
+        needs_work: number;
+    };
+}
+
+export interface LeaderboardEntry {
+    rank: number;
+    student_name: string;
+    total_xp: number;
+    level: number;
+    sessions_played: number;
+    total_correct: number;
+    total_answered: number;
+    accuracy: number;
+    best_streak: number;
+    is_current_user: boolean;
+}
+
+export interface LeaderboardResponse {
+    period: string;
+    entries: LeaderboardEntry[];
+    current_user_rank: number | null;
+    total_players: number;
+}
+
+export const learnApi = {
+    getLeaderboard: (period: "weekly" | "alltime", studentName: string) =>
+        fetchApi<LeaderboardResponse>(`/learn/leaderboard?period=${period}&student_name=${encodeURIComponent(studentName)}`),
+
+    startSession: (topic: string, studentName: string, studentId?: string) =>
+        fetchApi<LearnSessionResponse>('/learn/session/start', {
+            method: 'POST',
+            body: JSON.stringify({ topic, student_name: studentName, student_id: studentId }),
+        }),
+
+    submitAnswer: (sessionId: string, answer: string, confidence: number) =>
+        fetchApi<LearnAnswerResponse>(`/learn/session/${sessionId}/answer`, {
+            method: 'POST',
+            body: JSON.stringify({ answer, confidence }),
+        }),
+
+    sendMessage: (sessionId: string, message: string) =>
+        fetchApi<LearnMessageResponse>(`/learn/session/${sessionId}/message`, {
+            method: 'POST',
+            body: JSON.stringify({ message }),
+        }),
+
+    endSession: (sessionId: string) =>
+        fetchApi<LearnEndResponse>(`/learn/session/${sessionId}/end`, {
+            method: 'POST',
+        }),
+
+    getReviewQueue: (studentName: string) =>
+        fetchApi<{ student_name: string; due_count: number; items: Array<{
+            id: string; concept: string; due_at: string; interval_days: number;
+            ease_factor: number; question_template: Record<string, unknown>;
+        }> }>(`/learn/review-queue?student_name=${encodeURIComponent(studentName)}`),
+
+    getProgress: (studentName: string) =>
+        fetchApi<LearnProgressResponse>(`/learn/progress?student_name=${encodeURIComponent(studentName)}`),
+
+    getHistory: (studentName: string) =>
+        fetchApi<LearningHistoryResponse>(`/learn/history?student_name=${encodeURIComponent(studentName)}`),
+
+    deleteSubject: (subject: string, studentName: string) =>
+        fetchApi<{ ok: boolean; deleted: { sessions: number; syllabi: number; resources: number } }>(
+            `/learn/subject/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`,
+            { method: 'DELETE' },
+        ),
+};
+
+export interface SubjectHistory {
+    subject: string;
+    total_sessions: number;
+    total_questions: number;
+    accuracy: number;
+    total_xp: number;
+    last_studied_at: string | null;
+    has_syllabus: boolean;
+}
+
+export interface ResumeSessionInfo {
+    session_id: string;
+    topic: string;
+    questions_answered: number;
+    questions_correct: number;
+    total_xp: number;
+    streak: number;
+    accuracy: number;
+}
+
+export interface LearningHistoryResponse {
+    subjects: SubjectHistory[];
+    overall: {
+        total_subjects: number;
+        total_sessions: number;
+        total_questions: number;
+        total_xp: number;
+        concepts_mastered: number;
+    };
+    active_session?: ResumeSessionInfo;
+    suggestions?: string[];
+}
+
+// ============================================
+// Scroll (TikTok Mode) API
+// ============================================
+
+export interface ScrollCard {
+    id: string;
+    prompt: string;
+    options: string[];
+    correct_answer: string;
+    explanation: string;
+    concept: string;
+    difficulty: number;
+    card_type: string;
+    is_reintroduction: boolean;
+    xp_value: number;
+    content_item_id?: string;
+    // Flashcard-specific
+    flashcard_front?: string;
+    flashcard_back?: string;
+    flashcard_hint?: string;
+    // Info card-specific
+    info_title?: string;
+    info_body?: string;
+    info_takeaway?: string;
+    // Resource card-specific
+    resource_title?: string;
+    resource_url?: string;
+    resource_type?: string;
+    resource_thumbnail?: string;
+    resource_description?: string;
+    resource_duration?: string;
+    resource_channel?: string;
+    resource_domain?: string;
+}
+
+export interface ScrollStats {
+    streak: number;
+    best_streak: number;
+    total_xp: number;
+    difficulty: number;
+    cards_shown: number;
+}
+
+export interface ScrollAnalytics {
+    concept: string;
+    concept_accuracy: number;
+    concept_attempts: number;
+    improvement_areas: string[];
+    strengths: string[];
+    difficulty_trend: 'harder' | 'easier' | 'stable';
+}
+
+export interface ScrollSessionAnalytics {
+    session_id: string;
+    total_questions: number;
+    total_correct: number;
+    accuracy: number;
+    streak: number;
+    best_streak: number;
+    total_xp: number;
+    current_difficulty: number;
+    concepts: Array<{
+        concept: string;
+        attempts: number;
+        correct: number;
+        accuracy: number;
+        status: string;
+    }>;
+    improvement_areas: string[];
+    strengths: string[];
+    engagement: {
+        cards_shown: number;
+        avg_time_ms: number;
+        fast_answers: number;
+        slow_answers: number;
+        reintroductions_queued: number;
+    };
+}
+
+// ============================================
+// Syllabus / Skill Tree API
+// ============================================
+
+import type { SyllabusTree } from "~/stores/scrollSessionStore";
+
+export interface BKTMasteryState {
+    p_learned: number;
+    mastery_pct: number;
+    confidence: number;
+    total_parameters: {
+        p_guess: number;
+        p_slip: number;
+        p_transit: number;
+    };
+}
+
+export interface RecommendedPathResponse {
+    subject: string;
+    student_name: string;
+    next: string | null;
+    path: string[];
+    unlockable: string[];
+}
+
+export const syllabusApi = {
+    generate: (subject: string, studentId?: string) =>
+        fetchApi<SyllabusTree>('/learn/syllabus/generate', {
+            method: 'POST',
+            body: JSON.stringify({ subject, student_id: studentId }),
+        }),
+
+    get: (subject: string, studentId?: string) =>
+        fetchApi<SyllabusTree>(
+            `/learn/syllabus/${encodeURIComponent(subject)}${studentId ? `?student_id=${encodeURIComponent(studentId)}` : ''}`
+        ),
+
+    getPresence: (subject: string) =>
+        fetchApi<Record<string, { count: number; names: string[] }>>(
+            `/learn/presence/${encodeURIComponent(subject)}`
+        ),
+
+    heartbeat: (subject: string, nodeId: string, studentName: string) =>
+        fetchApi<{ ok: boolean }>('/learn/presence/heartbeat', {
+            method: 'POST',
+            body: JSON.stringify({ subject, node_id: nodeId, student_name: studentName }),
+        }),
+
+    getMastery: (studentName: string) =>
+        fetchApi<{ student_name: string; concepts: Record<string, BKTMasteryState> }>(
+            `/learn/mastery/${encodeURIComponent(studentName)}`
+        ),
+
+    getRecommendedPath: (subject: string, studentName: string) =>
+        fetchApi<RecommendedPathResponse>(
+            `/learn/recommended-path/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`
+        ),
+};
+
+// ============================================
+// Resources API (Subject Resource Upload)
+// ============================================
+
+export const resourcesApi = {
+    upload: async (formData: FormData): Promise<ApiResult<{
+        resources: Array<{ id: string | null; file_name: string; concepts_count: number; summary_preview: string }>;
+        total_concepts: number;
+    }>> => {
+        try {
+            const response = await fetch(`${API_BASE}/learn/resources/upload`, {
+                method: 'POST',
+                body: formData, // Don't set Content-Type for FormData
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                return { success: false, error: typeof error.detail === 'string' ? error.detail : 'Upload failed' };
+            }
+            const data = await response.json();
+            return { success: true, data };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+        }
+    },
+
+    list: (subject: string, studentId?: string) =>
+        fetchApi<{ resources: Array<{ id: string; file_name: string; file_type: string; concepts_count: number; summary_preview: string; created_at: string }> }>(
+            `/learn/resources/${encodeURIComponent(subject)}${studentId ? `?student_id=${studentId}` : ''}`
+        ),
+
+    delete: (resourceId: string) =>
+        fetchApi<{ ok: boolean }>(`/learn/resources/${resourceId}`, { method: 'DELETE' }),
+
+    regenerateSyllabus: (subject: string, studentId?: string) =>
+        fetchApi<SyllabusTree>('/learn/syllabus/regenerate', {
+            method: 'POST',
+            body: JSON.stringify({ subject, student_id: studentId }),
+        }),
+
+    pdfToSyllabus: async (formData: FormData): Promise<ApiResult<{
+        subject: string;
+        syllabus: SyllabusTree;
+        resources: Array<{ id: string | null; file_name: string; concepts_count: number; summary_preview: string }>;
+        total_concepts: number;
+    }>> => {
+        try {
+            const response = await fetch(`${API_BASE}/learn/pdf-to-syllabus`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                return { success: false, error: typeof error.detail === 'string' ? error.detail : 'Upload failed' };
+            }
+            const data = await response.json();
+            return { success: true, data };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+        }
+    },
+};
+
+export const scrollApi = {
+    resumeFeed: (topic: string, studentName: string) =>
+        fetchApi<{
+            session_id: string;
+            topic: string;
+            concepts: string[];
+            cards: ScrollCard[];
+            stats: ScrollStats;
+            resumed: boolean;
+        }>('/learn/scroll/resume', {
+            method: 'POST',
+            body: JSON.stringify({ topic, student_name: studentName }),
+            retry: false, // Don't retry 404s
+        }),
+
+    startFeed: (
+        topic: string,
+        studentName: string,
+        studentId?: string,
+        notes?: string,
+        preferences?: {
+            difficulty?: number | null;
+            content_mix?: { mcq: number; flashcard: number; info_card: number };
+            question_style?: string | null;
+        },
+    ) =>
+        fetchApi<{
+            session_id: string;
+            topic: string;
+            concepts: string[];
+            cards: ScrollCard[];
+            stats: ScrollStats;
+        }>('/learn/scroll/start', {
+            method: 'POST',
+            body: JSON.stringify({ topic, student_name: studentName, student_id: studentId, notes, preferences }),
+        }),
+
+    submitAnswer: (sessionId: string, answer: string, timeMs: number, contentItemId?: string, correctAnswer?: string) =>
+        fetchApi<{
+            session_id: string;
+            is_correct: boolean;
+            xp_earned: number;
+            streak: number;
+            best_streak: number;
+            streak_broken: boolean;
+            total_xp: number;
+            difficulty: number;
+            next_cards: ScrollCard[];
+            analytics: ScrollAnalytics;
+            stats: ScrollStats;
+        }>(`/learn/scroll/${sessionId}/answer`, {
+            method: 'POST',
+            body: JSON.stringify({ answer, time_ms: timeMs, content_item_id: contentItemId, correct_answer: correctAnswer }),
+        }),
+
+    getNextCards: (sessionId: string, count = 3) =>
+        fetchApi<{
+            session_id: string;
+            cards: ScrollCard[];
+            stats: ScrollStats;
+        }>(`/learn/scroll/${sessionId}/next?count=${count}`),
+
+    getAnalytics: (sessionId: string) =>
+        fetchApi<ScrollSessionAnalytics>(`/learn/scroll/${sessionId}/analytics`),
+
+    skipCard: (sessionId: string, contentItemId: string, reason: string = 'skipped') =>
+        fetchApi<{
+            session_id: string;
+            cards: ScrollCard[];
+            stats: ScrollStats;
+        }>(`/learn/scroll/${sessionId}/skip`, {
+            method: 'POST',
+            body: JSON.stringify({ content_item_id: contentItemId, reason }),
+        }),
+
+    flipFlashcard: (sessionId: string, contentItemId: string, timeToFlipMs: number, rating: number) =>
+        fetchApi<{
+            xp_earned: number;
+            stats: ScrollStats;
+        }>(`/learn/scroll/${sessionId}/flashcard-flip`, {
+            method: 'POST',
+            body: JSON.stringify({
+                content_item_id: contentItemId,
+                time_to_flip_ms: timeToFlipMs,
+                self_rated_knowledge: rating,
+            }),
+        }),
+
+    sendHelpMessage: (sessionId: string, message: string, cardContext: object) =>
+        fetchApi<{ message: string; phase: string; ready_to_try: boolean }>(
+            `/learn/scroll/${sessionId}/help`,
+            { method: 'POST', body: JSON.stringify({ message, card_context: cardContext }) },
+        ),
+
+    pregenContent: (topic: string, concepts: string[]) =>
+        fetchApi<{ status: string; total_items?: number }>('/learn/content/pregen', {
+            method: 'POST',
+            body: JSON.stringify({ topic, concepts }),
+            retry: false,
+        }),
+
+    getPoolStatus: (topic: string) =>
+        fetchApi<{
+            topic: string;
+            total_items: number;
+            by_type: Record<string, number>;
+            concepts: string[];
+        }>(`/learn/content/pool-status?topic=${encodeURIComponent(topic)}`),
+};
+
+// ============================================
+// Assessment API
+// ============================================
+
+export interface AssessmentSelfRatingItem {
+    concept: string;
+    topic_id: string;
+    topic_name: string;
+    unit_name: string;
+}
+
+export interface AssessmentStartResponse {
+    subject: string;
+    student_name: string;
+    self_rating_items: AssessmentSelfRatingItem[];
+    total_concepts: number;
+    instructions: string;
+}
+
+export interface AssessmentSelfRatingsResponse {
+    assessment_id: string;
+    subject: string;
+    diagnostic_questions: Array<Record<string, unknown>>;
+    total_questions: number;
+    concepts_assessed: number;
+    initial_familiarity: number;
+}
+
+export interface AssessmentDiagnosticResponse {
+    assessment_id: string;
+    subject: string;
+    diagnostic_results: Array<{ concept: string; answer: string; is_correct: boolean; time_ms: number }>;
+    diagnostic_accuracy: number;
+    total_questions: number;
+    correct_count: number;
+    overall_familiarity: number;
+    completed: boolean;
+}
+
+export interface AssessmentResult {
+    id: string;
+    subject: string;
+    student_name: string;
+    self_ratings: Array<{ concept: string; rating: number }>;
+    diagnostic_results: Array<{ concept: string; answer: string; is_correct: boolean; time_ms: number }> | null;
+    overall_familiarity: number;
+    diagnostic_accuracy: number | null;
+    concepts_assessed: number;
+    completed: boolean;
+    created_at: string | null;
+}
+
+export const assessmentApi = {
+    start: (subject: string, studentName: string) =>
+        fetchApi<AssessmentStartResponse>('/learn/assessment/start', {
+            method: 'POST',
+            body: JSON.stringify({ subject, student_name: studentName }),
+        }),
+
+    submitSelfRatings: (subject: string, studentName: string, ratings: Array<{ concept: string; rating: number }>) =>
+        fetchApi<AssessmentSelfRatingsResponse>('/learn/assessment/self-ratings', {
+            method: 'POST',
+            body: JSON.stringify({ subject, student_name: studentName, ratings }),
+        }),
+
+    submitDiagnostic: (studentName: string, assessmentId: string, answers: Array<{ concept: string; answer: string; correct_answer: string; time_ms: number }>) =>
+        fetchApi<AssessmentDiagnosticResponse>('/learn/assessment/diagnostic', {
+            method: 'POST',
+            body: JSON.stringify({ student_name: studentName, assessment_id: assessmentId, answers }),
+        }),
+
+    getAssessment: (subject: string, studentName: string) =>
+        fetchApi<AssessmentResult>(`/learn/assessment/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`),
+};
+
+// ============================================
+// Codebase Analysis API
+// ============================================
+
+export interface CodebaseAnalysisResponse {
+    analysis_id: string;
+    analysis: {
+        repo_name: string;
+        tech_stack: string[];
+        architecture: string;
+        key_patterns: string[];
+        learning_topics: Array<{ topic: string; description: string; complexity: string; order: number }>;
+        estimated_complexity: string;
+        learning_path_summary: string;
+    };
+    tech_stack: string[];
+    syllabus?: { subject: string; units: Array<{ id: string; name: string; order: number; icon: string; topics: Array<{ id: string; name: string; order: number; concepts: string[]; prerequisites: string[]; estimated_minutes: number }> }> };
+    syllabus_subject: string;
+    cached: boolean;
+}
+
+export const codebaseApi = {
+    analyze: (githubUrl: string, studentId?: string) =>
+        fetchApi<CodebaseAnalysisResponse>('/learn/codebase/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ github_url: githubUrl, student_id: studentId }),
+        }),
+
+    getAnalysis: (analysisId: string) =>
+        fetchApi<{
+            id: string;
+            github_url: string;
+            repo_name: string;
+            analysis: Record<string, unknown>;
+            tech_stack: string[];
+            syllabus_subject: string;
+            created_at: string;
+        }>(`/learn/codebase/${analysisId}`),
+
+    getResources: (analysisId: string, technology?: string) =>
+        fetchApi<{
+            analysis_id: string;
+            resources: Array<{ concept: string; title: string; url: string; source_type: string; description: string; external_domain: string }>;
+        }>(`/learn/codebase/${analysisId}/resources${technology ? `?technology=${encodeURIComponent(technology)}` : ''}`),
+};
+
+// ============================================
+// Curated Resources API
+// ============================================
+
+export const curatedResourcesApi = {
+    list: (subject: string, concept?: string, resourceType?: string, limit = 10) => {
+        const params = new URLSearchParams();
+        if (concept) params.set('concept', concept);
+        if (resourceType) params.set('resource_type', resourceType);
+        params.set('limit', String(limit));
+        return fetchApi<{
+            subject: string;
+            resources: Array<{
+                id: string;
+                concept: string;
+                title: string;
+                url: string;
+                source_type: string;
+                thumbnail_url: string;
+                description: string;
+                duration: string;
+                channel: string;
+                difficulty_label: string;
+                relevance_score: number;
+                external_domain: string;
+            }>;
+        }>(`/learn/resources/curated/${encodeURIComponent(subject)}?${params.toString()}`);
+    },
+
+    triggerCuration: (topic: string, concepts: string[]) =>
+        fetchApi<{ status: string }>('/learn/resources/curate', {
+            method: 'POST',
+            body: JSON.stringify({ topic, concepts }),
         }),
 };
 
