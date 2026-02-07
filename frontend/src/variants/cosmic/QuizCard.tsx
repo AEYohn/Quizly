@@ -101,6 +101,9 @@ export function CosmicQuizCard({
         onAnswer(letter);
     };
 
+    // Strip leading "A. " / "B) " etc. since the badge already shows the letter
+    const stripPrefix = (opt: string) => opt.replace(/^[A-D][.)]\s*/, "");
+
     const isAnswered = result !== null;
 
     return (
@@ -157,7 +160,7 @@ export function CosmicQuizCard({
                                 {letter}
                             </span>
                             <RichText
-                                text={option}
+                                text={stripPrefix(option)}
                                 className={cn(
                                     "text-sm leading-relaxed pt-0.5",
                                     !isAnswered && "text-gray-300",
