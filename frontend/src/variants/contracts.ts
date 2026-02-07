@@ -61,6 +61,8 @@ export interface SkillTreeProps {
     onStartAssessment?: () => void;
     assessmentPhase?: string;
     topicResources?: Record<string, Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>>;
+    // Analysis
+    onOpenAnalysis?: () => void;
 }
 
 // Active feed props

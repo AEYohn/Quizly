@@ -43,6 +43,7 @@ import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SyllabusTopic, SyllabusTree } from "~/stores/scrollSessionStore";
 import dynamic from "next/dynamic";
 import { BottomSheet } from "~/components/feed/BottomSheet";
+import { SkillTreeAnalysis } from "~/components/feed/SkillTreeAnalysis";
 
 // Lazy-load heavy sub-components behind modals / bottom sheets
 const SkillTreePath = dynamic(
@@ -625,6 +626,7 @@ export function ScrollFeed() {
     const [showResourceSheet, setShowResourceSheet] = useState(false);
     const [showRegenBanner, setShowRegenBanner] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
+    const [showAnalysis, setShowAnalysis] = useState(false);
 
     const answerStartTime = useRef(Date.now());
 
@@ -744,8 +746,19 @@ export function ScrollFeed() {
                         });
                     }
                 }
-                // Show regenerate banner
-                setShowRegenBanner(true);
+                // Auto-regenerate the skill tree with new materials
+                setIsRegenerating(true);
+                try {
+                    const regenRes = await resourcesApi.regenerateSyllabus(store.selectedSubject!, auth.user?.id);
+                    if (regenRes.success) {
+                        store.setSyllabus(regenRes.data);
+                        store.setSelectedSubject(regenRes.data.subject);
+                    }
+                } catch {
+                    // Silently handle — tree still works without regen
+                } finally {
+                    setIsRegenerating(false);
+                }
             } else {
                 store.setError(res.error ?? "Upload failed");
             }
@@ -1282,34 +1295,39 @@ export function ScrollFeed() {
                         onBack={() => store.clearSyllabus()}
                         onUploadResource={handleUploadResource}
                         onManageResources={() => setShowResourceSheet(true)}
+                        onOpenAnalysis={() => setShowAnalysis(true)}
                     />
 
-                    {/* Regenerate tree banner */}
-                    {(showRegenBanner || isRegenerating) && (
+                    {/* Analysis bottom sheet */}
+                    <SkillTreeAnalysis
+                        open={showAnalysis}
+                        onClose={() => setShowAnalysis(false)}
+                        subject={store.selectedSubject}
+                        studentName={auth.user?.name || "Student"}
+                        onStudyNow={(concept) => {
+                            setShowAnalysis(false);
+                            // Find the matching topic from the syllabus
+                            const topic = store.syllabus!.units
+                                .flatMap((u) => u.topics)
+                                .find((t) => t.name === concept || t.concepts.some((c) => c.toLowerCase() === concept.toLowerCase()));
+                            if (topic) {
+                                handleNodeTap(topic);
+                            } else {
+                                // Fallback: start a session with the concept name directly
+                                store.setTopicInput(concept);
+                                handleQuickStart(concept);
+                            }
+                        }}
+                    />
+
+                    {/* Auto-regeneration progress banner */}
+                    {isRegenerating && (
                         <div className="fixed bottom-20 left-4 right-4 z-50">
-                            <div className="px-4 py-3 rounded-2xl bg-violet-500/10 border border-violet-500/25 backdrop-blur-sm flex items-center justify-between gap-3">
+                            <div className="px-4 py-3 rounded-2xl bg-violet-500/10 border border-violet-500/25 backdrop-blur-sm flex items-center gap-3">
+                                <div className="w-4 h-4 rounded-full border-2 border-violet-400 border-t-transparent animate-spin shrink-0" role="status" aria-label="Adapting tree" />
                                 <span className="text-sm text-violet-300">
-                                    {isRegenerating ? "Regenerating skill tree..." : "New materials uploaded. Regenerate tree?"}
+                                    Adapting tree to your materials...
                                 </span>
-                                {!isRegenerating && (
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <button
-                                            onClick={() => setShowRegenBanner(false)}
-                                            className="text-xs text-gray-400 hover:text-gray-300 px-2 py-1"
-                                        >
-                                            Later
-                                        </button>
-                                        <button
-                                            onClick={handleRegenerateSyllabus}
-                                            className="text-xs font-bold text-violet-300 bg-violet-500/20 hover:bg-violet-500/30 px-3 py-1.5 rounded-lg transition-colors"
-                                        >
-                                            Regenerate
-                                        </button>
-                                    </div>
-                                )}
-                                {isRegenerating && (
-                                    <div className="w-4 h-4 rounded-full border-2 border-violet-400 border-t-transparent animate-spin shrink-0" role="status" aria-label="Regenerating" />
-                                )}
                             </div>
                         </div>
                     )}

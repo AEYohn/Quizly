@@ -1872,4 +1872,50 @@ export const curatedResourcesApi = {
         }),
 };
 
+// ============================================
+// Skill Tree Analysis API
+// ============================================
+
+export interface SkillTreeAnalysisWeakness {
+    concept: string;
+    mastery_score: number;
+    total_attempts: number;
+    active_misconceptions: Array<{ type: string; severity: string; count: number }>;
+    is_overdue: boolean;
+}
+
+export interface SkillTreeAnalysisResponse {
+    overall_mastery_pct: number;
+    trend: "improving" | "stable" | "declining";
+    summary: {
+        mastered: number;
+        in_progress: number;
+        struggling: number;
+        overdue: number;
+    };
+    weaknesses: SkillTreeAnalysisWeakness[];
+    strengths: Array<{ concept: string; mastery_score: number; best_streak: number }>;
+    misconceptions_summary: Array<{
+        concept: string;
+        misconception: string;
+        occurrence_count: number;
+        severity: string;
+        first_seen_at: string | null;
+    }>;
+    ai_insights: {
+        summary: string;
+        recommendations: string[];
+        overconfidence_alerts: string[];
+        pattern_insights: string[];
+    };
+    mastery_timeline: Array<{ date: string; overall: number }>;
+}
+
+export const skillTreeAnalysisApi = {
+    get: (subject: string, studentName: string) =>
+        fetchApiAuth<SkillTreeAnalysisResponse>(
+            `/learn/skill-tree-analysis/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`
+        ),
+};
+
 export default api;

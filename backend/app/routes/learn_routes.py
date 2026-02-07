@@ -1506,6 +1506,21 @@ async def get_bkt_mastery(
     }
 
 
+@router.get("/skill-tree-analysis/{subject}")
+async def get_skill_tree_analysis(
+    subject: str,
+    student_name: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
+):
+    """Get comprehensive skill tree analysis for a student+subject."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+    from ..services.skill_tree_analytics_service import SkillTreeAnalyticsService
+    service = SkillTreeAnalyticsService(db)
+    return await service.get_analysis(subject=subject, student_name=student_name)
+
+
 @router.get("/recommended-path/{subject}")
 async def get_recommended_path(
     subject: str,

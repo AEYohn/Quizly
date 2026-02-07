@@ -5,8 +5,11 @@ import { useHomeScreen, useSkillTree, useActiveFeed } from "~/hooks/feed";
 import { HomeScreen } from "./HomeScreen";
 import { SkillTree } from "./SkillTree";
 import { ActiveFeed } from "./ActiveFeed";
+import { SkillTreeAnalysis } from "~/components/feed/SkillTreeAnalysis";
+import { useAuth } from "~/lib/auth";
 
 function CosmicFeed() {
+    const auth = useAuth();
     const store = useScrollSessionStore();
     const homeScreen = useHomeScreen();
     const skillTree = useSkillTree(homeScreen.handleQuickStart);
@@ -79,33 +82,51 @@ function CosmicFeed() {
     if (store.syllabus && store.selectedSubject) {
         const totalPresence = Object.values(store.presence).reduce((a, b) => a + b, 0);
         return (
-            <SkillTree
-                syllabus={store.syllabus}
-                mastery={store.mastery}
-                presence={store.presence}
-                recommendedNext={store.recommendedNext}
-                totalPresence={totalPresence}
-                resourceCount={store.subjectResources.length}
-                isUploading={store.isUploadingResource}
-                isLoading={store.isLoading}
-                loadingMessage={homeScreen.loadingMessage}
-                error={store.error}
-                showRegenBanner={skillTree.showRegenBanner}
-                isRegenerating={skillTree.isRegenerating}
-                subjectResources={store.subjectResources}
-                showResourceSheet={skillTree.showResourceSheet}
-                onNodeTap={skillTree.handleNodeTap}
-                onBack={() => store.clearSyllabus()}
-                onUploadResource={skillTree.handleUploadResource}
-                onManageResources={() => skillTree.setShowResourceSheet(true)}
-                onDeleteResource={skillTree.handleDeleteResource}
-                onRegenerateSyllabus={skillTree.handleRegenerateSyllabus}
-                onDismissRegenBanner={() => skillTree.setShowResourceSheet(false)}
-                onCloseResourceSheet={() => skillTree.setShowResourceSheet(false)}
-                onStartAssessment={skillTree.handleStartAssessment}
-                assessmentPhase={store.assessmentPhase}
-                topicResources={skillTree.topicResources}
-            />
+            <>
+                <SkillTree
+                    syllabus={store.syllabus}
+                    mastery={store.mastery}
+                    presence={store.presence}
+                    recommendedNext={store.recommendedNext}
+                    totalPresence={totalPresence}
+                    resourceCount={store.subjectResources.length}
+                    isUploading={store.isUploadingResource}
+                    isLoading={store.isLoading}
+                    loadingMessage={homeScreen.loadingMessage}
+                    error={store.error}
+                    showRegenBanner={skillTree.showRegenBanner}
+                    isRegenerating={skillTree.isRegenerating}
+                    subjectResources={store.subjectResources}
+                    showResourceSheet={skillTree.showResourceSheet}
+                    onNodeTap={skillTree.handleNodeTap}
+                    onBack={() => store.clearSyllabus()}
+                    onUploadResource={skillTree.handleUploadResource}
+                    onManageResources={() => skillTree.setShowResourceSheet(true)}
+                    onDeleteResource={skillTree.handleDeleteResource}
+                    onRegenerateSyllabus={skillTree.handleRegenerateSyllabus}
+                    onDismissRegenBanner={() => skillTree.setShowResourceSheet(false)}
+                    onCloseResourceSheet={() => skillTree.setShowResourceSheet(false)}
+                    onStartAssessment={skillTree.handleStartAssessment}
+                    assessmentPhase={store.assessmentPhase}
+                    topicResources={skillTree.topicResources}
+                    onOpenAnalysis={() => skillTree.setShowAnalysis(true)}
+                />
+                <SkillTreeAnalysis
+                    open={skillTree.showAnalysis}
+                    onClose={() => skillTree.setShowAnalysis(false)}
+                    subject={store.selectedSubject!}
+                    studentName={auth.user?.name || "Student"}
+                    onStudyNow={(concept) => {
+                        skillTree.setShowAnalysis(false);
+                        const topic = store.syllabus!.units
+                            .flatMap((u) => u.topics)
+                            .find((t) => t.name === concept || t.concepts.some((c) => c.toLowerCase() === concept.toLowerCase()));
+                        if (topic) {
+                            skillTree.handleNodeTap(topic);
+                        }
+                    }}
+                />
+            </>
         );
     }
 

@@ -15,6 +15,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [topicResources, setTopicResources] = useState<Record<string, Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>>>({});
     const [showAssessment, setShowAssessment] = useState(false);
+    const [showAnalysis, setShowAnalysis] = useState(false);
     const curationTriggeredRef = useRef<string | null>(null);
 
     // Resource upload
@@ -40,7 +41,19 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
                         });
                     }
                 }
-                setShowRegenBanner(true);
+                // Auto-regenerate the skill tree with new materials
+                setIsRegenerating(true);
+                try {
+                    const regenRes = await resourcesApi.regenerateSyllabus(store.selectedSubject!, auth.user?.id);
+                    if (regenRes.success) {
+                        store.setSyllabus(regenRes.data);
+                        store.setSelectedSubject(regenRes.data.subject);
+                    }
+                } catch {
+                    // Silently handle — tree still works without regen
+                } finally {
+                    setIsRegenerating(false);
+                }
             } else {
                 store.setError(res.error ?? "Upload failed");
             }
@@ -233,5 +246,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
         showAssessment,
         setShowAssessment,
         handleStartAssessment,
+        showAnalysis,
+        setShowAnalysis,
     };
 }

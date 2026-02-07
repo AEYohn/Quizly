@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import {
+    BarChart3,
     ChevronLeft,
     ChevronDown,
     ChevronRight,
@@ -11,6 +12,7 @@ import {
     Check,
     Sparkles,
     Circle,
+    X,
 } from "lucide-react";
 import { ResourceChip } from "~/components/feed/ResourceChip";
 import { cn } from "~/lib/utils";
@@ -34,6 +36,7 @@ export interface SkillTreePathProps {
     onBack: () => void;
     onUploadResource: (files: FileList) => void;
     onManageResources: () => void;
+    onOpenAnalysis?: () => void;
     topicResources?: Record<string, Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>>;
 }
 
@@ -113,10 +116,12 @@ export function SkillTreePath({
     onBack,
     onUploadResource,
     onManageResources,
+    onOpenAnalysis,
     topicResources,
 }: SkillTreePathProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [hintDismissed, setHintDismissed] = useState(false);
 
     // All units expanded by default
     const [expandedUnits, setExpandedUnits] = useState<Set<number>>(() =>
@@ -228,18 +233,18 @@ export function SkillTreePath({
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
                         className={cn(
-                            "p-2 rounded-xl transition-colors",
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors border",
                             isUploading
-                                ? "text-violet-400 animate-pulse"
-                                : "text-gray-500 hover:text-gray-300 hover:bg-white/5",
+                                ? "text-violet-400 border-violet-500/20 bg-violet-500/10 animate-pulse"
+                                : "text-violet-300 border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20",
                         )}
-                        title="Upload study materials"
                     >
                         {isUploading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                            <FileUp className="w-4 h-4" />
+                            <FileUp className="w-3.5 h-3.5" />
                         )}
+                        Add Materials
                     </button>
                 </div>
             </div>
@@ -293,6 +298,33 @@ export function SkillTreePath({
                     </div>
                 </div>
             </div>
+
+            {/* Hint banner when no resources uploaded */}
+            {resourceCount === 0 && !hintDismissed && (
+                <div className="relative z-10 mx-5 mb-3 shrink-0">
+                    <div className="rounded-xl bg-violet-500/8 border border-violet-500/15 px-4 py-3 flex items-start gap-3">
+                        <Sparkles className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-violet-200/80 leading-relaxed">
+                                Upload your syllabus or notes to get questions tailored to your course
+                            </p>
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-500 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                                <FileUp className="w-3.5 h-3.5" />
+                                Upload Materials
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => setHintDismissed(true)}
+                            className="p-1 rounded-md hover:bg-white/5 text-gray-600 transition-colors shrink-0"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Divider */}
             <div
@@ -445,6 +477,25 @@ export function SkillTreePath({
                 {/* Bottom spacer */}
                 <div className="h-20" />
             </div>
+
+            {/* Floating analysis button */}
+            {onOpenAnalysis && (
+                <button
+                    onClick={onOpenAnalysis}
+                    className={cn(
+                        "absolute bottom-6 right-4 z-30",
+                        "flex items-center gap-2 px-4 py-2.5 rounded-full",
+                        "bg-gradient-to-r from-indigo-600 to-violet-600",
+                        "text-white text-sm font-bold shadow-xl",
+                        "hover:from-indigo-500 hover:to-violet-500 transition-all",
+                        "border border-indigo-400/30",
+                    )}
+                    style={{ boxShadow: "0 4px 24px rgba(99,102,241,0.4)" }}
+                >
+                    <BarChart3 className="w-4 h-4" />
+                    Analysis
+                </button>
+            )}
 
             {/* Global animations */}
             <style jsx global>{`

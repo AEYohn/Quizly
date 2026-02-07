@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useId } from "react";
-import { ArrowLeft, Star, Sparkles, Upload, RefreshCw, Trash2, FileText, Loader2, Check, Users } from "lucide-react";
+import { useMemo, useRef, useId, useState } from "react";
+import { ArrowLeft, BarChart3, Star, Sparkles, Upload, FileUp, RefreshCw, Trash2, FileText, Loader2, Check, Users, X } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import { ResourceChip } from "~/components/feed/ResourceChip";
@@ -350,8 +350,10 @@ export function SkillTree({
     onDismissRegenBanner,
     onCloseResourceSheet,
     topicResources,
+    onOpenAnalysis,
 }: SkillTreeProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [hintDismissed, setHintDismissed] = useState(false);
 
     const allTopics = useMemo(() => {
         const topics: SyllabusTopic[] = [];
@@ -438,23 +440,33 @@ export function SkillTree({
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={onManageResources}
-                            className="p-2 rounded-xl hover:bg-white/10 text-indigo-200 transition-colors relative"
-                        >
-                            <FileText className="w-5 h-5" />
-                            {resourceCount > 0 && (
+                        {resourceCount > 0 && (
+                            <button
+                                onClick={onManageResources}
+                                className="p-2 rounded-xl hover:bg-white/10 text-indigo-200 transition-colors relative"
+                            >
+                                <FileText className="w-5 h-5" />
                                 <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center">
                                     {resourceCount}
                                 </span>
-                            )}
-                        </button>
+                            </button>
+                        )}
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isUploading}
-                            className="p-2 rounded-xl hover:bg-white/10 text-indigo-200 transition-colors disabled:opacity-40"
+                            className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors border",
+                                isUploading
+                                    ? "text-violet-400 border-violet-500/20 bg-violet-500/10 animate-pulse"
+                                    : "text-violet-200 border-violet-400/20 bg-violet-500/10 hover:bg-violet-500/20",
+                            )}
                         >
-                            <Upload className="w-5 h-5" />
+                            {isUploading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <FileUp className="w-3.5 h-3.5" />
+                            )}
+                            Add Materials
                         </button>
                         <input
                             ref={fileInputRef}
@@ -486,6 +498,33 @@ export function SkillTree({
                     </div>
                 )}
             </div>
+
+            {/* Hint banner when no resources uploaded */}
+            {resourceCount === 0 && !hintDismissed && (
+                <div className="relative z-10 mx-5 mb-3">
+                    <div className="rounded-xl bg-violet-500/8 border border-violet-500/15 px-4 py-3 flex items-start gap-3">
+                        <Sparkles className="w-4 h-4 text-violet-300 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-indigo-100/80 leading-relaxed">
+                                Upload your syllabus or notes to get questions tailored to your course
+                            </p>
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                                <FileUp className="w-3.5 h-3.5" />
+                                Upload Materials
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => setHintDismissed(true)}
+                            className="p-1 rounded-md hover:bg-white/5 text-gray-600 transition-colors shrink-0"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Regen banner */}
             {showRegenBanner && (
@@ -572,6 +611,25 @@ export function SkillTree({
                     ))}
                 </div>
             </div>
+
+            {/* Floating analysis button */}
+            {onOpenAnalysis && (
+                <button
+                    onClick={onOpenAnalysis}
+                    className={cn(
+                        "absolute bottom-6 right-4 z-30",
+                        "flex items-center gap-2 px-4 py-2.5 rounded-full",
+                        "bg-gradient-to-r from-indigo-600 to-violet-600",
+                        "text-white text-sm font-bold shadow-xl",
+                        "hover:from-indigo-500 hover:to-violet-500 transition-all",
+                        "border border-indigo-400/30",
+                    )}
+                    style={{ boxShadow: "0 4px 24px rgba(99,102,241,0.4)" }}
+                >
+                    <BarChart3 className="w-4 h-4" />
+                    Analysis
+                </button>
+            )}
 
             {/* Resource management bottom sheet */}
             <BottomSheet
