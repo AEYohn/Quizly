@@ -40,6 +40,7 @@ class ContentGenerationOrchestrator:
         topic: str,
         concepts: List[str],
         min_items: int = 5,
+        subject: Optional[str] = None,
     ) -> int:
         """
         Check pool for a topic. Generate content if deficit exists.
@@ -49,22 +50,52 @@ class ContentGenerationOrchestrator:
         if existing >= min_items * len(concepts):
             return existing
 
+        # Load resource context using subject (more reliable than topic name)
+        notes = await self._get_resource_context(topic, subject=subject)
+
         # Generate to fill deficit
-        await self.generate_content_for_topic(topic, concepts)
+        await self.generate_content_for_topic(topic, concepts, notes=notes)
         return await self._count_pool_items(topic)
 
-    async def _get_resource_context(self, topic: str) -> Optional[str]:
-        """Auto-load stored resource context for a topic."""
+    async def _get_resource_context(self, topic: str, subject: Optional[str] = None) -> Optional[str]:
+        """Auto-load stored resource context for a topic.
+
+        Resources are stored under the subject name (e.g. "Flow Matching and
+        Diffusion Models") but topics use a shorter name (e.g. "Flow Matching").
+        We try: exact subject match → exact topic match → substring match.
+        """
         from ..db_models import SubjectResource
+
+        # Try explicit subject first (if provided by caller)
+        if subject:
+            query = select(SubjectResource).where(
+                SubjectResource.subject == subject
+            ).limit(5)
+            result = await self.db.execute(query)
+            resources = result.scalars().all()
+            if resources:
+                parts = [r.key_content for r in resources if r.key_content]
+                return "\n".join(parts)[:2000] if parts else None
+
+        # Try exact topic match
         query = select(SubjectResource).where(
             SubjectResource.subject == topic
         ).limit(5)
         result = await self.db.execute(query)
         resources = result.scalars().all()
+
+        # Fallback: substring match (topic in subject or subject in topic)
+        if not resources:
+            query = select(SubjectResource).where(
+                SubjectResource.subject.contains(topic)
+            ).limit(5)
+            result = await self.db.execute(query)
+            resources = result.scalars().all()
+
         if not resources:
             return None
         parts = [r.key_content for r in resources if r.key_content]
-        return "\n".join(parts)[:1500] if parts else None
+        return "\n".join(parts)[:2000] if parts else None
 
     async def generate_content_for_topic(
         self,
@@ -100,6 +131,7 @@ class ContentGenerationOrchestrator:
                     concept_dict,
                     difficulty=diff,
                     question_type="conceptual" if diff < 0.5 else "application",
+                    context=notes,
                 )
                 # Skip placeholder content (LLM fallback)
                 if mcq.get("llm_required"):

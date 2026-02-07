@@ -185,6 +185,12 @@ class ScrollFeedEngine:
     ) -> Dict[str, Any]:
         """Start a scroll feed session. Returns session + first batch of cards."""
 
+        # Load resource context if no explicit notes provided
+        if not notes:
+            resource_context = await self._get_resource_context(topic)
+            if resource_context:
+                notes = resource_context
+
         # Extract concepts from topic/notes
         concepts = await self._extract_concepts(topic, notes)
 
@@ -632,6 +638,7 @@ class ScrollFeedEngine:
     def _generate_card_batch(
         self, state: FeedState, count: int = 3,
         bkt_states: Optional[Dict] = None,
+        notes_context: str = "",
     ) -> List[ScrollCard]:
         """Generate a batch of cards for the feed."""
         cards = []
@@ -668,6 +675,7 @@ class ScrollFeedEngine:
                 difficulty=difficulty,
                 previous_prompts=state.previous_prompts[-10:],
                 target_misconception=target_misconception,
+                context=notes_context or None,
             )
 
             # Skip placeholder questions where LLM was unavailable
@@ -728,7 +736,7 @@ class ScrollFeedEngine:
             print(f"Pool card selection failed, falling back to inline: {e}")
 
         # Fallback to inline generation with BKT-aware concept selection
-        return self._generate_card_batch(state, count=count, bkt_states=bkt_states)
+        return self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
 
     def _card_to_dict(self, card: ScrollCard) -> Dict[str, Any]:
         """Convert card to API response dict."""
@@ -922,10 +930,85 @@ class ScrollFeedEngine:
             for concept, state in states.items()
         }
 
+    async def _get_resource_context(self, topic: str) -> Optional[str]:
+        """Load stored resource context for a topic's subject.
+
+        Resources are stored under the subject name (e.g. "Flow Matching and
+        Diffusion Models") but topics use a shorter name (e.g. "Flow Matching").
+        We try exact match first, then fall back to substring matching.
+        """
+        from ..db_models import SubjectResource
+
+        # Try exact match first
+        query = select(SubjectResource).where(
+            SubjectResource.subject == topic
+        ).limit(5)
+        result = await self.db.execute(query)
+        resources = result.scalars().all()
+
+        # Fallback: substring match (topic contained in subject or vice versa)
+        if not resources:
+            query = select(SubjectResource).where(
+                SubjectResource.subject.contains(topic)
+            ).limit(5)
+            result = await self.db.execute(query)
+            resources = result.scalars().all()
+
+        if not resources:
+            query = select(SubjectResource).limit(20)
+            result = await self.db.execute(query)
+            all_resources = result.scalars().all()
+            resources = [
+                r for r in all_resources
+                if topic.lower() in (r.subject or "").lower()
+                or (r.subject or "").lower() in topic.lower()
+            ]
+
+        if not resources:
+            return None
+        parts = [r.key_content for r in resources if r.key_content]
+        return "\n".join(parts)[:2000] if parts else None
+
+    async def _get_resource_concepts(self, topic: str) -> Optional[List[str]]:
+        """Load pre-extracted concepts from SubjectResource for a topic's subject."""
+        from ..db_models import SubjectResource
+
+        # Try exact match first, then substring
+        for query in [
+            select(SubjectResource).where(SubjectResource.subject == topic).limit(5),
+            select(SubjectResource).where(SubjectResource.subject.contains(topic)).limit(5),
+        ]:
+            result = await self.db.execute(query)
+            resources = result.scalars().all()
+            if resources:
+                break
+
+        if not resources:
+            return None
+
+        # Merge concepts from all resources
+        all_concepts: List[str] = []
+        for r in resources:
+            if isinstance(r.concepts_json, list):
+                all_concepts.extend(r.concepts_json)
+        # Deduplicate while preserving order
+        seen = set()
+        unique: List[str] = []
+        for c in all_concepts:
+            if isinstance(c, str) and c not in seen:
+                seen.add(c)
+                unique.append(c)
+        return unique[:8] if unique else None
+
     async def _extract_concepts(
         self, topic: str, notes: Optional[str]
     ) -> List[str]:
         """Extract key concepts from topic or notes using LLM."""
+        # Try stored concepts from SubjectResource first (from PDF extraction)
+        stored_concepts = await self._get_resource_concepts(topic)
+        if stored_concepts and len(stored_concepts) >= 2:
+            return stored_concepts
+
         if not notes and not FEED_MODEL:
             return [topic]
 

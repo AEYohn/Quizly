@@ -145,6 +145,7 @@ class PregenContentRequest(BaseModel):
     """Pre-generate content for a topic."""
     topic: str = Field(..., min_length=1)
     concepts: list[str] = Field(default_factory=list)
+    subject: Optional[str] = None  # Parent subject name for resource lookup
 
 
 # ============================================
@@ -817,7 +818,7 @@ async def pregen_content(
             orchestrator = ContentGenerationOrchestrator(bg_db)
             concepts = request.concepts or [request.topic]
             try:
-                await orchestrator.ensure_pool_ready(request.topic, concepts)
+                await orchestrator.ensure_pool_ready(request.topic, concepts, subject=request.subject)
             except Exception as e:
                 print(f"Background pregen failed for {request.topic}: {e}")
             # Yield control between pregen calls to avoid starving other requests

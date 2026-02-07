@@ -121,7 +121,7 @@ export function useHomeScreen() {
                     .slice(0, 2);
                 firstTopics.forEach((t, i) => {
                     setTimeout(() => {
-                        scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                        scrollApi.pregenContent(t.name, t.concepts, res.data.subject).catch(() => {});
                     }, i * 3000);
                 });
                 resourcesApi.list(res.data.subject, auth.user?.id).then((rRes) => {
@@ -174,7 +174,7 @@ export function useHomeScreen() {
                 .slice(0, 2);
             firstTopics.forEach((t, i) => {
                 setTimeout(() => {
-                    scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                    scrollApi.pregenContent(t.name, t.concepts, res.data.subject).catch(() => {});
                 }, i * 3000);
             });
         } catch (err) {

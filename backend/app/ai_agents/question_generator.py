@@ -141,7 +141,8 @@ class QuestionBankGenerator:
         difficulty: float = 0.5,
         previous_prompts: List[str] = None,
         target_misconception: Optional[str] = None,
-        question_type: str = "conceptual"
+        question_type: str = "conceptual",
+        context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a single question for a concept using LLM.
@@ -182,6 +183,14 @@ The question scenario should make the misconception seem plausible."""
             "transfer": "Present a novel context where the concept applies in an unexpected way."
         }.get(question_type, "Test understanding of the concept.")
         
+        # Optional source material block
+        context_block = ""
+        if context and context.strip():
+            context_block = f"""
+SOURCE MATERIAL (use this to ground your question in the actual course content):
+{context[:2000]}
+"""
+
         prompt = f"""You are an expert educator creating a peer instruction question for a course.
 
 CONCEPT: {concept['name']}
@@ -189,7 +198,7 @@ RELATED TOPICS: {', '.join(concept.get('topics', []))}
 COMMON STUDENT MISCONCEPTIONS: {', '.join(concept.get('misconceptions', []))}
 DIFFICULTY: {difficulty_label} ({difficulty:.1f}/1.0)
 QUESTION TYPE: {question_type.upper()} - {type_guidance}
-{misconception_instruction}
+{context_block}{misconception_instruction}
 {prev_context}
 
 Create a SPECIFIC, EDUCATIONAL multiple choice question for this concept.

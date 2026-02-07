@@ -650,7 +650,7 @@ export function ScrollFeed() {
                 .slice(0, 2);
             firstTopics.forEach((t, i) => {
                 setTimeout(() => {
-                    scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                    scrollApi.pregenContent(t.name, t.concepts, res.data.subject).catch(() => {});
                 }, i * 3000);
             });
         } catch (err) {
@@ -1027,7 +1027,7 @@ export function ScrollFeed() {
                 .slice(0, 2);
             firstTopics.forEach((t, i) => {
                 setTimeout(() => {
-                    scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                    scrollApi.pregenContent(t.name, t.concepts, cached.subject).catch(() => {});
                 }, i * 3000);
             });
             resourcesApi.list(cached.subject, auth.user?.id).then((rRes) => {
@@ -1055,7 +1055,7 @@ export function ScrollFeed() {
                     .slice(0, 2);
                 firstTopics.forEach((t, i) => {
                     setTimeout(() => {
-                        scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                        scrollApi.pregenContent(t.name, t.concepts, res.data.subject).catch(() => {});
                     }, i * 3000);
                 });
                 resourcesApi.list(res.data.subject, auth.user?.id).then((rRes) => {
@@ -1199,7 +1199,7 @@ export function ScrollFeed() {
                         const firstTopic = res.data.units
                             .flatMap((u) => u.topics)[0];
                         if (firstTopic) {
-                            scrollApi.pregenContent(firstTopic.name, firstTopic.concepts).catch(() => {});
+                            scrollApi.pregenContent(firstTopic.name, firstTopic.concepts, res.data.subject).catch(() => {});
                         }
                     }
                 }).catch(() => {});

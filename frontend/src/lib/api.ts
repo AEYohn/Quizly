@@ -1629,10 +1629,10 @@ export const scrollApi = {
             { method: 'POST', body: JSON.stringify({ message, card_context: cardContext }) },
         ),
 
-    pregenContent: (topic: string, concepts: string[]) =>
+    pregenContent: (topic: string, concepts: string[], subject?: string) =>
         fetchApi<{ status: string; total_items?: number }>('/learn/content/pregen', {
             method: 'POST',
-            body: JSON.stringify({ topic, concepts }),
+            body: JSON.stringify({ topic, concepts, subject }),
             retry: false,
         }),
 
