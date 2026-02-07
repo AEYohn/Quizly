@@ -521,25 +521,6 @@ async def get_learning_history(
             "has_syllabus": topic.lower() in syllabus_subjects,
         }
 
-    # Merge "Subject: Subtopic" session entries into parent subject
-    base_topics = sorted(subject_stats.keys(), key=len)
-    to_merge = []
-    for topic_key in list(subject_stats.keys()):
-        for base in base_topics:
-            if topic_key != base and topic_key.startswith(base + ": "):
-                to_merge.append((topic_key, base))
-                break
-    for child, parent in to_merge:
-        child_stats = subject_stats.pop(child)
-        p = subject_stats[parent]
-        p["total_sessions"] += child_stats["total_sessions"]
-        p["total_questions"] += child_stats["total_questions"]
-        p["total_correct"] += child_stats["total_correct"]
-        p["total_xp"] += child_stats["total_xp"]
-        if child_stats["last_studied_at"] and (not p["last_studied_at"] or child_stats["last_studied_at"] > p["last_studied_at"]):
-            p["last_studied_at"] = child_stats["last_studied_at"]
-        p["has_syllabus"] = p["has_syllabus"] or child_stats.get("has_syllabus", False)
-
     # Also add subjects that have cached syllabi but no answered questions yet
     # (e.g., user generated a skill tree but hasn't studied yet)
     for subj_lower, cache_entry in syllabus_subjects.items():
@@ -558,6 +539,27 @@ async def get_learning_history(
                 "first_studied_at": cache_entry.created_at,
                 "has_syllabus": True,
             }
+
+    # Merge "Subject: Subtopic" entries into parent subject (covers both sessions and syllabus-only)
+    base_topics = sorted(subject_stats.keys(), key=len)
+    to_merge = []
+    for topic_key in list(subject_stats.keys()):
+        for base in base_topics:
+            if topic_key != base and topic_key.startswith(base + ": "):
+                to_merge.append((topic_key, base))
+                break
+    for child, parent in to_merge:
+        if parent not in subject_stats:
+            continue
+        child_stats = subject_stats.pop(child)
+        p = subject_stats[parent]
+        p["total_sessions"] += child_stats["total_sessions"]
+        p["total_questions"] += child_stats["total_questions"]
+        p["total_correct"] += child_stats["total_correct"]
+        p["total_xp"] += child_stats["total_xp"]
+        if child_stats["last_studied_at"] and (not p["last_studied_at"] or child_stats["last_studied_at"] > p["last_studied_at"]):
+            p["last_studied_at"] = child_stats["last_studied_at"]
+        p["has_syllabus"] = p["has_syllabus"] or child_stats.get("has_syllabus", False)
 
     # Compute accuracy and format
     subjects = []
