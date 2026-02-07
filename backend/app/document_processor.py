@@ -161,13 +161,12 @@ For objectives: Use action verbs like "explain", "implement", "compare", "analyz
             )
             
         except Exception as e:
-            print(f"PDF processing error: {e}")
-            return ProcessedDocument(
-                source=file_name,
-                file_type="pdf",
-                concepts=[],
-                summary=f"Error: {str(e)}"  
-            )
+            from .sentry_config import capture_exception as _cap
+            from .logging_config import get_logger as _gl, log_error as _le
+            _cap(e, context={"service": "document_processor", "operation": "process_inline_pdf"})
+            _le(_gl(__name__), "PDF processing error", error=str(e), file=file_name)
+            # Re-raise so callers can handle gracefully (e.g. show user-friendly error)
+            raise
     
     async def _process_large_pdf(self, pdf_path: str, file_name: str) -> ProcessedDocument:
         """Process large PDF using File API (> 20MB) (Async)."""
@@ -203,13 +202,11 @@ Focus on concepts that would make good quiz questions."""
             )
             
         except Exception as e:
-            print(f"Large PDF processing error: {e}")
-            return ProcessedDocument(
-                source=file_name,
-                file_type="pdf",
-                concepts=[],
-                summary=f"Error: {str(e)}"
-            )
+            from .sentry_config import capture_exception as _cap
+            from .logging_config import get_logger as _gl, log_error as _le
+            _cap(e, context={"service": "document_processor", "operation": "process_large_pdf"})
+            _le(_gl(__name__), "Large PDF processing error", error=str(e), file=file_name)
+            raise
     
     async def process_text(self, text: str, source: str = "pasted") -> ProcessedDocument:
         """Process text content with Gemini (Async)."""
@@ -264,13 +261,11 @@ CRITICAL RULES:
             )
             
         except Exception as e:
-            print(f"Text processing error: {e}")
-            return ProcessedDocument(
-                source=source,
-                file_type="text",
-                concepts=[],
-                summary=f"Error: {str(e)}"
-            )
+            from .sentry_config import capture_exception as _cap
+            from .logging_config import get_logger as _gl, log_error as _le
+            _cap(e, context={"service": "document_processor", "operation": "process_text"})
+            _le(_gl(__name__), "Text processing error", error=str(e), source=source)
+            raise
     
     async def process_image(self, image_path: str) -> ProcessedDocument:
         """Process image (diagram, chart, etc.) with Gemini vision (Async)."""

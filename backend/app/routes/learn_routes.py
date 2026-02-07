@@ -1295,18 +1295,29 @@ async def pdf_to_syllabus(
                 "summary_preview": doc.summary[:120] if doc.summary else "",
             })
         except Exception as e:
+            err_str = str(e)
+            # Provide user-friendly message for common Gemini errors
+            if "pages" in err_str and "exceeds" in err_str:
+                user_msg = "PDF has too many pages. Please upload a shorter document (under 300 pages)."
+            elif "too large" in err_str.lower() or "size" in err_str.lower():
+                user_msg = "File is too large for processing. Try a smaller file."
+            else:
+                user_msg = f"Processing failed: {err_str[:80]}"
             created_resources.append({
                 "id": None,
                 "file_name": upload_file.filename or "unknown",
                 "concepts_count": 0,
-                "summary_preview": f"Error: {str(e)[:80]}",
+                "summary_preview": user_msg,
             })
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
     if not subject:
-        raise HTTPException(status_code=400, detail="Could not extract a topic from the uploaded files")
+        # Build a user-friendly error from the resource errors
+        errors = [r["summary_preview"] for r in created_resources if r.get("summary_preview", "").startswith(("PDF has", "File is", "Processing failed"))]
+        detail = errors[0] if errors else "Could not extract a topic from the uploaded files"
+        raise HTTPException(status_code=400, detail=detail)
 
     await db.commit()
 
