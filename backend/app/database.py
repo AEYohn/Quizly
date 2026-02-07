@@ -223,6 +223,26 @@ def run_migrations(conn):
         except Exception as e:
             print(f"   Migration warning for users.{col_name}: {e}", flush=True)
 
+    # Columns to add to concept_mastery table (BKT + Thompson Sampling)
+    concept_mastery_columns = [
+        ("p_learned", "FLOAT", "0.1"),
+        ("p_guess", "FLOAT", "0.15"),
+        ("p_slip", "FLOAT", "0.1"),
+        ("p_transit", "FLOAT", "0.2"),
+        ("ts_alpha", "FLOAT", "1.0"),
+        ("ts_beta", "FLOAT", "1.0"),
+    ]
+
+    for col_name, col_type, default_val in concept_mastery_columns:
+        try:
+            if not column_exists("concept_mastery", col_name):
+                sql_type = get_type(col_type)
+                alter_sql = text(f"ALTER TABLE concept_mastery ADD COLUMN {col_name} {sql_type} DEFAULT {default_val}")
+                conn.execute(alter_sql)
+                print(f"   Added column 'concept_mastery.{col_name}'", flush=True)
+        except Exception as e:
+            print(f"   Migration warning for concept_mastery.{col_name}: {e}", flush=True)
+
     # Columns to add to module_items table (quiz_id for linking to quizzes table)
     module_item_columns = [
         ("quiz_id", "UUID"),
