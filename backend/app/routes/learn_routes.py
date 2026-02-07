@@ -786,6 +786,23 @@ async def clear_stale_mcqs(
     return {"cleared": result.rowcount}
 
 
+@router.post("/content/clear-pool")
+async def clear_pool(
+    topic: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin endpoint to clear all content pool items, optionally filtered by topic."""
+    from ..db_models_content_pool import ContentItem
+    if topic:
+        result = await db.execute(
+            delete(ContentItem).where(ContentItem.topic == topic)
+        )
+    else:
+        result = await db.execute(delete(ContentItem))
+    await db.commit()
+    return {"cleared": result.rowcount}
+
+
 @router.get("/content/pool-status")
 async def pool_status(
     topic: str = Query(..., min_length=1),
