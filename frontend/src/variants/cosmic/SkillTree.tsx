@@ -4,6 +4,7 @@ import { useMemo, useRef, useId } from "react";
 import { ArrowLeft, Star, Sparkles, Upload, RefreshCw, Trash2, FileText, Loader2, Check, Users } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
+import { ResourceChip } from "~/components/feed/ResourceChip";
 import type { SkillTreeProps } from "~/variants/contracts";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
 
@@ -103,11 +104,13 @@ function CosmicNode({
     node,
     index,
     presence,
+    resources,
     onTap,
 }: {
     node: NodePosition;
     index: number;
     presence: number;
+    resources: Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>;
     onTap: () => void;
 }) {
     const uid = useId();
@@ -303,6 +306,18 @@ function CosmicNode({
                     {node.masteryValue}%
                 </span>
             )}
+
+            {/* Curated resource chips */}
+            {resources.length > 0 && (
+                <div
+                    className="flex flex-col items-center gap-1 mt-1.5 max-w-[160px]"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {resources.slice(0, 2).map((r, idx) => (
+                        <ResourceChip key={idx} title={r.title} url={r.url} sourceType={r.source_type} />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -334,6 +349,7 @@ export function SkillTree({
     onRegenerateSyllabus,
     onDismissRegenBanner,
     onCloseResourceSheet,
+    topicResources,
 }: SkillTreeProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -373,7 +389,7 @@ export function SkillTree({
 
     // Total height of the scrollable area — enough room for last node + label
     const totalHeight = nodePositions.length > 0
-        ? nodePositions[nodePositions.length - 1]!.y + 160
+        ? nodePositions[nodePositions.length - 1]!.y + 220
         : 400;
 
     // SVG path for connecting curve (uses SVG coordinate space, then scaled via viewBox)
@@ -550,6 +566,7 @@ export function SkillTree({
                             node={node}
                             index={i}
                             presence={presence[node.topic.id] ?? 0}
+                            resources={topicResources?.[node.topic.id] ?? []}
                             onTap={() => onNodeTap(node.topic)}
                         />
                     ))}

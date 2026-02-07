@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { syllabusApi, learnApi, resourcesApi, assessmentApi, curatedResourcesApi } from "~/lib/api";
 import { useAuth } from "~/lib/auth";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
@@ -15,6 +15,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [topicResources, setTopicResources] = useState<Record<string, Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>>>({});
     const [showAssessment, setShowAssessment] = useState(false);
+    const curationTriggeredRef = useRef<string | null>(null);
 
     // Resource upload
     const handleUploadResource = useCallback(async (files: FileList) => {
@@ -155,7 +156,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     }, [store.sessionId, store.syllabus, fetchMastery]);
 
     // Fetch curated resources for topic nodes
-    useEffect(() => {
+    const fetchCuratedResources = useCallback(() => {
         if (!store.selectedSubject || !store.syllabus) return;
         curatedResourcesApi.list(store.selectedSubject).then((res) => {
             if (res.success && res.data.resources) {
@@ -182,6 +183,23 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
             }
         }).catch(() => {});
     }, [store.selectedSubject, store.syllabus]);
+
+    useEffect(() => {
+        fetchCuratedResources();
+    }, [fetchCuratedResources]);
+
+    // Trigger AI curation on first visit per subject, then re-fetch after delay
+    useEffect(() => {
+        if (!store.selectedSubject || !store.syllabus) return;
+        if (curationTriggeredRef.current === store.selectedSubject) return;
+        curationTriggeredRef.current = store.selectedSubject;
+
+        const allConcepts = store.syllabus.units.flatMap(u => u.topics.flatMap(t => t.concepts));
+        curatedResourcesApi.triggerCuration(store.selectedSubject, allConcepts).catch(() => {});
+
+        const timer = setTimeout(() => fetchCuratedResources(), 8000);
+        return () => clearTimeout(timer);
+    }, [store.selectedSubject, store.syllabus, fetchCuratedResources]);
 
     // Start assessment flow
     const handleStartAssessment = useCallback(async () => {
