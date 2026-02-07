@@ -8,7 +8,6 @@ import {
     FileUp,
     Loader2,
     Users,
-    Lock,
     Check,
     Sparkles,
     Circle,
@@ -21,7 +20,7 @@ import type { SyllabusTopic, SyllabusTree } from "~/stores/scrollSessionStore";
 // Types
 // ---------------------------------------------------------------------------
 
-type NodeState = "locked" | "ready" | "in_progress" | "mastered" | "recommended";
+type NodeState = "ready" | "in_progress" | "mastered" | "recommended";
 
 export interface SkillTreePathProps {
     syllabus: SyllabusTree;
@@ -51,10 +50,6 @@ function getNodeState(
     if (topic.id === recommendedNext) return "recommended";
     if (m >= 80) return "mastered";
     if (m > 0) return "in_progress";
-    const allPrereqsMet =
-        topic.prerequisites.length === 0 ||
-        topic.prerequisites.every((prereq) => (mastery[prereq] ?? 0) >= 50);
-    if (!allPrereqsMet) return "locked";
     return "ready";
 }
 
@@ -80,12 +75,6 @@ function StatusIcon({ state }: { state: NodeState }) {
             return (
                 <div className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/10">
                     <Circle className="w-3.5 h-3.5 text-violet-400" strokeWidth={2.5} />
-                </div>
-            );
-        case "locked":
-            return (
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-800/50">
-                    <Lock className="w-3 h-3 text-gray-600" />
                 </div>
             );
         default: // ready
@@ -364,19 +353,15 @@ export function SkillTreePath({
                                             );
                                             const m = mastery[topic.id] ?? 0;
                                             const peers = presence[topic.id] ?? 0;
-                                            const tappable = state !== "locked";
 
                                             return (
                                                 <button
                                                     key={topic.id}
                                                     data-topic-id={topic.id}
-                                                    disabled={!tappable}
-                                                    onClick={() => tappable && onNodeTap(topic)}
+                                                    onClick={() => onNodeTap(topic)}
                                                     className={cn(
                                                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all",
-                                                        tappable
-                                                            ? "hover:bg-white/[0.03] active:scale-[0.98] cursor-pointer"
-                                                            : "opacity-40 cursor-default",
+                                                        "hover:bg-white/[0.03] active:scale-[0.98] cursor-pointer",
                                                         state === "recommended" &&
                                                             "bg-violet-500/[0.06] border border-violet-500/15",
                                                     )}
@@ -394,9 +379,7 @@ export function SkillTreePath({
                                                                         ? "text-emerald-300/80"
                                                                         : state === "recommended"
                                                                           ? "text-violet-200"
-                                                                          : state === "locked"
-                                                                            ? "text-gray-600"
-                                                                            : "text-gray-300",
+                                                                          : "text-gray-300",
                                                                 )}
                                                             >
                                                                 {topic.name}
@@ -422,6 +405,14 @@ export function SkillTreePath({
                                                                     }}
                                                                 />
                                                             </div>
+                                                            {m > 0 && (
+                                                                <span className={cn(
+                                                                    "text-[10px] font-bold tabular-nums shrink-0",
+                                                                    m >= 80 ? "text-emerald-400" : "text-violet-400",
+                                                                )}>
+                                                                    {m}%
+                                                                </span>
+                                                            )}
                                                             <span className="text-[10px] text-gray-600 font-medium tabular-nums shrink-0">
                                                                 {topic.concepts.length} concept{topic.concepts.length !== 1 ? "s" : ""}
                                                             </span>

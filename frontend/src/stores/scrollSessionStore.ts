@@ -224,9 +224,9 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
 
             setSessionId: (id) => set({ sessionId: id }),
             setTopic: (topic) => set({ topic }),
-            setCards: (cards) => set({ cards }),
+            setCards: (cards) => set({ cards: cards.filter(c => !c.prompt?.includes("[LLM Required]") && !c.prompt?.includes("[LLM required")) }),
             addCards: (cards) =>
-                set((state) => ({ cards: [...state.cards, ...cards] })),
+                set((state) => ({ cards: [...state.cards, ...cards.filter(c => !c.prompt?.includes("[LLM Required]") && !c.prompt?.includes("[LLM required"))] })),
             setCurrentIdx: (idx) => set({ currentIdx: idx }),
             advanceCard: () =>
                 set((state) => ({

@@ -982,8 +982,12 @@ export function ScrollFeed() {
                 content_mix: prefs.contentMix,
                 question_style: prefs.questionStyle,
             };
+            // Include subject context so LLM generates domain-appropriate questions
+            const topicWithContext = store.selectedSubject && !topic.includes(store.selectedSubject)
+                ? `${store.selectedSubject}: ${topic}`
+                : topic;
             const res = await scrollApi.startFeed(
-                topic, studentName, auth.user?.id,
+                topicWithContext, studentName, auth.user?.id,
                 store.notesInput.trim() || undefined, apiPrefs,
             );
             if (!res.success) { store.setError(res.error ?? "Failed to start feed"); return; }

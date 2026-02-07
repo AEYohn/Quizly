@@ -62,6 +62,8 @@ class ContentPoolService:
                 limit=type_count,
             )
             for item in items:
+                if self._is_placeholder(item):
+                    continue  # Skip LLM placeholder stubs
                 cards.append(self._content_item_to_scroll_card(item))
 
         return cards
@@ -156,6 +158,20 @@ class ContentPoolService:
             interaction_type="skipped",
             session_id=session_id,
         )
+
+    def _is_placeholder(self, item: ContentItem) -> bool:
+        """Check if content item is an LLM placeholder that shouldn't be served."""
+        cj = item.content_json or {}
+        markers = ["[LLM Required]", "[LLM required"]
+        for marker in markers:
+            for val in cj.values():
+                if isinstance(val, str) and marker in val:
+                    return True
+                if isinstance(val, list):
+                    for v in val:
+                        if isinstance(v, str) and marker in v:
+                            return True
+        return False
 
     def _content_item_to_scroll_card(
         self, item: ContentItem, is_reintroduction: bool = False

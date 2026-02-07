@@ -670,6 +670,10 @@ class ScrollFeedEngine:
                 target_misconception=target_misconception,
             )
 
+            # Skip placeholder questions where LLM was unavailable
+            if question.get("llm_required") or "[LLM Required]" in question.get("prompt", "") or "[LLM required" in question.get("prompt", ""):
+                continue
+
             state.previous_prompts.append(question.get("prompt", ""))
 
             # Calculate XP value based on difficulty

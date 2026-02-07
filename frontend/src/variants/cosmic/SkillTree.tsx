@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useId } from "react";
-import { ArrowLeft, Star, Lock, Sparkles, Upload, RefreshCw, Trash2, FileText, Loader2, Check, Users } from "lucide-react";
+import { ArrowLeft, Star, Sparkles, Upload, RefreshCw, Trash2, FileText, Loader2, Check, Users } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import type { SkillTreeProps } from "~/variants/contracts";
@@ -48,7 +48,7 @@ interface NodePosition {
     y: number;
     xPercent: number;
     topic: SyllabusTopic;
-    status: "mastered" | "in_progress" | "locked" | "recommended";
+    status: "mastered" | "in_progress" | "recommended";
     masteryValue: number;
 }
 
@@ -57,13 +57,10 @@ function getNodeStatus(
     mastery: Record<string, number>,
     recommendedNext: string | null,
     completedIds: Set<string>,
-): "mastered" | "in_progress" | "locked" | "recommended" {
+): "mastered" | "in_progress" | "recommended" {
     if (topic.id === recommendedNext) return "recommended";
     const m = mastery[topic.id] ?? 0;
     if (m >= 80) return "mastered";
-    if (m > 0) return "in_progress";
-    const prereqsMet = topic.prerequisites.every((p) => completedIds.has(p));
-    if (!prereqsMet) return "locked";
     return "in_progress";
 }
 
@@ -84,14 +81,6 @@ const PALETTE = {
         fill2: "#0f0a2e",
         labelColor: "text-indigo-200",
         masteryColor: "text-indigo-300/80",
-    },
-    locked: {
-        ring: "#374151",
-        glow: "rgba(55,65,81,0.1)",
-        fill1: "#1f2937",
-        fill2: "#111827",
-        labelColor: "text-gray-500",
-        masteryColor: "text-gray-600",
     },
     recommended: {
         ring: "#c4b5fd",
@@ -123,8 +112,7 @@ function CosmicNode({
 }) {
     const uid = useId();
     const p = PALETTE[node.status];
-    const isLocked = node.status === "locked";
-    const tappable = !isLocked;
+    const tappable = true;
 
     const svgSize = NODE_SIZE + 24;
     const center = svgSize / 2;
@@ -141,17 +129,16 @@ function CosmicNode({
         <div
             className={cn(
                 "absolute flex flex-col items-center",
-                tappable ? "cursor-pointer" : "cursor-default",
-                isLocked && "opacity-35",
+                "cursor-pointer",
             )}
             style={{
                 left: `${node.xPercent * 100}%`,
                 top: node.y,
                 transform: "translateX(-50%)",
             }}
-            onClick={() => tappable && onTap()}
-            role={tappable ? "button" : undefined}
-            tabIndex={tappable ? 0 : undefined}
+            onClick={() => onTap()}
+            role="button"
+            tabIndex={0}
         >
             {/* Peer badge */}
             {presence > 0 && (
@@ -174,7 +161,7 @@ function CosmicNode({
             <div
                 className={cn(
                     "relative transition-transform duration-200 ease-out",
-                    tappable && "hover:scale-[1.12] active:scale-[0.92]",
+                    "hover:scale-[1.12] active:scale-[0.92]",
                     node.status === "recommended" && "animate-[float_4s_ease-in-out_infinite]",
                 )}
             >
@@ -277,9 +264,7 @@ function CosmicNode({
 
                 {/* Center icon / content — HTML overlay */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                    {node.status === "locked" ? (
-                        <Lock className="w-6 h-6 text-gray-600" />
-                    ) : node.status === "mastered" ? (
+                    {node.status === "mastered" ? (
                         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-400/15 backdrop-blur-sm">
                             <Star className="w-6 h-6 text-emerald-400" fill="currentColor" strokeWidth={1.5} />
                         </div>
