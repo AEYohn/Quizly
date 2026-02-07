@@ -148,7 +148,7 @@ export function Profile({
                         </h2>
                         <div className="space-y-2">
                             {progress.mastery.slice(0, 10).map((concept) => {
-                                const scorePercent = Math.round(concept.score * 100);
+                                const scorePercent = Math.min(Math.round(concept.score), 100);
                                 return (
                                     <div
                                         key={concept.concept}

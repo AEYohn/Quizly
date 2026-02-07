@@ -42,7 +42,7 @@ export function ProfilePanel() {
     const totalAnswered = progress?.recent_sessions.reduce((sum, s) => sum + s.questions_answered, 0) ?? 0;
     const totalCorrect = progress?.recent_sessions.reduce((sum, s) => sum + s.questions_correct, 0) ?? 0;
     const accuracy = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
-    const level = totalXp > 0 ? Math.floor(Math.sqrt(totalXp / 100)) : 0;
+    const level = Math.max(1, Math.floor(Math.sqrt(totalXp / 100)));
 
     return (
         <div className="h-full flex flex-col bg-gray-950 max-w-lg mx-auto w-full overflow-y-auto">
