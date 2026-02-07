@@ -161,7 +161,11 @@ async function fetchApi<T>(
         }
     }
 
-    return { success: false, error: lastError };
+    // Replace cryptic browser errors with user-friendly messages
+    const friendlyError = lastError === 'Failed to fetch'
+        ? "Couldn't connect to the server — tap to try again"
+        : lastError;
+    return { success: false, error: friendlyError };
 }
 
 async function fetchApiAuth<T>(

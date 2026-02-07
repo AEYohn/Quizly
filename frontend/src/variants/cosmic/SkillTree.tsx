@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useId, useState } from "react";
+import { useMemo, useRef, useId, useState, useEffect } from "react";
 import { ArrowLeft, BarChart3, Star, Sparkles, Upload, FileUp, RefreshCw, Trash2, FileText, Loader2, Check, Users, X } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import { ResourceChip } from "~/components/feed/ResourceChip";
+import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SkillTreeProps } from "~/variants/contracts";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
 
@@ -354,6 +355,14 @@ export function SkillTree({
 }: SkillTreeProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [hintDismissed, setHintDismissed] = useState(false);
+    const store = useScrollSessionStore();
+
+    // Auto-dismiss error after 5 seconds
+    useEffect(() => {
+        if (!error) return;
+        const timer = setTimeout(() => store.setError(null), 5000);
+        return () => clearTimeout(timer);
+    }, [error, store]);
 
     const allTopics = useMemo(() => {
         const topics: SyllabusTopic[] = [];
@@ -493,7 +502,10 @@ export function SkillTree({
                 </div>
 
                 {error && (
-                    <div className="mt-3 rounded-xl bg-red-500/20 border border-red-400/40 px-4 py-2.5 text-sm text-red-200 font-medium">
+                    <div
+                        onClick={() => store.setError(null)}
+                        className="mt-3 rounded-xl bg-red-500/20 border border-red-400/40 px-4 py-2.5 text-sm text-red-200 font-medium cursor-pointer active:opacity-70 transition-opacity"
+                    >
                         {error}
                     </div>
                 )}
