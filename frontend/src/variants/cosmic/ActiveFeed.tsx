@@ -154,10 +154,10 @@ export function ActiveFeed({
             {/* Bottom bar: Signal X / Y+ . Frequency Level Z% */}
             <div className="relative z-10 shrink-0 px-5 py-2.5 border-t border-indigo-500/10 flex items-center justify-between">
                 <span className="text-[11px] text-indigo-300/40 font-medium">
-                    Signal {currentIdx + 1} / {totalCards}+
+                    Card {currentIdx + 1} / {totalCards}+
                 </span>
                 <span className="text-[11px] text-indigo-300/40 font-medium">
-                    Frequency Level {difficultyPercent}%
+                    Level {difficultyPercent}%
                 </span>
             </div>
 
@@ -182,7 +182,7 @@ export function ActiveFeed({
             <BottomSheet
                 open={showTuneSheet}
                 onClose={onCloseTuneSheet}
-                title="Calibrate Sensors"
+                title="Feed Settings"
             >
                 <FeedTuneControls mode="active" />
             </BottomSheet>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowRight, Zap, HelpCircle, Sparkles } from "lucide-react";
+import { ArrowRight, Zap, HelpCircle } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { RichText, Explanation } from "~/components/shared";
 import type { ScrollCard, ScrollStats, ScrollAnalytics } from "~/lib/api";
@@ -109,10 +109,6 @@ export function CosmicQuizCard({
 
             {/* Concept badge */}
             <div className="flex items-center gap-2 mb-4 shrink-0">
-                <span className="flex items-center gap-1 text-[11px] font-medium text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
-                    <Sparkles className="w-3 h-3" />
-                    Signal
-                </span>
                 <span className="text-[11px] font-medium text-indigo-300/40 tracking-wide uppercase">
                     {card.concept}
                 </span>
@@ -190,7 +186,7 @@ export function CosmicQuizCard({
                                     : "bg-[#0d0b25] text-indigo-400/30 border border-indigo-500/10 cursor-not-allowed",
                             )}
                         >
-                            Transmit Answer
+                            Check Answer
                         </button>
 
                         {/* Help link */}
@@ -199,7 +195,7 @@ export function CosmicQuizCard({
                             className="w-full flex items-center justify-center gap-1.5 text-xs text-indigo-400/40 hover:text-indigo-400/70 transition-colors py-1"
                         >
                             <HelpCircle className="w-3.5 h-3.5" />
-                            Need guidance from mission control?
+                            I don&apos;t know — help me think through it
                         </button>
                     </>
                 ) : (
@@ -211,14 +207,7 @@ export function CosmicQuizCard({
                                 ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
                                 : "bg-red-500/10 border border-red-500/20 text-red-400",
                         )}>
-                            {result?.isCorrect ? (
-                                <span className="flex items-center justify-center gap-1.5">
-                                    <Sparkles className="w-4 h-4" />
-                                    Signal Correct!
-                                </span>
-                            ) : (
-                                "Signal Lost"
-                            )}
+                            {result?.isCorrect ? "Correct!" : "Incorrect"}
                         </div>
 
                         {/* XP float */}

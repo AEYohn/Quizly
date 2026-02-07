@@ -32,7 +32,7 @@ function CosmicFeed() {
                                 </svg>
                             </div>
                         </div>
-                        <p className="text-indigo-300/60 text-sm">Charting next coordinates...</p>
+                        <p className="text-indigo-300/60 text-sm">Loading next cards...</p>
                     </div>
                 </div>
             );
