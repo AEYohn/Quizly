@@ -26,9 +26,11 @@ import {
     Play,
     AlertTriangle,
     Shield,
+    Github,
+    Loader2,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
-import { scrollApi, syllabusApi, curriculumApi, learnApi, resourcesApi } from "~/lib/api";
+import { scrollApi, syllabusApi, curriculumApi, learnApi, resourcesApi, codebaseApi } from "~/lib/api";
 import type { ScrollCard, ScrollStats, ScrollAnalytics, ScrollSessionAnalytics } from "~/lib/api";
 import { useAuth } from "~/lib/auth";
 import { FlashcardCard } from "~/components/learning/FlashcardCard";
@@ -572,6 +574,10 @@ export function ScrollFeed() {
     const auth = useAuth();
     const store = useScrollSessionStore();
 
+    // PDF upload ref + state
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isPdfUploading, setIsPdfUploading] = useState(false);
+
     // Local state not in store
     const [sessionAnalytics, setSessionAnalytics] = useState<ScrollSessionAnalytics | null>(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
@@ -613,6 +619,70 @@ export function ScrollFeed() {
             setIsProcessingFile(false);
         }
     }, [store]);
+
+    // ----- PDF → SYLLABUS (home screen) -----
+    const handlePdfToSyllabus = useCallback(async (files: FileList) => {
+        setIsPdfUploading(true);
+        store.setError(null);
+        try {
+            const formData = new FormData();
+            Array.from(files).forEach((f) => formData.append("files", f));
+            if (auth.user?.id) formData.append("student_id", auth.user.id);
+
+            const res = await resourcesApi.pdfToSyllabus(formData);
+            if (!res.success) {
+                store.setError(res.error ?? "Failed to process document");
+                return;
+            }
+
+            store.setSyllabus(res.data.syllabus);
+            store.setSelectedSubject(res.data.subject);
+            store.setSubjectResources(res.data.resources.filter((r) => r.id).map((r) => ({
+                id: r.id!,
+                file_name: r.file_name,
+                file_type: "pdf",
+                concepts_count: r.concepts_count,
+            })));
+
+            // Pre-generate content for first 2 topics
+            const firstTopics = res.data.syllabus.units
+                .flatMap((u) => u.topics)
+                .slice(0, 2);
+            firstTopics.forEach((t, i) => {
+                setTimeout(() => {
+                    scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                }, i * 3000);
+            });
+        } catch (err) {
+            store.setError(err instanceof Error ? err.message : "Failed to process document");
+        } finally {
+            setIsPdfUploading(false);
+        }
+    }, [store, auth.user?.id]);
+
+    // ----- CODEBASE ANALYZE (home screen) -----
+    const handleCodebaseAnalyze = useCallback(async () => {
+        const url = store.githubUrlInput.trim();
+        if (!url) return;
+        store.setCodebaseLoading(true);
+        store.setError(null);
+        try {
+            const res = await codebaseApi.analyze(url, auth.user?.id);
+            if (res.success) {
+                store.setCodebaseAnalysis(res.data.analysis);
+                if (res.data.syllabus) {
+                    store.setSyllabus(res.data.syllabus);
+                }
+                store.setSelectedSubject(res.data.syllabus_subject);
+            } else {
+                store.setError(res.error ?? "Failed to analyze repository");
+            }
+        } catch (err) {
+            store.setError(err instanceof Error ? err.message : "Failed to analyze repository");
+        } finally {
+            store.setCodebaseLoading(false);
+        }
+    }, [store, auth.user?.id]);
 
     // ----- RESOURCE UPLOAD (SkillTreePath) -----
     const handleUploadResource = useCallback(async (files: FileList) => {
@@ -1248,6 +1318,69 @@ export function ScrollFeed() {
                                 className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3.5 py-1.5 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 disabled:opacity-50 transition-all active:scale-95"
                             >
                                 {store.syllabusLoading ? "..." : "Go"}
+                            </button>
+                        )}
+                    </div>
+
+                    {/* ---- PDF Upload ---- */}
+                    <div className="mb-4">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".pdf,.txt,.md"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                    handlePdfToSyllabus(e.target.files);
+                                    e.target.value = "";
+                                }
+                            }}
+                        />
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isPdfUploading}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60"
+                            style={{
+                                background: "rgba(139,92,246,0.06)",
+                                border: "1px solid rgba(139,92,246,0.15)",
+                            }}
+                        >
+                            {isPdfUploading ? (
+                                <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />
+                            ) : (
+                                <Upload className="w-4 h-4 text-violet-400 shrink-0" />
+                            )}
+                            <span className="text-gray-300">
+                                {isPdfUploading ? "Processing..." : "Upload PDF or notes"}
+                            </span>
+                        </button>
+                    </div>
+
+                    {/* ---- GitHub URL Input ---- */}
+                    <div className="relative mb-6">
+                        <Github className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                        <input
+                            type="text"
+                            value={store.githubUrlInput}
+                            onChange={(e) => store.setGithubUrlInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && store.githubUrlInput.trim()) handleCodebaseAnalyze();
+                            }}
+                            placeholder="Paste GitHub URL to learn a project..."
+                            className="w-full pl-10 pr-4 py-3 rounded-2xl text-gray-100 placeholder-gray-600 focus:outline-none text-sm transition-all"
+                            style={{
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                            }}
+                        />
+                        {store.githubUrlInput.trim() && (
+                            <button
+                                onClick={handleCodebaseAnalyze}
+                                disabled={store.codebaseLoading}
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3.5 py-1.5 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 disabled:opacity-50 transition-all active:scale-95"
+                            >
+                                {store.codebaseLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Analyze"}
                             </button>
                         )}
                     </div>
