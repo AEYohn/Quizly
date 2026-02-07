@@ -323,6 +323,11 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
                 syllabus: state.syllabus,
                 selectedSubject: state.selectedSubject,
                 activeSyllabusNode: state.activeSyllabusNode,
+                // Persist across navigation for instant home screen
+                history: state.history,
+                historyOverall: state.historyOverall,
+                mastery: state.mastery,
+                suggestions: state.suggestions,
             }),
         }
     )

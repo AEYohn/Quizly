@@ -54,6 +54,14 @@ _engine_kwargs: dict = {
 
 # SQLite-specific: enable WAL mode + busy timeout to prevent "database is locked"
 _is_sqlite = DATABASE_URL.startswith("sqlite")
+
+if not _is_sqlite:
+    _engine_kwargs.update({
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_timeout": 30,
+        "pool_recycle": 1800,
+    })
 if _is_sqlite:
     from sqlalchemy import event as _sa_event
 

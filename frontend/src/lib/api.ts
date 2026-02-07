@@ -1253,8 +1253,8 @@ export const learnApi = {
     getProgress: (studentName: string) =>
         fetchApi<LearnProgressResponse>(`/learn/progress?student_name=${encodeURIComponent(studentName)}`),
 
-    getHistory: (studentName: string) =>
-        fetchApi<LearningHistoryResponse>(`/learn/history?student_name=${encodeURIComponent(studentName)}`),
+    getHistory: (studentName: string, studentId?: string) =>
+        fetchApi<LearningHistoryResponse>(`/learn/history?student_name=${encodeURIComponent(studentName)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`),
 
     deleteSubject: (subject: string, studentName: string) =>
         fetchApi<{ ok: boolean; deleted: { sessions: number; syllabi: number; resources: number } }>(

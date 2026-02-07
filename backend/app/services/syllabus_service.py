@@ -9,7 +9,7 @@ import json
 from typing import Optional, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..db_models import SyllabusCache, SubjectResource
 
@@ -143,11 +143,11 @@ class SyllabusService:
         self, subject: str, student_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """Look up cached syllabus. Tries exact match, then student-agnostic."""
-        # Try exact match with student_id first
+        # Try exact match with student_id first (case-insensitive)
         if student_id:
             query = (
                 select(SyllabusCache)
-                .where(SyllabusCache.subject == subject, SyllabusCache.student_id == student_id)
+                .where(func.lower(SyllabusCache.subject) == subject.lower(), SyllabusCache.student_id == student_id)
                 .order_by(SyllabusCache.created_at.desc())
                 .limit(1)
             )
@@ -156,10 +156,10 @@ class SyllabusService:
             if entry:
                 return entry.tree_json
 
-        # Fall back to any matching subject (global or other student)
+        # Fall back to any matching subject (global or other student, case-insensitive)
         query = (
             select(SyllabusCache)
-            .where(SyllabusCache.subject == subject)
+            .where(func.lower(SyllabusCache.subject) == subject.lower())
             .order_by(SyllabusCache.created_at.desc())
             .limit(1)
         )

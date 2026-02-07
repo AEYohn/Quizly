@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, func, select, and_
+from sqlalchemy import delete, func, or_, select, and_
 from datetime import datetime, timezone, timedelta
 import math
 import os
@@ -317,6 +317,7 @@ async def get_progress(
 @router.get("/history")
 async def get_learning_history(
     student_name: str,
+    student_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Get aggregated learning history per subject for personalized home screen."""
@@ -331,7 +332,12 @@ async def get_learning_history(
     sessions = session_result.scalars().all()
 
     # All cached syllabi (to know which subjects have skill trees)
-    syllabus_query = select(SyllabusCache)
+    if student_id:
+        syllabus_query = select(SyllabusCache).where(
+            or_(SyllabusCache.student_id == student_id, SyllabusCache.student_id.is_(None))
+        )
+    else:
+        syllabus_query = select(SyllabusCache)
     syllabus_result = await db.execute(syllabus_query)
     syllabi = syllabus_result.scalars().all()
     syllabus_subjects = {s.subject.lower(): s for s in syllabi}

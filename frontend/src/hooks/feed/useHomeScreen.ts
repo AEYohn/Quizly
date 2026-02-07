@@ -108,6 +108,11 @@ export function useHomeScreen() {
 
     // Subject selection → generate syllabus
     const handleSubjectSelect = useCallback(async (subject: string) => {
+        // If we already have this syllabus loaded, just activate it
+        if (store.syllabus && store.selectedSubject?.toLowerCase() === subject.toLowerCase()) {
+            store.setSyllabusLoading(false);
+            return;
+        }
         store.setSelectedSubject(subject);
         store.setSyllabusLoading(true);
         store.setError(null);
@@ -229,11 +234,16 @@ export function useHomeScreen() {
     }, [store, auth.user?.id]);
 
     // Fetch learning history on mount (for personalized home)
+    // Shows cached data instantly, refreshes in background
     useEffect(() => {
         if (store.sessionId || store.syllabus) return;
         const studentName = auth.user?.name || "Student";
-        store.setHistoryLoading(true);
-        learnApi.getHistory(studentName).then((res) => {
+        // Only show loading skeleton if we have NO cached data
+        if (!store.history || store.history.length === 0) {
+            store.setHistoryLoading(true);
+        }
+        // Fetch in background regardless (refresh stale data)
+        learnApi.getHistory(studentName, auth.user?.id).then((res) => {
             if (res.success) {
                 store.setHistory(res.data.subjects, res.data.overall);
                 store.setSuggestions(res.data.suggestions ?? []);

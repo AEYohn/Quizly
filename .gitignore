@@ -55,3 +55,4 @@ pitch-docs/
 
 # Git worktrees
 .worktrees/
+.vercel
