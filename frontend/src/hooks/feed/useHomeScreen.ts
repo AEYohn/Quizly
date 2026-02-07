@@ -58,10 +58,12 @@ export function useHomeScreen() {
 
         try {
             const studentName = auth.user?.name || "Student";
-            const resumeRes = await scrollApi.resumeFeed(topic, studentName);
+            // Use parent subject as session topic to avoid "Subject: Subtopic" duplicates in history
+            const sessionTopic = store.selectedSubject || topic;
+            const resumeRes = await scrollApi.resumeFeed(sessionTopic, studentName);
             if (resumeRes.success) {
                 store.setSessionId(resumeRes.data.session_id);
-                store.setTopic(topic);
+                store.setTopic(sessionTopic);
                 store.setCards(resumeRes.data.cards);
                 store.setCurrentIdx(0);
                 store.setStats(resumeRes.data.stats);
@@ -77,17 +79,18 @@ export function useHomeScreen() {
                 content_mix: prefs.contentMix,
                 question_style: prefs.questionStyle,
             };
-            // Include subject context so LLM generates domain-appropriate questions
-            const topicWithContext = store.selectedSubject && !topic.includes(store.selectedSubject)
-                ? `${store.selectedSubject}: ${topic}`
-                : topic;
+            // Pass subtopic context via notes so LLM generates domain-appropriate questions
+            const subTopicHint = store.selectedSubject && topic !== store.selectedSubject
+                ? `Focus on subtopic: ${topic}`
+                : undefined;
+            const notesWithContext = [subTopicHint, store.notesInput.trim()].filter(Boolean).join('\n') || undefined;
             const res = await scrollApi.startFeed(
-                topicWithContext, studentName, auth.user?.id,
-                store.notesInput.trim() || undefined, apiPrefs,
+                sessionTopic, studentName, auth.user?.id,
+                notesWithContext, apiPrefs,
             );
             if (!res.success) { store.setError(res.error ?? "Failed to start feed"); return; }
             store.setSessionId(res.data.session_id);
-            store.setTopic(topic);
+            store.setTopic(sessionTopic);
             store.setCards(res.data.cards);
             store.setCurrentIdx(0);
             store.setStats(res.data.stats);
