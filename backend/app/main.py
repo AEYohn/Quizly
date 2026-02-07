@@ -14,7 +14,8 @@ import os  # noqa: E402
 import uuid  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
-from .routes import auth_routes, session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, auth_routes_enhanced, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes, export_routes, privacy_routes, learn_routes  # noqa: E402
+from .routes import session_routes, response_routes, analytics_routes, ai_routes, curriculum_routes, live_session_routes, adaptive_routes, quiz_routes, game_routes, websocket_routes, explore_routes, course_routes, coding_routes, code_routes, host_routes, student_routes, student_learning_routes, assignment_routes, auth_clerk_routes, student_quiz_routes, library_routes, export_routes, privacy_routes, learn_routes  # noqa: E402
+# DEPRECATED: auth_routes and auth_routes_enhanced removed in Phase 4.1 (Clerk-only auth consolidation)
 from .rate_limiter import limiter  # noqa: E402
 from .exceptions import QuizlyException, quizly_exception_handler  # noqa: E402
 from .logging_config import setup_logging, get_logger, set_request_context, clear_request_context, log_info, log_error  # noqa: E402
@@ -158,7 +159,8 @@ async def request_context_middleware(request: Request, call_next):
         clear_request_context()
 
 # Include routers
-app.include_router(auth_routes.router, prefix="/auth", tags=["authentication"])
+# REMOVED: app.include_router(auth_routes.router, prefix="/auth", tags=["authentication"])
+#   Legacy email/password auth deprecated in Phase 4.1 — all auth is now Clerk-only.
 app.include_router(session_routes.router, prefix="/sessions", tags=["sessions"])
 app.include_router(response_routes.router, prefix="/responses", tags=["responses"])
 app.include_router(analytics_routes.router, prefix="/analytics", tags=["analytics"])
@@ -170,8 +172,8 @@ app.include_router(quiz_routes.router, prefix="/quizzes", tags=["quizzes"])
 app.include_router(game_routes.router, prefix="/games", tags=["games"])
 # WebSocket routes (no prefix - they use /ws/game/...)
 app.include_router(websocket_routes.router, tags=["websocket"])
-# Enhanced auth (with refresh tokens) - mounted under /auth-v2 to avoid clashing
-app.include_router(auth_routes_enhanced.router, prefix="/auth-v2", tags=["authentication-v2"])
+# REMOVED: app.include_router(auth_routes_enhanced.router, prefix="/auth-v2", tags=["authentication-v2"])
+#   Enhanced auth deprecated in Phase 4.1 — all auth is now Clerk-only.
 # Clerk auth routes
 app.include_router(auth_clerk_routes.router, prefix="/auth/clerk", tags=["authentication-clerk"])
 # Explore/Marketplace routes

@@ -12,11 +12,17 @@ import random
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 
 def shuffle_options(question: Dict) -> Dict:
@@ -133,9 +139,10 @@ class QuestionBankGenerator:
                 genai.configure(api_key=self.api_key)
                 self.model = genai.GenerativeModel("gemini-2.0-flash")
             except Exception as e:
-                print(f"Failed to initialize Gemini: {e}")
+                capture_exception(e, context={"service": "question_generator", "operation": "initialize_gemini"})
+                log_error(logger, "initialize_gemini failed", error=str(e))
     
-    def generate_question(
+    async def generate_question(
         self,
         concept: Dict[str, Any],
         difficulty: float = 0.5,
@@ -146,14 +153,14 @@ class QuestionBankGenerator:
     ) -> Dict[str, Any]:
         """
         Generate a single question for a concept using LLM.
-        
+
         Args:
             concept: Concept dict with id, name, topics, misconceptions
             difficulty: 0.0-1.0 difficulty level
             previous_prompts: List of previous question prompts to avoid repetition
             target_misconception: Specific misconception to target (for adaptive remediation)
             question_type: Type of question - "conceptual", "application", "analysis", "transfer"
-            
+
         Returns:
             Question dict with prompt, options, correct_answer, explanation
         """
@@ -221,17 +228,15 @@ Return ONLY valid JSON matching this structure:
     "target_misconception": "{target_misconception or 'general'}"
 }}"""
 
-        max_retries = 3
-        
-        for attempt in range(max_retries):
-            try:
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config={"response_mime_type": "application/json"}
-                )
-                
+        try:
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                generation_config={"response_mime_type": "application/json"},
+                context={"agent": "question_generator", "operation": "generate_question"},
+            )
+            if response is not None:
                 result = json.loads(response.text)
-                
+
                 # Validate the question has real content
                 if self._validate_question(result):
                     result["id"] = f"q_{concept['id']}_{hash(result['prompt']) % 10000}"
@@ -241,18 +246,10 @@ Return ONLY valid JSON matching this structure:
                     result["target_misconception"] = target_misconception
                     # Shuffle options to randomize correct answer position
                     return shuffle_options(result)
-                else:
-                    print(f"Generated question failed validation (attempt {attempt+1})")
-                    
-            except Exception as e:
-                print(f"LLM question generation failed (attempt {attempt+1}/{max_retries}): {e}")
-                
-            # Wait before retrying (exponential backoff)
-            if attempt < max_retries - 1:
-                sleep_time = 2 * (attempt + 1)
-                print(f"Retrying in {sleep_time}s...")
-                time.sleep(sleep_time)
-        
+        except Exception as e:
+            capture_exception(e, context={"service": "question_generator", "operation": "generate_question"})
+            log_error(logger, "generate_question failed", error=str(e))
+
         return self._fallback_question(concept, difficulty)
     
     def _validate_question(self, question: Dict) -> bool:
@@ -298,50 +295,46 @@ Return ONLY valid JSON matching this structure:
             "llm_required": True
         })
     
-    def generate_course_questions(
-        self, 
+    async def generate_course_questions(
+        self,
         concepts: List[Dict],
         num_per_concept: int = 1
     ) -> List[Dict]:
         """
         Generate a full set of questions for any course/topic.
-        
+
         Args:
             concepts: List of concept dicts with id, name, topics, misconceptions
             num_per_concept: Number of questions per concept
-            
+
         Returns:
             List of question dicts
         """
         if not concepts:
             raise ValueError("concepts parameter is required - pass a list of concept dicts")
-        
+
         questions = []
         previous_prompts = []
-        
+
         # Difficulty progression
         difficulties = [0.4, 0.55, 0.65, 0.75]
-        
+
         for i, concept in enumerate(concepts):
             for j in range(num_per_concept):
                 diff = difficulties[min(i + j, len(difficulties) - 1)]
-                
-                q = self.generate_question(concept, diff, previous_prompts)
+
+                q = await self.generate_question(concept, diff, previous_prompts)
                 questions.append(q)
                 previous_prompts.append(q.get("prompt", ""))
-                
-                # Rate limiting
-                if self.model:
-                    time.sleep(0.3)
-        
+
         return questions
-    
+
     # Keep old name as alias for backwards compatibility
-    def generate_cs70_questions(self, num_per_concept: int = 1, concepts: List[Dict] = None) -> List[Dict]:
+    async def generate_cs70_questions(self, num_per_concept: int = 1, concepts: List[Dict] = None) -> List[Dict]:
         """Deprecated - use generate_course_questions instead."""
         if concepts is None:
             raise ValueError("concepts parameter is now required. Pass a list of concept dicts.")
-        return self.generate_course_questions(concepts, num_per_concept)
+        return await self.generate_course_questions(concepts, num_per_concept)
     
     def get_or_generate_questions(
         self,
@@ -373,7 +366,8 @@ Return ONLY valid JSON matching this structure:
                     print(f"Loaded {len(data['questions'])} questions from cache")
                     return data["questions"]
             except Exception as e:
-                print(f"Failed to load cache: {e}")
+                capture_exception(e, context={"service": "question_generator", "operation": "load_cache"})
+                log_error(logger, "load_cache failed", error=str(e))
         
         # Generate new questions
         print("Generating new questions with LLM...")
@@ -389,7 +383,8 @@ Return ONLY valid JSON matching this structure:
                 }, f, indent=2)
             print(f"Saved {len(questions)} questions to cache")
         except Exception as e:
-            print(f"Failed to save cache: {e}")
+            capture_exception(e, context={"service": "question_generator", "operation": "save_cache"})
+            log_error(logger, "save_cache failed", error=str(e))
         
         return questions
 

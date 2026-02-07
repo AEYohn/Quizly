@@ -12,6 +12,7 @@ interface State {
     hasError: boolean;
     error: Error | null;
     errorInfo: ErrorInfo | null;
+    retryCount: number;
 }
 
 /**
@@ -34,6 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
             hasError: false,
             error: null,
             errorInfo: null,
+            retryCount: 0,
         };
     }
 
@@ -57,11 +59,12 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     handleReset = (): void => {
-        this.setState({
+        this.setState((prevState) => ({
             hasError: false,
             error: null,
             errorInfo: null,
-        });
+            retryCount: prevState.retryCount + 1,
+        }));
     };
 
     handleReload = (): void => {
@@ -136,7 +139,7 @@ export class ErrorBoundary extends Component<Props, State> {
             );
         }
 
-        return this.props.children;
+        return <React.Fragment key={this.state.retryCount}>{this.props.children}</React.Fragment>;
     }
 }
 

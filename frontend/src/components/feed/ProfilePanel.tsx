@@ -7,7 +7,24 @@ import { cn } from "~/lib/utils";
 import { learnApi } from "~/lib/api";
 import type { LearnProgressResponse, CalibrationResponse } from "~/lib/api";
 import { useAuth } from "~/lib/auth";
-import { CalibrationChart } from "~/components/feed/CalibrationChart";
+import dynamic from "next/dynamic";
+
+// Lazy-load the chart widget (SVG-heavy, only shown when sufficient data exists)
+const CalibrationChart = dynamic(
+    () => import("~/components/feed/CalibrationChart").then((mod) => mod.CalibrationChart),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="animate-pulse space-y-3">
+                <div className="h-[200px] bg-gray-800/40 rounded mx-auto max-w-[280px]" />
+                <div className="flex justify-center gap-4">
+                    <div className="h-3 bg-gray-800/40 rounded w-16" />
+                    <div className="h-3 bg-gray-800/40 rounded w-16" />
+                </div>
+            </div>
+        ),
+    },
+);
 
 export function ProfilePanel() {
     const auth = useAuth();

@@ -28,6 +28,11 @@ from dataclasses import dataclass, field, asdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from ..utils.llm_utils import call_gemini_with_timeout
+
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+
 from ..db_models import (
     LearningSession,
     ConceptMastery,
@@ -45,6 +50,8 @@ try:
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -635,7 +642,7 @@ class ScrollFeedEngine:
         else:
             return random.choice(state.concepts)
 
-    def _generate_card_batch(
+    async def _generate_card_batch(
         self, state: FeedState, count: int = 3,
         bkt_states: Optional[Dict] = None,
         notes_context: str = "",
@@ -670,7 +677,7 @@ class ScrollFeedEngine:
                 "misconceptions": [target_misconception] if target_misconception else [],
             }
 
-            question = self.question_gen.generate_question(
+            question = await self.question_gen.generate_question(
                 concept_dict,
                 difficulty=difficulty,
                 previous_prompts=state.previous_prompts[-10:],
@@ -733,7 +740,8 @@ class ScrollFeedEngine:
                         state.previous_prompts.append(c.question["prompt"])
                 return pool_cards
         except Exception as e:
-            print(f"Pool card selection failed, falling back to inline: {e}")
+            capture_exception(e, context={"service": "scroll_feed_engine", "operation": "pool_card_selection"})
+            log_error(logger, "pool_card_selection failed, falling back to inline", error=str(e))
 
         # Backfill resource context for sessions created before PDF-context fix
         if not state.notes_context:
@@ -742,7 +750,7 @@ class ScrollFeedEngine:
                 state.notes_context = resource_ctx
 
         # Fallback to inline generation with BKT-aware concept selection
-        return self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
+        return await self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
 
     def _card_to_dict(self, card: ScrollCard) -> Dict[str, Any]:
         """Convert card to API response dict."""
@@ -883,7 +891,8 @@ class ScrollFeedEngine:
             ai_text = response.text.strip()
         except Exception as e:
             ai_text = "I'm having trouble thinking right now. Try rephrasing your thought?"
-            print(f"Help chat Gemini error: {e}")
+            capture_exception(e, context={"service": "scroll_feed_engine", "operation": "help_chat_gemini"})
+            log_error(logger, "help_chat_gemini failed", error=str(e))
 
         # Append AI response
         state.help_history.append({"role": "assistant", "content": ai_text})
@@ -1028,15 +1037,18 @@ Return JSON array of concept names (short, specific):
 ["concept1", "concept2", "concept3", ...]"""
 
             try:
-                response = FEED_MODEL.generate_content(
-                    prompt_text,
+                response = await call_gemini_with_timeout(
+                    FEED_MODEL, prompt_text,
                     generation_config={"response_mime_type": "application/json"},
+                    context={"agent": "scroll_feed_engine", "operation": "extract_concepts"},
                 )
-                concepts = json.loads(response.text)
-                if isinstance(concepts, list) and len(concepts) >= 2:
-                    return concepts[:8]
+                if response is not None:
+                    concepts = json.loads(response.text)
+                    if isinstance(concepts, list) and len(concepts) >= 2:
+                        return concepts[:8]
             except Exception as e:
-                print(f"Concept extraction error: {e}")
+                capture_exception(e, context={"service": "scroll_feed_engine", "operation": "extract_concepts"})
+                log_error(logger, "extract_concepts failed", error=str(e))
 
         return [topic]
 

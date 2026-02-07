@@ -17,6 +17,10 @@ from dataclasses import dataclass, field, asdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 from ..db_models import (
     LearningSession,
     ConceptMastery,
@@ -33,6 +37,8 @@ try:
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -217,10 +223,13 @@ Return JSON:
 }}"""
 
         try:
-            response = PLANNER_MODEL.generate_content(
-                prompt,
+            response = await call_gemini_with_timeout(
+                PLANNER_MODEL, prompt,
                 generation_config={"response_mime_type": "application/json"},
+                context={"agent": "learning_orchestrator", "operation": "plan_with_llm"},
             )
+            if response is None:
+                return self._plan_fallback(topic, mastery, review_concepts)
             plan = json.loads(response.text)
             return {
                 "concepts": plan.get("concepts", [topic]),
@@ -229,7 +238,8 @@ Return JSON:
                 "rationale": plan.get("rationale", ""),
             }
         except Exception as e:
-            print(f"Planner LLM error: {e}")
+            capture_exception(e, context={"service": "learning_orchestrator", "operation": "plan_with_llm"})
+            log_error(logger, "plan_with_llm failed", error=str(e))
             return self._plan_fallback(topic, mastery, review_concepts)
 
     def _plan_fallback(
@@ -251,7 +261,7 @@ Return JSON:
     # QUIZ agent
     # ===================================================================
 
-    def _generate_question(
+    async def _generate_question(
         self, concept: str, difficulty: float, previous_prompts: List[str],
         target_misconception: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -262,7 +272,7 @@ Return JSON:
             "topics": [],
             "misconceptions": [target_misconception] if target_misconception else [],
         }
-        question = self.question_gen.generate_question(
+        question = await self.question_gen.generate_question(
             concept_dict,
             difficulty=difficulty,
             previous_prompts=previous_prompts,
@@ -309,7 +319,7 @@ Return JSON:
         misconception_data = None
         if not is_correct:
             try:
-                result = self.misconception_tagger.tag_response(
+                result = await self.misconception_tagger.tag_response(
                     student_id=0,
                     question=question,
                     student_answer=answer,
@@ -324,7 +334,8 @@ Return JSON:
                         student_name, concept, result.description
                     )
             except Exception as e:
-                print(f"Misconception tagger error: {e}")
+                capture_exception(e, context={"service": "learning_orchestrator", "operation": "misconception_tagging"})
+                log_error(logger, "misconception_tagging failed", error=str(e))
 
         # Confidence-correctness quadrant
         high_confidence = confidence >= 70
@@ -407,7 +418,7 @@ Return JSON:
     # TEACH agent
     # ===================================================================
 
-    def _generate_micro_lesson(
+    async def _generate_micro_lesson(
         self, concept: str, misconception: Optional[Dict] = None
     ) -> Dict[str, Any]:
         """Generate an inline micro-lesson for a concept."""
@@ -420,7 +431,7 @@ Return JSON:
                     "misconception": misconception.get("description", ""),
                 }
             )
-        ticket = self.exit_ticket_agent.generate_exit_ticket(
+        ticket = await self.exit_ticket_agent.generate_exit_ticket(
             student_id=0,
             session_responses=responses,
             concepts=[concept],
@@ -435,7 +446,7 @@ Return JSON:
     # DECIDE: what happens next after assessment + refine
     # ===================================================================
 
-    def _decide_next_action(
+    async def _decide_next_action(
         self,
         assessment: Dict[str, Any],
         refine_result: Dict[str, Any],
@@ -477,7 +488,7 @@ Return JSON:
 
         # Teach-first strategy override
         if "switch_to_teach_first" in changes:
-            lesson = self._generate_micro_lesson(
+            lesson = await self._generate_micro_lesson(
                 concept, assessment.get("misconception")
             )
             return {
@@ -499,7 +510,7 @@ Return JSON:
 
         # Wrong + low confidence → Teach
         if quadrant == "uncertain_incorrect":
-            lesson = self._generate_micro_lesson(
+            lesson = await self._generate_micro_lesson(
                 concept, assessment.get("misconception")
             )
             return {
@@ -557,7 +568,7 @@ Return JSON:
 
         # Generate first diagnostic question
         first_concept = concepts[0] if concepts else topic
-        question = self._generate_question(
+        question = await self._generate_question(
             first_concept, state.difficulty, []
         )
         state.current_question = question
@@ -640,7 +651,7 @@ Return JSON:
         refine_result = self._refine(state, assessment)
 
         # DECIDE next action
-        decision = self._decide_next_action(assessment, refine_result, state)
+        decision = await self._decide_next_action(assessment, refine_result, state)
 
         # If next action is a new question, generate it
         question_data = None
@@ -655,7 +666,7 @@ Return JSON:
             if assessment.get("misconception") and assessment["misconception"].get("description"):
                 target_misconception = assessment["misconception"]["description"]
 
-            question = self._generate_question(
+            question = await self._generate_question(
                 current_concept,
                 state.difficulty,
                 state.previous_prompts,
@@ -674,7 +685,7 @@ Return JSON:
         # Handle celebration → next question
         if decision["action"] == "celebrate" and decision.get("next_concept"):
             next_concept = decision["next_concept"]
-            question = self._generate_question(
+            question = await self._generate_question(
                 next_concept, state.difficulty, state.previous_prompts
             )
             state.current_question = question
@@ -765,7 +776,8 @@ Return JSON:
             ai_message = response.get("message", "Let me think about that...")
             discussion_state = response.get("discussion_state", {})
         except Exception as e:
-            print(f"Discussion error: {e}")
+            capture_exception(e, context={"service": "learning_orchestrator", "operation": "process_discussion_message"})
+            log_error(logger, "process_discussion_message failed", error=str(e))
             ai_message = "That's an interesting thought. Can you tell me more about your reasoning?"
             discussion_state = {}
 
@@ -792,7 +804,7 @@ Return JSON:
         if ready_for_retry:
             # Generate a retry question on the same concept
             concept = question.get("concept", session.topic)
-            retry_q = self._generate_question(
+            retry_q = await self._generate_question(
                 concept, state.difficulty, state.previous_prompts
             )
             state.current_question = retry_q

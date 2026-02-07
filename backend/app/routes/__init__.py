@@ -1,8 +1,7 @@
 """Routes package for Quizly API."""
 
 from . import (
-    auth_routes as auth_routes,
-    auth_routes_enhanced as auth_routes_enhanced,
+    # DEPRECATED: auth_routes and auth_routes_enhanced removed in Phase 4.1 (Clerk-only auth)
     session_routes as session_routes,
     response_routes as response_routes,
     analytics_routes as analytics_routes,

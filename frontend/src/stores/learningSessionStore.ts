@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { createDebouncedJSONStorage } from "~/lib/debouncedStorage";
 
 // Server-driven action types
 export type SessionAction =
@@ -172,6 +173,15 @@ export const useLearningSessionStore = create<LearningSessionState>()(
         }),
         {
             name: "quizly-learning-session",
+            version: 1,
+            storage: createDebouncedJSONStorage(),
+            migrate: (persisted: unknown, version: number) => {
+                if (version === 0) {
+                    // Clear legacy unversioned data
+                    return {} as any;
+                }
+                return persisted as any;
+            },
             partialize: (state) => ({
                 sessionId: state.sessionId,
                 topic: state.topic,

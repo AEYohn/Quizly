@@ -11,11 +11,17 @@ import json
 from typing import Dict, Any, Optional, List
 from urllib.parse import urlparse
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 
 class ResourceCuratorAgent:
@@ -38,7 +44,8 @@ class ResourceCuratorAgent:
                 genai.configure(api_key=self.api_key)
                 self.model = genai.GenerativeModel("gemini-2.0-flash")
             except Exception as e:
-                print(f"Failed to initialize Gemini for ResourceCuratorAgent: {e}")
+                capture_exception(e, context={"service": "resource_curator", "operation": "initialize_gemini"})
+                log_error(logger, "initialize_gemini failed", error=str(e))
 
     async def curate_resources(
         self,
@@ -120,15 +127,18 @@ Return ONLY valid JSON array:
 ]"""
 
         try:
-            response = self.model.generate_content(
-                prompt,
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
                 generation_config={"response_mime_type": "application/json"},
+                context={"agent": "resource_curator", "operation": "generate_search_queries"},
             )
-            queries = json.loads(response.text)
-            if isinstance(queries, list) and len(queries) >= 1:
-                return queries[:3]
+            if response is not None:
+                queries = json.loads(response.text)
+                if isinstance(queries, list) and len(queries) >= 1:
+                    return queries[:3]
         except Exception as e:
-            print(f"Search query generation failed: {e}")
+            capture_exception(e, context={"service": "resource_curator", "operation": "generate_search_queries"})
+            log_error(logger, "generate_search_queries failed", error=str(e))
 
         return []
 
@@ -182,10 +192,13 @@ Return ONLY valid JSON array of the top {max_results} results:
 Only include results that score at least 5 overall. Return empty array if nothing is good."""
 
         try:
-            response = self.model.generate_content(
-                prompt,
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
                 generation_config={"response_mime_type": "application/json"},
+                context={"agent": "resource_curator", "operation": "rank_results"},
             )
+            if response is None:
+                return [self._result_to_resource(r, difficulty) for r in results[:max_results]]
             rankings = json.loads(response.text)
 
             if not isinstance(rankings, list):
@@ -205,7 +218,8 @@ Only include results that score at least 5 overall. Return empty array if nothin
             return curated
 
         except Exception as e:
-            print(f"Result ranking failed, returning unranked: {e}")
+            capture_exception(e, context={"service": "resource_curator", "operation": "rank_results"})
+            log_error(logger, "rank_results failed, returning unranked", error=str(e))
             return [self._result_to_resource(r, difficulty) for r in results[:max_results]]
 
     def _result_to_resource(self, result, difficulty: float) -> Dict[str, Any]:

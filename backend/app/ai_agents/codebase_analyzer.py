@@ -8,8 +8,9 @@ and extract learning topics, tech stack, architecture patterns.
 import os
 import re
 import json
-import time
 from typing import Dict, Any, Optional
+
+from ..utils.llm_utils import call_gemini_with_timeout
 
 try:
     import httpx
@@ -17,11 +18,16 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_API_BASE = "https://api.github.com"
@@ -43,7 +49,8 @@ class CodebaseAnalyzerAgent:
                 genai.configure(api_key=self.api_key)
                 self.model = genai.GenerativeModel("gemini-2.0-flash")
             except Exception as e:
-                print(f"Failed to initialize Gemini for CodebaseAnalyzerAgent: {e}")
+                capture_exception(e, context={"service": "codebase_analyzer", "operation": "initialize_gemini"})
+                log_error(logger, "initialize_gemini failed", error=str(e))
 
     def _parse_repo(self, github_url: str) -> Optional[tuple]:
         """Parse owner/repo from GitHub URL."""
@@ -225,21 +232,19 @@ Rules:
 - Tech stack should list all significant technologies/frameworks
 - Focus on what a student can LEARN from this codebase"""
 
-        max_retries = 2
-        for attempt in range(max_retries):
-            try:
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config={"response_mime_type": "application/json"},
-                )
+        try:
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                generation_config={"response_mime_type": "application/json"},
+                context={"agent": "codebase_analyzer", "operation": "analyze_with_gemini"},
+            )
+            if response is not None:
                 result = json.loads(response.text)
-
                 if "tech_stack" in result and "learning_topics" in result:
                     return result
-            except Exception as e:
-                print(f"Codebase analysis failed (attempt {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
-                    time.sleep(2)
+        except Exception as e:
+            capture_exception(e, context={"service": "codebase_analyzer", "operation": "analyze_with_gemini"})
+            log_error(logger, "analyze_with_gemini failed", error=str(e))
 
         return self._fallback_analysis(repo_data)
 

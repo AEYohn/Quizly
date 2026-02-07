@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import {
     Brain,
     Lightbulb,
@@ -80,6 +81,7 @@ interface InsightsData {
 export default function MisconceptionInsightsPage() {
     const params = useParams();
     const router = useRouter();
+    const { getToken } = useClerkAuth();
     const gameId = params.id as string;
 
     const [insights, setInsights] = useState<InsightsData | null>(null);
@@ -91,7 +93,7 @@ export default function MisconceptionInsightsPage() {
 
     const fetchInsights = useCallback(async () => {
         try {
-            const token = localStorage.getItem("token");
+            const token = await getToken();
             const response = await fetch(`${API_URL}/games/${gameId}/insights/misconceptions`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -109,7 +111,7 @@ export default function MisconceptionInsightsPage() {
         } finally {
             setLoading(false);
         }
-    }, [gameId]);
+    }, [gameId, getToken]);
 
     useEffect(() => {
         fetchInsights();

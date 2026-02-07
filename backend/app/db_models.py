@@ -6,7 +6,7 @@ SQLAlchemy ORM models for Quizly.
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
-from sqlalchemy import String, Text, Float, Integer, Boolean, ForeignKey, DateTime, JSON, Uuid
+from sqlalchemy import String, Text, Float, Integer, Boolean, ForeignKey, DateTime, JSON, Uuid, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -303,6 +303,10 @@ class ConceptMastery(Base):
     ts_alpha: Mapped[float] = mapped_column(Float, default=1.0)
     ts_beta: Mapped[float] = mapped_column(Float, default=1.0)
 
+    __table_args__ = (
+        Index('ix_concept_mastery_student_concept', 'student_name', 'concept'),
+    )
+
 
 class StudentMisconception(Base):
     """Track persistent misconceptions per student."""
@@ -357,6 +361,10 @@ class SpacedRepetitionItem(Base):
     last_reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     last_quality: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0-5 rating
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        Index('ix_spaced_rep_student_review', 'student_name', 'next_review_at'),
+    )
 
 
 class CodingProblem(Base):
@@ -667,6 +675,11 @@ class LearningSession(Base):
     concepts_covered: Mapped[dict] = mapped_column(JSON, default=list)  # List of concept strings
     messages_json: Mapped[dict] = mapped_column(JSON, default=list)  # Chat history
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        Index('ix_learning_session_student_topic', 'student_name', 'topic'),
+        Index('ix_learning_session_student_created', 'student_name', 'created_at'),
+    )
 
     # Relationships
     student: Mapped[Optional["User"]] = relationship()

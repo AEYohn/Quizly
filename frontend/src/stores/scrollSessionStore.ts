@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ScrollCard, ScrollStats, ScrollAnalytics, SubjectHistory, LearningHistoryResponse, ResumeSessionInfo } from "~/lib/api";
+import { createDebouncedJSONStorage } from "~/lib/debouncedStorage";
 
 // ============================================
 // Types
@@ -311,6 +312,15 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
         }),
         {
             name: "quizly-scroll-session",
+            version: 1,
+            storage: createDebouncedJSONStorage(),
+            migrate: (persisted: unknown, version: number) => {
+                if (version === 0) {
+                    // Clear legacy unversioned data
+                    return {} as any;
+                }
+                return persisted as any;
+            },
             partialize: (state) => ({
                 sessionId: state.sessionId,
                 topic: state.topic,

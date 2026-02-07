@@ -1,6 +1,10 @@
+# DEPRECATED: This auth module is no longer registered. All auth is handled by Clerk.
+# Kept for reference. Safe to delete after confirming no dependencies.
+# Removed from app.include_router() in main.py as part of Phase 4.1 auth consolidation.
 """
-Authentication Routes
-User registration, login, and profile management.
+Authentication Routes (DEPRECATED)
+Legacy email/password auth with JWT tokens.
+Superseded by Clerk auth (auth_clerk.py / auth_clerk_routes.py).
 """
 
 from datetime import timedelta

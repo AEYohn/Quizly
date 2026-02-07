@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..db_models import Session, Question, User, SessionLike
-from ..auth import get_current_user, get_optional_user
+from ..auth_clerk import get_current_user_clerk as get_current_user, get_current_user_clerk_optional as get_optional_user
 
 
 router = APIRouter(prefix="/explore", tags=["explore"])

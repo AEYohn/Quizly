@@ -14,7 +14,27 @@ import {
     AlertCircle,
     Loader2,
 } from "lucide-react";
-import { ExitTicketCard } from "./ExitTicketCard";
+import dynamic from "next/dynamic";
+
+// Lazy-load ExitTicketCard: 616-line component that imports katex (math renderer).
+// Only rendered when a user expands an individual exit ticket.
+const ExitTicketCard = dynamic(
+    () => import("./ExitTicketCard").then((mod) => mod.ExitTicketCard),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="animate-pulse space-y-3 p-4">
+                <div className="h-4 bg-gray-700 rounded w-3/4" />
+                <div className="h-4 bg-gray-700 rounded w-1/2" />
+                <div className="space-y-2 pt-2">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="h-10 bg-gray-700/50 rounded-lg" />
+                    ))}
+                </div>
+            </div>
+        ),
+    },
+);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 

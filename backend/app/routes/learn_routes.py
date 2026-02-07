@@ -7,14 +7,18 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, func, or_, select, and_
+from sqlalchemy import case, delete, func, or_, select, and_
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone, timedelta
 import math
 import os
 import tempfile
 
 from ..database import get_db
-from ..db_models import LearningSession, ConceptMastery, SpacedRepetitionItem, SyllabusCache, SubjectResource
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..db_models import LearningSession, ConceptMastery, SpacedRepetitionItem, SyllabusCache, SubjectResource, User
+from ..auth_clerk import get_current_user_clerk_optional, require_teacher_clerk
 from ..services.learning_orchestrator import LearningOrchestrator
 from ..services.scroll_feed_engine import ScrollFeedEngine
 from ..services.content_pool_service import ContentPoolService
@@ -22,6 +26,7 @@ from ..services.syllabus_service import SyllabusService
 from ..services.knowledge_graph import KnowledgeGraph
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 def ensure_utc_iso(dt: Optional[datetime]) -> Optional[str]:
@@ -31,6 +36,60 @@ def ensure_utc_iso(dt: Optional[datetime]) -> Optional[str]:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()
+
+# File upload validation
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
+ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".doc", ".docx", ".pptx"}
+
+
+async def validate_upload_file(upload_file: UploadFile) -> bytes:
+    """Validate an uploaded file's extension and size.
+
+    Returns the file content if valid.
+    Raises HTTPException if invalid.
+    """
+    # Check extension
+    filename = upload_file.filename or "file"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+
+    # Check content type
+    content_type = upload_file.content_type or ""
+    allowed_content_types = {
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/octet-stream",  # Fallback for unknown types
+    }
+    if content_type and content_type not in allowed_content_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Content type '{content_type}' not allowed"
+        )
+
+    # Read in chunks to enforce size limit without loading entire file
+    chunks = []
+    total_size = 0
+    while True:
+        chunk = await upload_file.read(8192)  # 8KB chunks
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File '{filename}' exceeds maximum size of {MAX_UPLOAD_SIZE // (1024 * 1024)}MB"
+            )
+        chunks.append(chunk)
+
+    return b"".join(chunks)
 
 # In-memory presence tracking: { "subject:node_id": { "students": { name: timestamp } } }
 _presence_store: Dict[str, Dict[str, Any]] = {}
@@ -157,8 +216,11 @@ class PregenContentRequest(BaseModel):
 async def start_session(
     request: StartSessionRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Start a new learning session. Runs Retrieve → Plan, returns first question."""
+    if current_user and current_user.name != request.student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     orchestrator = LearningOrchestrator(db)
     result = await orchestrator.start_session(
         student_name=request.student_name,
@@ -173,6 +235,7 @@ async def submit_answer(
     session_id: str,
     request: SubmitAnswerRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit an answer. Runs Assess → Refine → next action."""
     orchestrator = LearningOrchestrator(db)
@@ -191,6 +254,7 @@ async def send_message(
     session_id: str,
     request: SendMessageRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Send a discussion message during Socratic dialogue."""
     orchestrator = LearningOrchestrator(db)
@@ -207,6 +271,7 @@ async def send_message(
 async def end_session(
     session_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """End session. Final refine pass, mastery updates, spaced rep scheduling."""
     orchestrator = LearningOrchestrator(db)
@@ -220,8 +285,11 @@ async def end_session(
 async def get_review_queue(
     student_name: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get spaced repetition items due for review."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     now = datetime.now(timezone.utc)
     query = select(SpacedRepetitionItem).where(
         and_(
@@ -253,17 +321,64 @@ async def get_review_queue(
 @router.get("/progress")
 async def get_progress(
     student_name: str,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get mastery data across all concepts for a student."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+
+    # Count total mastery items for pagination metadata
+    count_query = select(func.count()).select_from(ConceptMastery).where(
+        ConceptMastery.student_name == student_name
+    )
+    total_count_result = await db.execute(count_query)
+    total_mastery = total_count_result.scalar() or 0
+
+    # Paginated mastery query
     query = select(ConceptMastery).where(
         ConceptMastery.student_name == student_name
-    ).order_by(ConceptMastery.mastery_score.desc())
+    ).order_by(ConceptMastery.mastery_score.desc()).offset(offset).limit(limit)
 
     result = await db.execute(query)
     mastery_items = result.scalars().all()
 
-    # Recent sessions
+    # Summary counts use full data set (no pagination) for accuracy
+    # We need to query all items for summary stats if paginated
+    if offset > 0 or len(mastery_items) < total_mastery:
+        summary_query = select(
+            func.count().label("total"),
+            func.sum(case(
+                (ConceptMastery.mastery_score >= 80, 1), else_=0
+            )).label("mastered"),
+            func.sum(case(
+                (and_(ConceptMastery.mastery_score >= 30, ConceptMastery.mastery_score < 80), 1), else_=0
+            )).label("in_progress"),
+            func.sum(case(
+                (ConceptMastery.mastery_score < 30, 1), else_=0
+            )).label("needs_work"),
+        ).where(ConceptMastery.student_name == student_name)
+        summary_result = await db.execute(summary_query)
+        summary_row = summary_result.one()
+        summary = {
+            "total_concepts": summary_row.total or 0,
+            "mastered": summary_row.mastered or 0,
+            "in_progress": summary_row.in_progress or 0,
+            "needs_work": summary_row.needs_work or 0,
+        }
+    else:
+        summary = {
+            "total_concepts": len(mastery_items),
+            "mastered": sum(1 for m in mastery_items if m.mastery_score >= 80),
+            "in_progress": sum(
+                1 for m in mastery_items if 30 <= m.mastery_score < 80
+            ),
+            "needs_work": sum(1 for m in mastery_items if m.mastery_score < 30),
+        }
+
+    # Recent sessions (always limited to 10, not paginated)
     session_query = select(LearningSession).where(
         LearningSession.student_name == student_name
     ).order_by(LearningSession.created_at.desc()).limit(10)
@@ -298,13 +413,11 @@ async def get_progress(
             }
             for s in sessions
         ],
-        "summary": {
-            "total_concepts": len(mastery_items),
-            "mastered": sum(1 for m in mastery_items if m.mastery_score >= 80),
-            "in_progress": sum(
-                1 for m in mastery_items if 30 <= m.mastery_score < 80
-            ),
-            "needs_work": sum(1 for m in mastery_items if m.mastery_score < 30),
+        "summary": summary,
+        "pagination": {
+            "offset": offset,
+            "limit": limit,
+            "total": total_mastery,
         },
     }
 
@@ -319,19 +432,59 @@ async def get_learning_history(
     student_name: str,
     student_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get aggregated learning history per subject for personalized home screen."""
-    # All sessions for this student (exclude abandoned 0-question sessions)
-    session_query = select(LearningSession).where(
-        and_(
-            LearningSession.student_name == student_name,
-            LearningSession.questions_answered > 0,
-        )
-    ).order_by(LearningSession.created_at.desc())
-    session_result = await db.execute(session_query)
-    sessions = session_result.scalars().all()
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
 
-    # All cached syllabi (to know which subjects have skill trees)
+    # --- Optimized: run session aggregation, syllabus, mastery count, and
+    # active-session queries together instead of 4 separate full-table scans ---
+
+    # 1. SQL-level aggregation of sessions by topic (replaces Python loop over all sessions)
+    session_agg_query = (
+        select(
+            LearningSession.topic,
+            func.count().label("total_sessions"),
+            func.sum(LearningSession.questions_answered).label("total_questions"),
+            func.sum(LearningSession.questions_correct).label("total_correct"),
+            func.max(func.coalesce(LearningSession.started_at, LearningSession.created_at)).label("last_studied_at"),
+            func.min(func.coalesce(LearningSession.started_at, LearningSession.created_at)).label("first_studied_at"),
+        )
+        .where(
+            and_(
+                LearningSession.student_name == student_name,
+                LearningSession.questions_answered > 0,
+            )
+        )
+        .group_by(LearningSession.topic)
+    )
+    session_agg_result = await db.execute(session_agg_query)
+    session_agg_rows = session_agg_result.all()
+
+    # We still need per-session state_json for XP (stored as JSON, not aggregatable in SQL).
+    # But only fetch the columns we need, not the full ORM objects with large messages_json.
+    xp_query = (
+        select(LearningSession.topic, LearningSession.state_json)
+        .where(
+            and_(
+                LearningSession.student_name == student_name,
+                LearningSession.questions_answered > 0,
+            )
+        )
+    )
+    xp_result = await db.execute(xp_query)
+    xp_rows = xp_result.all()
+
+    # Aggregate XP per topic from state_json
+    topic_xp: dict[str, int] = {}
+    for row in xp_rows:
+        state = row.state_json or {}
+        xp = state.get("total_xp", 0)
+        if xp:
+            topic_xp[row.topic] = topic_xp.get(row.topic, 0) + xp
+
+    # 2. All cached syllabi (to know which subjects have skill trees)
     if student_id:
         syllabus_query = select(SyllabusCache).where(
             or_(SyllabusCache.student_id == student_id, SyllabusCache.student_id.is_(None))
@@ -342,36 +495,20 @@ async def get_learning_history(
     syllabi = syllabus_result.scalars().all()
     syllabus_subjects = {s.subject.lower(): s for s in syllabi}
 
-    # Aggregate by subject
+    # Build subject_stats from SQL aggregation results
     subject_stats: dict[str, dict] = {}
-    for s in sessions:
-        topic = s.topic
-        if topic not in subject_stats:
-            subject_stats[topic] = {
-                "subject": topic,
-                "total_sessions": 0,
-                "total_questions": 0,
-                "total_correct": 0,
-                "total_xp": 0,
-                "last_studied_at": None,
-                "first_studied_at": None,
-                "has_syllabus": topic.lower() in syllabus_subjects,
-            }
-        stats = subject_stats[topic]
-        stats["total_sessions"] += 1
-        stats["total_questions"] += s.questions_answered
-        stats["total_correct"] += s.questions_correct
-
-        # XP from state_json if available
-        state = s.state_json or {}
-        stats["total_xp"] += state.get("total_xp", 0)
-
-        ts = s.started_at or s.created_at
-        if ts:
-            if stats["last_studied_at"] is None or ts > stats["last_studied_at"]:
-                stats["last_studied_at"] = ts
-            if stats["first_studied_at"] is None or ts < stats["first_studied_at"]:
-                stats["first_studied_at"] = ts
+    for row in session_agg_rows:
+        topic = row.topic
+        subject_stats[topic] = {
+            "subject": topic,
+            "total_sessions": row.total_sessions,
+            "total_questions": row.total_questions or 0,
+            "total_correct": row.total_correct or 0,
+            "total_xp": topic_xp.get(topic, 0),
+            "last_studied_at": row.last_studied_at,
+            "first_studied_at": row.first_studied_at,
+            "has_syllabus": topic.lower() in syllabus_subjects,
+        }
 
     # Also add subjects that have cached syllabi but no answered questions yet
     # (e.g., user generated a skill tree but hasn't studied yet)
@@ -414,14 +551,20 @@ async def get_learning_history(
         reverse=True,
     )
 
-    # Get concept mastery for overall stats
-    mastery_query = select(ConceptMastery).where(
-        ConceptMastery.student_name == student_name
+    # 3. Optimized: Use SQL COUNT aggregate instead of loading all ConceptMastery rows.
+    # Only concepts_mastered (score >= 80) is used from this data.
+    mastery_count_query = select(
+        func.count()
+    ).select_from(ConceptMastery).where(
+        and_(
+            ConceptMastery.student_name == student_name,
+            ConceptMastery.mastery_score >= 80,
+        )
     )
-    mastery_result = await db.execute(mastery_query)
-    mastery_items = mastery_result.scalars().all()
+    mastery_count_result = await db.execute(mastery_count_query)
+    concepts_mastered_count = mastery_count_result.scalar() or 0
 
-    # Find active session for resume banner (not ended, has progress, scroll mode)
+    # 4. Find active session for resume banner (not ended, has progress, scroll mode)
     active_query = (
         select(LearningSession)
         .where(
@@ -519,7 +662,7 @@ async def get_learning_history(
             "total_sessions": sum(s["total_sessions"] for s in subjects),
             "total_questions": sum(s["total_questions"] for s in subjects),
             "total_xp": sum(s["total_xp"] for s in subjects),
-            "concepts_mastered": sum(1 for m in mastery_items if m.mastery_score >= 80),
+            "concepts_mastered": concepts_mastered_count,
         },
         "active_session": active_session_data,
         "suggestions": suggestions,
@@ -535,8 +678,11 @@ async def get_learning_history(
 async def scroll_start(
     request: ScrollStartRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Start a TikTok-style scroll feed. Returns session + first batch of cards."""
+    if current_user and current_user.name != request.student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     print(f"[DEBUG] scroll_start called: topic={request.topic}, student={request.student_name}", flush=True)
     engine = ScrollFeedEngine(db)
     prefs_dict = None
@@ -556,8 +702,11 @@ async def scroll_start(
 async def scroll_resume(
     request: ScrollResumeRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Resume the most recent active scroll session for a topic."""
+    if current_user and current_user.name != request.student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     print(f"[DEBUG] scroll_resume called: topic={request.topic}, student={request.student_name}", flush=True)
     # Find most recent non-ended session with progress for this topic+student
     query = (
@@ -618,6 +767,7 @@ async def scroll_answer(
     session_id: str,
     request: ScrollAnswerRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit answer for current scroll card. Returns result + next cards."""
     engine = ScrollFeedEngine(db)
@@ -652,6 +802,7 @@ async def scroll_next(
     session_id: str,
     count: int = 3,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get next batch of cards for the scroll feed."""
     engine = ScrollFeedEngine(db)
@@ -665,6 +816,7 @@ async def scroll_next(
 async def scroll_analytics(
     session_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get live analytics for the scroll session."""
     engine = ScrollFeedEngine(db)
@@ -679,8 +831,11 @@ async def get_calibration(
     student_name: str,
     subject: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get calibration metrics and DK-overconfident concepts for a student."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     from ..services.calibration_service import CalibrationService
     service = CalibrationService(db)
     return await service.get_student_calibration(student_name, subject)
@@ -691,6 +846,7 @@ async def scroll_help(
     session_id: str,
     request: ScrollHelpRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Socratic help chat for 'I don't know'. Guides without revealing the answer."""
     engine = ScrollFeedEngine(db)
@@ -714,6 +870,7 @@ async def scroll_skip(
     session_id: str,
     request: ScrollSkipRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Skip a card. Records signal, returns next cards."""
     pool = ContentPoolService(db)
@@ -744,6 +901,7 @@ async def scroll_flashcard_flip(
     session_id: str,
     request: FlashcardFlipRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Record flashcard flip interaction. Awards XP based on self-rating."""
     session = await db.execute(
@@ -789,6 +947,7 @@ async def scroll_flashcard_flip(
 @router.post("/content/clear-stale-mcqs")
 async def clear_stale_mcqs(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_teacher_clerk),
 ):
     """One-time admin endpoint to clear stale MCQ pool items with bad correct_answer mapping."""
     from ..db_models_content_pool import ContentItem
@@ -803,6 +962,7 @@ async def clear_stale_mcqs(
 async def clear_pool(
     topic: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_teacher_clerk),
 ):
     """Admin endpoint to clear all content pool items, optionally filtered by topic."""
     from ..db_models_content_pool import ContentItem
@@ -850,7 +1010,8 @@ async def pregen_content(
             try:
                 await orchestrator.ensure_pool_ready(request.topic, concepts, subject=request.subject)
             except Exception as e:
-                print(f"Background pregen failed for {request.topic}: {e}")
+                capture_exception(e, context={"service": "learn_routes", "operation": "background_pregen", "topic": request.topic})
+                log_error(logger, "background_pregen failed", topic=request.topic, error=str(e))
             # Yield control between pregen calls to avoid starving other requests
             await asyncio.sleep(0)
 
@@ -922,7 +1083,7 @@ async def upload_resources(
         try:
             suffix = os.path.splitext(upload_file.filename or "file.txt")[1]
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                content = await upload_file.read()
+                content = await validate_upload_file(upload_file)
                 tmp.write(content)
                 tmp_path = tmp.name
 
@@ -1096,7 +1257,7 @@ async def pdf_to_syllabus(
         try:
             suffix = os.path.splitext(upload_file.filename or "file.txt")[1]
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                content = await upload_file.read()
+                content = await validate_upload_file(upload_file)
                 tmp.write(content)
                 tmp_path = tmp.name
 
@@ -1169,8 +1330,11 @@ async def delete_subject(
     subject: str,
     student_name: str = Query(..., min_length=1),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Delete all data for a subject: syllabi, resources, and learning sessions."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     # Delete syllabus cache
     syl_result = await db.execute(
         delete(SyllabusCache).where(
@@ -1222,8 +1386,13 @@ class PresenceHeartbeatRequest(BaseModel):
 
 
 @router.post("/presence/heartbeat")
-async def presence_heartbeat(request: PresenceHeartbeatRequest):
+async def presence_heartbeat(
+    request: PresenceHeartbeatRequest,
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
+):
     """Record that a student is active on a node. TTL 60s."""
+    if current_user and current_user.name != request.student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     key = f"{request.subject}:{request.node_id}"
     now = datetime.now(timezone.utc).timestamp()
 
@@ -1281,8 +1450,11 @@ async def presence_get(subject: str):
 async def get_bkt_mastery(
     student_name: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Return full BKT state for all concepts (P(L), confidence)."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     engine = ScrollFeedEngine(db)
     mastery = await engine.get_bkt_mastery_map(student_name)
     return {
@@ -1296,8 +1468,11 @@ async def get_recommended_path(
     subject: str,
     student_name: str = Query(..., min_length=1),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Return ordered list of concepts to study (knowledge graph optimal path)."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     # Load syllabus
     service = SyllabusService(db)
     tree = await service._get_cached(subject)
@@ -1437,7 +1612,8 @@ async def curate_resources(
                             bg_db.add(item)
                     await bg_db.commit()
                 except Exception as e:
-                    print(f"Background resource curation failed for {concept_name}: {e}")
+                    capture_exception(e, context={"service": "learn_routes", "operation": "background_resource_curation", "concept": concept_name})
+                    log_error(logger, "background_resource_curation failed", concept=concept_name, error=str(e))
 
     background_tasks.add_task(_curate)
     return {"status": "curating"}
@@ -1452,8 +1628,11 @@ async def curate_resources(
 async def assessment_start(
     request: AssessmentStartRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Start a familiarity assessment. Returns self-rating items from syllabus."""
+    if current_user and current_user.name != request.student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     return await service.start_assessment(
@@ -1466,8 +1645,11 @@ async def assessment_start(
 async def assessment_self_ratings(
     request: AssessmentSelfRatingsRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit self-ratings. Returns diagnostic quiz questions."""
+    if current_user and current_user.name != request.student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     return await service.submit_self_ratings(
@@ -1481,8 +1663,11 @@ async def assessment_self_ratings(
 async def assessment_diagnostic(
     request: AssessmentDiagnosticRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit diagnostic answers. Seeds BKT, returns summary."""
+    if current_user and current_user.name != request.student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     result = await service.submit_diagnostic_answers(
@@ -1620,41 +1805,67 @@ async def get_codebase_resources(
 async def get_leaderboard(
     period: str = Query("weekly", regex="^(weekly|alltime)$"),
     student_name: str = Query("", description="Current user name for highlighting"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """Get leaderboard rankings aggregated from learning sessions."""
-    query = select(LearningSession)
+    # --- Optimized: Use SQL GROUP BY for count/sum aggregation instead of
+    # loading all full LearningSession ORM objects into Python ---
 
-    if period == "weekly":
-        week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-        query = query.where(LearningSession.started_at >= week_ago)
+    # Step 1: SQL aggregation for the columns that SQL can handle
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7) if period == "weekly" else None
 
-    result = await db.execute(query)
-    sessions = result.scalars().all()
+    agg_query = select(
+        LearningSession.student_name,
+        func.count().label("sessions_played"),
+        func.sum(func.coalesce(LearningSession.questions_correct, 0)).label("total_correct"),
+        func.sum(func.coalesce(LearningSession.questions_answered, 0)).label("total_answered"),
+    )
 
-    # Aggregate per student
-    player_data: Dict[str, Dict[str, Any]] = {}
-    for s in sessions:
-        name = s.student_name
-        if name not in player_data:
-            player_data[name] = {
-                "total_xp": 0,
-                "sessions_played": 0,
-                "total_correct": 0,
-                "total_answered": 0,
-                "best_streak": 0,
-            }
-        pd = player_data[name]
-        pd["sessions_played"] += 1
-        pd["total_correct"] += s.questions_correct or 0
-        pd["total_answered"] += s.questions_answered or 0
+    if week_ago is not None:
+        agg_query = agg_query.where(LearningSession.started_at >= week_ago)
 
-        # Extract XP and streak from state_json
-        state = s.state_json or {}
-        pd["total_xp"] += state.get("total_xp", 0)
+    agg_query = agg_query.group_by(LearningSession.student_name)
+    agg_result = await db.execute(agg_query)
+    agg_rows = agg_result.all()
+
+    # Step 2: Fetch only state_json for XP/streak (lightweight column-only query,
+    # avoids loading large messages_json, plan_json, concepts_covered, etc.)
+    xp_query = select(
+        LearningSession.student_name,
+        LearningSession.state_json,
+    )
+    if week_ago is not None:
+        xp_query = xp_query.where(LearningSession.started_at >= week_ago)
+
+    xp_result = await db.execute(xp_query)
+    xp_rows = xp_result.all()
+
+    # Aggregate XP and best_streak from state_json in Python (can't do in SQL portably)
+    xp_data: Dict[str, Dict[str, int]] = {}
+    for row in xp_rows:
+        name = row.student_name
+        if name not in xp_data:
+            xp_data[name] = {"total_xp": 0, "best_streak": 0}
+        state = row.state_json or {}
+        xp_data[name]["total_xp"] += state.get("total_xp", 0)
         session_streak = state.get("best_streak", 0)
-        if session_streak > pd["best_streak"]:
-            pd["best_streak"] = session_streak
+        if session_streak > xp_data[name]["best_streak"]:
+            xp_data[name]["best_streak"] = session_streak
+
+    # Combine SQL aggregates with JSON-extracted data
+    player_data: Dict[str, Dict[str, Any]] = {}
+    for row in agg_rows:
+        name = row.student_name
+        xp_info = xp_data.get(name, {"total_xp": 0, "best_streak": 0})
+        player_data[name] = {
+            "total_xp": xp_info["total_xp"],
+            "sessions_played": row.sessions_played,
+            "total_correct": row.total_correct or 0,
+            "total_answered": row.total_answered or 0,
+            "best_streak": xp_info["best_streak"],
+        }
 
     # For sessions without XP (conversational mode), award 10 XP per correct answer
     for name, pd in player_data.items():
@@ -1666,7 +1877,10 @@ async def get_leaderboard(
         player_data.items(), key=lambda x: x[1]["total_xp"], reverse=True
     )
 
-    entries = []
+    total_players = len(sorted_players)
+
+    # Build full ranked entries (need all for current_user_rank), then slice
+    all_entries = []
     current_user_rank = None
     for rank_idx, (name, pd) in enumerate(sorted_players, start=1):
         total_xp = pd["total_xp"]
@@ -1679,7 +1893,7 @@ async def get_leaderboard(
         if is_current:
             current_user_rank = rank_idx
 
-        entries.append({
+        all_entries.append({
             "rank": rank_idx,
             "student_name": name,
             "total_xp": total_xp,
@@ -1692,9 +1906,17 @@ async def get_leaderboard(
             "is_current_user": is_current,
         })
 
+    # Apply pagination via slicing after aggregation
+    entries = all_entries[offset:offset + limit]
+
     return {
         "period": period,
         "entries": entries,
         "current_user_rank": current_user_rank,
-        "total_players": len(entries),
+        "total_players": total_players,
+        "pagination": {
+            "offset": offset,
+            "limit": limit,
+            "total": total_players,
+        },
     }

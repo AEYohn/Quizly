@@ -3,10 +3,10 @@ Analytics Routes
 API endpoints for session and user analytics.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import math
@@ -588,47 +588,62 @@ class MisconceptionResponse(BaseModel):
 @router.get("/misconceptions")
 async def get_misconceptions(
     creator_id: Optional[int] = None,
-    limit: int = 10,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     severity: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """
     Get misconceptions for a teacher.
-    
-    GET /analytics/misconceptions?creator_id=1&limit=10&severity=high
-    
-    Returns list of detected misconceptions from sessions.
+
+    GET /analytics/misconceptions?creator_id=1&limit=50&offset=0&severity=high
+
+    Returns list of detected misconceptions from sessions with pagination.
     """
-    query = select(Misconception).where(Misconception.is_active is True)
-    
+    # Base filter conditions
+    base_query = select(Misconception).where(Misconception.is_active is True)
+
     if creator_id:
-        query = query.where(Misconception.creator_id == creator_id)
-    
+        base_query = base_query.where(Misconception.creator_id == creator_id)
+
     if severity:
-        query = query.where(Misconception.severity == severity)
-    
-    query = query.order_by(Misconception.affected_count.desc()).limit(limit)
-    
+        base_query = base_query.where(Misconception.severity == severity)
+
+    # Count total matching items
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Apply ordering and pagination
+    query = base_query.order_by(Misconception.affected_count.desc()).offset(offset).limit(limit)
+
     result = await db.execute(query)
     misconceptions = result.scalars().all()
-    
-    return [
-        {
-            "id": m.id,
-            "topic": m.topic,
-            "misconception": m.misconception,
-            "description": m.description,
-            "affected_count": m.affected_count,
-            "total_count": m.total_count,
-            "percentage": round((m.affected_count / m.total_count * 100) if m.total_count > 0 else 0, 1),
-            "severity": m.severity,
-            "common_wrong_answer": m.common_wrong_answer,
-            "suggested_intervention": m.suggested_intervention,
-            "session_id": m.session_id,
-            "detected_at": m.detected_at.isoformat() if m.detected_at else None
-        }
-        for m in misconceptions
-    ]
+
+    return {
+        "items": [
+            {
+                "id": m.id,
+                "topic": m.topic,
+                "misconception": m.misconception,
+                "description": m.description,
+                "affected_count": m.affected_count,
+                "total_count": m.total_count,
+                "percentage": round((m.affected_count / m.total_count * 100) if m.total_count > 0 else 0, 1),
+                "severity": m.severity,
+                "common_wrong_answer": m.common_wrong_answer,
+                "suggested_intervention": m.suggested_intervention,
+                "session_id": m.session_id,
+                "detected_at": m.detected_at.isoformat() if m.detected_at else None
+            }
+            for m in misconceptions
+        ],
+        "pagination": {
+            "offset": offset,
+            "limit": limit,
+            "total": total,
+        },
+    }
 
 
 @router.get("/misconceptions/{misconception_id}")

@@ -41,9 +41,44 @@ import { AiThinkingIndicator } from "~/components/chat/AiThinkingIndicator";
 import { ConfidenceSlider } from "~/components/learning/ConfidenceSlider";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SyllabusTopic, SyllabusTree } from "~/stores/scrollSessionStore";
-import { FeedTuneControls } from "~/components/feed/FeedTuneControls";
+import dynamic from "next/dynamic";
 import { BottomSheet } from "~/components/feed/BottomSheet";
-import { SkillTreePath } from "~/components/feed/SkillTreePath";
+
+// Lazy-load heavy sub-components behind modals / bottom sheets
+const SkillTreePath = dynamic(
+    () => import("~/components/feed/SkillTreePath").then((mod) => mod.SkillTreePath),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="h-full flex items-center justify-center bg-gray-950" role="status" aria-label="Loading skill tree">
+                <div className="animate-pulse space-y-4 w-full max-w-lg mx-auto px-4 py-8">
+                    <div className="h-5 bg-gray-800 rounded w-48 mx-auto" />
+                    <div className="space-y-6 pt-4">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <div key={i} className="flex items-center gap-3 justify-center">
+                                <div className="w-14 h-14 rounded-full bg-gray-800/60" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        ),
+    },
+);
+
+const FeedTuneControls = dynamic(
+    () => import("~/components/feed/FeedTuneControls").then((mod) => mod.FeedTuneControls),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="animate-pulse space-y-3 p-4" role="status" aria-label="Loading settings">
+                <div className="h-8 bg-gray-800 rounded w-full" />
+                <div className="h-8 bg-gray-800 rounded w-full" />
+                <div className="h-8 bg-gray-800 rounded w-3/4" />
+            </div>
+        ),
+    },
+);
 
 // ---------------------------------------------------------------------------
 // Render text with inline code and code blocks
@@ -228,7 +263,8 @@ function QuizCard({
             </div>
 
             {/* Options */}
-            <div className="space-y-2.5 mb-5 shrink-0">
+            <fieldset className="space-y-2.5 mb-5 shrink-0 border-none p-0 m-0">
+                <legend className="sr-only">Answer options</legend>
                 {card.options.map((option) => {
                     const letter = getOptionLetter(option);
                     const text = getOptionText(option);
@@ -242,6 +278,7 @@ function QuizCard({
                             key={letter}
                             onClick={(e) => handleSelect(e, letter)}
                             disabled={!!result}
+                            aria-pressed={isSelected}
                             className={cn(
                                 "w-full text-left flex items-start gap-3 px-4 py-3.5 rounded-2xl border transition-all duration-200",
                                 !result && !isSelected && "border-gray-800 bg-gray-900/50 hover:border-gray-700 hover:bg-gray-800/50 active:scale-[0.98]",
@@ -270,7 +307,7 @@ function QuizCard({
                         </button>
                     );
                 })}
-            </div>
+            </fieldset>
 
             {/* Confidence slider (appears after selecting an option) */}
             {selected && !result && (
@@ -406,7 +443,7 @@ function AnalyticsOverlay({ data, onClose }: { data: ScrollSessionAnalytics; onC
         <div className="fixed inset-0 z-50 bg-gray-950/98 backdrop-blur-sm flex flex-col overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800/60">
                 <h2 className="text-lg font-bold text-gray-100">Session Stats</h2>
-                <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-800 text-gray-400 transition-colors">
+                <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-800 text-gray-400 transition-colors" aria-label="Close session stats">
                     <X className="w-5 h-5" />
                 </button>
             </div>
@@ -541,7 +578,7 @@ function SocraticOverlay({ card, sessionId, onClose }: { card: ScrollCard; sessi
                     <h2 className="text-sm font-bold text-gray-100 truncate">Help: {card.concept}</h2>
                     <p className="text-xs text-gray-500 mt-0.5 truncate">{card.prompt.slice(0, 60)}...</p>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-800 text-gray-400 transition-colors shrink-0 ml-3">
+                <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-800 text-gray-400 transition-colors shrink-0 ml-3" aria-label="Close help">
                     <X className="w-5 h-5" />
                 </button>
             </div>
@@ -911,6 +948,10 @@ export function ScrollFeed() {
     // Keyboard
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
+            // Skip keyboard shortcuts when inside modals/overlays/inputs
+            const tag = (e.target as HTMLElement)?.tagName;
+            const inInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
             if ((store.result || store.flashcardXp !== null || store.infoAcknowledged) && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
                 e.preventDefault();
                 handleNext();
@@ -918,10 +959,23 @@ export function ScrollFeed() {
             if (e.key === "Escape") {
                 handleSkip();
             }
+            // Arrow key navigation for feed (only when not in an input and no modal open)
+            if (!inInput && !store.showHelp) {
+                if (e.key === "ArrowDown" && !(store.result || store.flashcardXp !== null || store.infoAcknowledged)) {
+                    // ArrowDown to skip to next card (when card is not yet answered)
+                    e.preventDefault();
+                    handleSkip();
+                }
+                if (e.key === "ArrowUp" && store.currentIdx > 0) {
+                    e.preventDefault();
+                    store.setCurrentIdx(store.currentIdx - 1);
+                    store.clearCardState();
+                }
+            }
         };
         window.addEventListener("keydown", handleKey);
         return () => window.removeEventListener("keydown", handleKey);
-    }, [store.result, store.flashcardXp, store.infoAcknowledged, handleNext, handleSkip]);
+    }, [store, store.result, store.flashcardXp, store.infoAcknowledged, store.showHelp, store.currentIdx, handleNext, handleSkip]);
 
     // ----- Quick-start: tap a topic and go -----
     const feedStartingRef = useRef(false);
@@ -1254,7 +1308,7 @@ export function ScrollFeed() {
                                     </div>
                                 )}
                                 {isRegenerating && (
-                                    <div className="w-4 h-4 rounded-full border-2 border-violet-400 border-t-transparent animate-spin shrink-0" />
+                                    <div className="w-4 h-4 rounded-full border-2 border-violet-400 border-t-transparent animate-spin shrink-0" role="status" aria-label="Regenerating" />
                                 )}
                             </div>
                         </div>
@@ -1277,6 +1331,7 @@ export function ScrollFeed() {
                                     <button
                                         onClick={() => handleDeleteResource(r.id)}
                                         className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0 ml-3"
+                                        aria-label={`Delete ${r.file_name}`}
                                     >
                                         <X className="w-3.5 h-3.5" />
                                     </button>
@@ -1294,7 +1349,7 @@ export function ScrollFeed() {
 
                     {/* Loading overlay */}
                     {store.isLoading && (
-                        <div className="fixed bottom-20 left-0 right-0 z-50 flex items-center justify-center gap-2 pb-4">
+                        <div className="fixed bottom-20 left-0 right-0 z-50 flex items-center justify-center gap-2 pb-4" role="status" aria-label="Loading">
                             <div className="px-4 py-2 rounded-full bg-gray-900/90 border border-gray-800/60 backdrop-blur-sm flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
                                 <span className="text-sm text-gray-400">{loadingMessage}</span>
@@ -1413,7 +1468,7 @@ export function ScrollFeed() {
                             }}
                         >
                             {isPdfUploading ? (
-                                <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />
+                                <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" role="status" aria-label="Uploading" />
                             ) : (
                                 <Upload className="w-4 h-4 text-violet-400 shrink-0" />
                             )}
@@ -1446,7 +1501,7 @@ export function ScrollFeed() {
                                 disabled={store.codebaseLoading}
                                 className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3.5 py-1.5 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 disabled:opacity-50 transition-all active:scale-95"
                             >
-                                {store.codebaseLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Analyze"}
+                                {store.codebaseLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" role="status" aria-label="Analyzing" /> : "Analyze"}
                             </button>
                         )}
                     </div>
@@ -1614,7 +1669,7 @@ export function ScrollFeed() {
 
                     {/* Loading indicator */}
                     {store.syllabusLoading && (
-                        <div className="mt-6 flex items-center justify-center gap-2">
+                        <div className="mt-6 flex items-center justify-center gap-2" role="status" aria-label="Loading">
                             <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
                             <span className="text-sm text-gray-500">Generating skill tree...</span>
                         </div>
@@ -1629,7 +1684,7 @@ export function ScrollFeed() {
 
     if (!currentCard) {
         return (
-            <div className="h-full bg-gray-950 flex items-center justify-center">
+            <div className="h-full bg-gray-950 flex items-center justify-center" role="status" aria-label="Loading">
                 <div className="text-center space-y-3">
                     <div className="w-10 h-10 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center mx-auto animate-pulse">
                         <Zap className="w-5 h-5 text-violet-400" />
@@ -1648,6 +1703,7 @@ export function ScrollFeed() {
                     <button
                         onClick={() => { store.reset(); }}
                         className="flex items-center gap-1 text-gray-400 hover:text-gray-200 transition-colors"
+                        aria-label={`Back to ${store.selectedSubject}`}
                     >
                         <ChevronLeft className="w-4 h-4" />
                         <span className="text-xs font-medium max-w-[80px] truncate">{store.selectedSubject}</span>
@@ -1674,12 +1730,14 @@ export function ScrollFeed() {
                     <button
                         onClick={() => setShowTuneSheet(true)}
                         className="p-2 rounded-xl hover:bg-gray-900 text-gray-500 transition-colors"
+                        aria-label="Feed settings"
                     >
                         <Settings2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={handleShowAnalytics}
                         className="p-2 -mr-1 rounded-xl hover:bg-gray-900 text-gray-500 transition-colors"
+                        aria-label="Session analytics"
                     >
                         <BarChart3 className="w-4 h-4" />
                     </button>
@@ -1687,12 +1745,13 @@ export function ScrollFeed() {
             </div>
 
             {/* Card area */}
-            <div className="flex-1 overflow-hidden relative">
+            <div className="flex-1 overflow-hidden relative" aria-live="polite">
                 {!store.result && store.flashcardXp === null && !store.infoAcknowledged && (
                     <button
                         onClick={handleSkip}
                         className="absolute top-3 right-3 z-10 p-1.5 rounded-lg bg-gray-900/80 border border-gray-800/60 text-gray-600 hover:text-gray-400 hover:border-gray-700 transition-colors"
                         title="Skip card"
+                        aria-label="Skip card"
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>

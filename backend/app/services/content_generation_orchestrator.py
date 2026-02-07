@@ -127,7 +127,7 @@ class ContentGenerationOrchestrator:
 
             for i, diff in enumerate(difficulties[:count_per_type]):
                 # MCQ via existing QuestionBankGenerator
-                mcq = self.question_gen.generate_question(
+                mcq = await self.question_gen.generate_question(
                     concept_dict,
                     difficulty=diff,
                     question_type="conceptual" if diff < 0.5 else "application",
@@ -154,7 +154,7 @@ class ContentGenerationOrchestrator:
                     counts["mcq"] += 1
 
                 # Flashcard via FlashcardGenerator
-                fc = self.flashcard_gen.generate_flashcard(
+                fc = await self.flashcard_gen.generate_flashcard(
                     concept_dict,
                     difficulty=diff,
                     context=notes,
@@ -177,7 +177,7 @@ class ContentGenerationOrchestrator:
 
                 # Info card via InfoCardGenerator (only 1 per concept, pick style by index)
                 if i == 0:
-                    ic = self.info_card_gen.generate_info_card(concept_dict, context=notes)
+                    ic = await self.info_card_gen.generate_info_card(concept_dict, context=notes)
                     stored = await self._store_content_item(
                         content_type="info_card",
                         topic=topic,

@@ -12,11 +12,17 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -91,7 +97,7 @@ class DebateJudge:
             genai.configure(api_key=self.api_key)
             self.model = genai.GenerativeModel("gemini-2.0-flash")
     
-    def evaluate_debate(
+    async def evaluate_debate(
         self,
         debate_id: str,
         question: Dict[str, Any],
@@ -174,7 +180,12 @@ Evaluate this debate and return JSON:
 }}"""
 
         try:
-            response = self.model.generate_content(prompt)
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                context={"agent": "debate_judge", "operation": "evaluate_debate"},
+            )
+            if response is None:
+                return self._fallback_judgment(debate_id, question, student_a, student_b)
             text = response.text.strip()
             
             # Extract JSON
@@ -234,7 +245,8 @@ Evaluate this debate and return JSON:
                 )
                 
         except Exception as e:
-            print(f"Debate judge error: {e}")
+            capture_exception(e, context={"service": "debate_judge", "operation": "evaluate_debate"})
+            log_error(logger, "evaluate_debate failed", error=str(e))
         
         return self._fallback_judgment(debate_id, question, student_a, student_b)
     

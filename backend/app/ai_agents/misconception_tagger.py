@@ -13,11 +13,17 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from enum import Enum
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 
 class MisconceptionCategory(Enum):
@@ -101,7 +107,7 @@ class MisconceptionTagger:
         
         self.misconception_history: List[MisconceptionResult] = []
     
-    def tag_response(
+    async def tag_response(
         self,
         student_id: int,
         question: Dict[str, Any],
@@ -174,7 +180,15 @@ Return JSON:
 }}"""
 
         try:
-            response = self.model.generate_content(prompt)
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                context={"agent": "misconception_tagger", "operation": "tag_response"},
+            )
+            if response is None:
+                return self._fallback_tagging(
+                    student_id, question_id, concept,
+                    student_answer, student_reasoning, correct_answer
+                )
             text = response.text.strip()
             
             start = text.find("{")
@@ -212,7 +226,8 @@ Return JSON:
                 return misconception
                 
         except Exception as e:
-            print(f"Misconception tagger error: {e}")
+            capture_exception(e, context={"service": "misconception_tagger", "operation": "tag_response"})
+            log_error(logger, "tag_response failed", error=str(e))
         
         return self._fallback_tagging(
             student_id, question_id, concept,
@@ -245,23 +260,23 @@ Return JSON:
             confidence=0.0
         )
     
-    def batch_tag(
+    async def batch_tag(
         self,
         responses: List[Dict[str, Any]]
     ) -> List[MisconceptionResult]:
         """
         Tag multiple wrong responses.
-        
+
         Args:
             responses: List of dicts with student_id, question, answer, reasoning, correct
-            
+
         Returns:
             List of MisconceptionResults
         """
         results = []
         for r in responses:
             if not r.get("is_correct", True):  # Only tag wrong answers
-                result = self.tag_response(
+                result = await self.tag_response(
                     student_id=r.get("student_id", 0),
                     question=r.get("question", {}),
                     student_answer=r.get("answer", ""),

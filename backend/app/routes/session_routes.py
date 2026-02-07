@@ -14,7 +14,7 @@ from ..database import get_db
 from ..services.session_service import SessionService
 from ..schemas import LiveSessionResponse, LiveSessionQuestion
 from ..db_models import Session, User
-from ..auth import get_current_user
+from ..auth_clerk import get_current_user_clerk as get_current_user
 
 router = APIRouter()
 

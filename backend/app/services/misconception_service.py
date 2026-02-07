@@ -7,6 +7,8 @@ import os
 import json
 from typing import Dict, Any, Optional, List
 
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
@@ -103,10 +105,13 @@ Return JSON:
 }}"""
 
     try:
-        response = MODEL.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
+        response = await call_gemini_with_timeout(
+            MODEL, prompt,
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "misconception_service", "operation": "analyze_wrong_answer"},
         )
+        if response is None:
+            return _fallback_analysis(student_answer, correct_answer)
         text = response.text.strip()
 
         # Parse JSON from response

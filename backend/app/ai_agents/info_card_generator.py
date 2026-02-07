@@ -12,11 +12,17 @@ import time
 import random
 from typing import Dict, Any, Optional
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 INFO_CARD_STYLES = ["key_insight", "comparison", "example", "history"]
 
@@ -41,9 +47,10 @@ class InfoCardGenerator:
                 genai.configure(api_key=self.api_key)
                 self.model = genai.GenerativeModel("gemini-2.0-flash")
             except Exception as e:
-                print(f"Failed to initialize Gemini for InfoCardGenerator: {e}")
+                capture_exception(e, context={"service": "info_card_generator", "operation": "initialize_gemini"})
+                log_error(logger, "initialize_gemini failed", error=str(e))
 
-    def generate_info_card(
+    async def generate_info_card(
         self,
         concept: Dict[str, Any],
         style: Optional[str] = None,
@@ -93,28 +100,21 @@ Return ONLY valid JSON:
     "key_takeaway": "The one sentence takeaway"
 }}"""
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config={"response_mime_type": "application/json"},
-                )
+        try:
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                generation_config={"response_mime_type": "application/json"},
+                context={"agent": "info_card_generator", "operation": "generate_info_card"},
+            )
+            if response is not None:
                 result = json.loads(response.text)
-
                 if self._validate_info_card(result):
                     result["concept"] = concept.get("id", concept.get("name", "unknown"))
                     result["style"] = style
                     return result
-                else:
-                    print(f"Info card failed validation (attempt {attempt + 1})")
-
-            except Exception as e:
-                print(f"Info card generation failed (attempt {attempt + 1}/{max_retries}): {e}")
-
-            if attempt < max_retries - 1:
-                sleep_time = 2 * (attempt + 1)
-                time.sleep(sleep_time)
+        except Exception as e:
+            capture_exception(e, context={"service": "info_card_generator", "operation": "generate_info_card"})
+            log_error(logger, "generate_info_card failed", error=str(e))
 
         return self._fallback_info_card(concept, style)
 

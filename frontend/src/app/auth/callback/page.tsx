@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
+import { useUserStore } from "~/stores/userStore";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -33,7 +34,8 @@ export default function AuthCallbackPage() {
                 throw new Error("No session token");
             }
 
-            // Store token for API calls
+            // Store token for API calls (with 24h expiry via store)
+            useUserStore.getState().setToken(token);
             localStorage.setItem("token", token);
 
             // Determine role: prefer localStorage, fallback to Clerk metadata, then "teacher"

@@ -28,6 +28,16 @@ import type {
     MisconceptionCluster,
 } from '~/types';
 
+declare global {
+    interface Window {
+        Clerk?: {
+            session?: {
+                getToken: () => Promise<string | null>;
+            };
+        };
+    }
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // ============================================
@@ -152,6 +162,29 @@ async function fetchApi<T>(
     }
 
     return { success: false, error: lastError };
+}
+
+async function fetchApiAuth<T>(
+    endpoint: string,
+    options?: FetchApiOptions
+): Promise<ApiResult<T>> {
+    let authHeaders: Record<string, string> = {};
+    try {
+        // Try to get Clerk session token
+        const token = await window.Clerk?.session?.getToken();
+        if (token) {
+            authHeaders = { Authorization: `Bearer ${token}` };
+        }
+    } catch {
+        // No Clerk session available, proceed without auth
+    }
+    return fetchApi<T>(endpoint, {
+        ...options,
+        headers: {
+            ...authHeaders,
+            ...options?.headers,
+        },
+    });
 }
 
 // ============================================
@@ -1170,6 +1203,17 @@ export interface LearnEndResponse {
     };
 }
 
+export interface PaginationParams {
+    limit?: number;
+    offset?: number;
+}
+
+export interface PaginationMeta {
+    offset: number;
+    limit: number;
+    total: number;
+}
+
 export interface LearnProgressResponse {
     student_name: string;
     mastery: Array<{
@@ -1195,6 +1239,7 @@ export interface LearnProgressResponse {
         in_progress: number;
         needs_work: number;
     };
+    pagination?: PaginationMeta;
 }
 
 export interface LeaderboardEntry {
@@ -1215,55 +1260,64 @@ export interface LeaderboardResponse {
     entries: LeaderboardEntry[];
     current_user_rank: number | null;
     total_players: number;
+    pagination?: PaginationMeta;
 }
 
 export const learnApi = {
-    getLeaderboard: (period: "weekly" | "alltime", studentName: string) =>
-        fetchApi<LeaderboardResponse>(`/learn/leaderboard?period=${period}&student_name=${encodeURIComponent(studentName)}`),
+    getLeaderboard: (period: "weekly" | "alltime", studentName: string, pagination?: PaginationParams) => {
+        const params = new URLSearchParams({ period, student_name: studentName });
+        if (pagination?.limit !== undefined) params.set('limit', String(pagination.limit));
+        if (pagination?.offset !== undefined) params.set('offset', String(pagination.offset));
+        return fetchApiAuth<LeaderboardResponse>(`/learn/leaderboard?${params.toString()}`);
+    },
 
     startSession: (topic: string, studentName: string, studentId?: string) =>
-        fetchApi<LearnSessionResponse>('/learn/session/start', {
+        fetchApiAuth<LearnSessionResponse>('/learn/session/start', {
             method: 'POST',
             body: JSON.stringify({ topic, student_name: studentName, student_id: studentId }),
         }),
 
     submitAnswer: (sessionId: string, answer: string, confidence: number) =>
-        fetchApi<LearnAnswerResponse>(`/learn/session/${sessionId}/answer`, {
+        fetchApiAuth<LearnAnswerResponse>(`/learn/session/${sessionId}/answer`, {
             method: 'POST',
             body: JSON.stringify({ answer, confidence }),
         }),
 
     sendMessage: (sessionId: string, message: string) =>
-        fetchApi<LearnMessageResponse>(`/learn/session/${sessionId}/message`, {
+        fetchApiAuth<LearnMessageResponse>(`/learn/session/${sessionId}/message`, {
             method: 'POST',
             body: JSON.stringify({ message }),
         }),
 
     endSession: (sessionId: string) =>
-        fetchApi<LearnEndResponse>(`/learn/session/${sessionId}/end`, {
+        fetchApiAuth<LearnEndResponse>(`/learn/session/${sessionId}/end`, {
             method: 'POST',
         }),
 
     getReviewQueue: (studentName: string) =>
-        fetchApi<{ student_name: string; due_count: number; items: Array<{
+        fetchApiAuth<{ student_name: string; due_count: number; items: Array<{
             id: string; concept: string; due_at: string; interval_days: number;
             ease_factor: number; question_template: Record<string, unknown>;
         }> }>(`/learn/review-queue?student_name=${encodeURIComponent(studentName)}`),
 
-    getProgress: (studentName: string) =>
-        fetchApi<LearnProgressResponse>(`/learn/progress?student_name=${encodeURIComponent(studentName)}`),
+    getProgress: (studentName: string, pagination?: PaginationParams) => {
+        const params = new URLSearchParams({ student_name: studentName });
+        if (pagination?.limit !== undefined) params.set('limit', String(pagination.limit));
+        if (pagination?.offset !== undefined) params.set('offset', String(pagination.offset));
+        return fetchApiAuth<LearnProgressResponse>(`/learn/progress?${params.toString()}`);
+    },
 
     getHistory: (studentName: string, studentId?: string) =>
-        fetchApi<LearningHistoryResponse>(`/learn/history?student_name=${encodeURIComponent(studentName)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`),
+        fetchApiAuth<LearningHistoryResponse>(`/learn/history?student_name=${encodeURIComponent(studentName)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ''}`),
 
     deleteSubject: (subject: string, studentName: string) =>
-        fetchApi<{ ok: boolean; deleted: { sessions: number; syllabi: number; resources: number } }>(
+        fetchApiAuth<{ ok: boolean; deleted: { sessions: number; syllabi: number; resources: number } }>(
             `/learn/subject/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`,
             { method: 'DELETE' },
         ),
 
     getCalibration: (studentName: string, subject?: string) =>
-        fetchApi<CalibrationResponse>(
+        fetchApiAuth<CalibrationResponse>(
             `/learn/scroll/calibration/${encodeURIComponent(studentName)}${subject ? `?subject=${encodeURIComponent(subject)}` : ''}`,
         ),
 };
@@ -1441,34 +1495,34 @@ export interface RecommendedPathResponse {
 
 export const syllabusApi = {
     generate: (subject: string, studentId?: string) =>
-        fetchApi<SyllabusTree>('/learn/syllabus/generate', {
+        fetchApiAuth<SyllabusTree>('/learn/syllabus/generate', {
             method: 'POST',
             body: JSON.stringify({ subject, student_id: studentId }),
         }),
 
     get: (subject: string, studentId?: string) =>
-        fetchApi<SyllabusTree>(
+        fetchApiAuth<SyllabusTree>(
             `/learn/syllabus/${encodeURIComponent(subject)}${studentId ? `?student_id=${encodeURIComponent(studentId)}` : ''}`
         ),
 
     getPresence: (subject: string) =>
-        fetchApi<Record<string, { count: number; names: string[] }>>(
+        fetchApiAuth<Record<string, { count: number; names: string[] }>>(
             `/learn/presence/${encodeURIComponent(subject)}`
         ),
 
     heartbeat: (subject: string, nodeId: string, studentName: string) =>
-        fetchApi<{ ok: boolean }>('/learn/presence/heartbeat', {
+        fetchApiAuth<{ ok: boolean }>('/learn/presence/heartbeat', {
             method: 'POST',
             body: JSON.stringify({ subject, node_id: nodeId, student_name: studentName }),
         }),
 
     getMastery: (studentName: string) =>
-        fetchApi<{ student_name: string; concepts: Record<string, BKTMasteryState> }>(
+        fetchApiAuth<{ student_name: string; concepts: Record<string, BKTMasteryState> }>(
             `/learn/mastery/${encodeURIComponent(studentName)}`
         ),
 
     getRecommendedPath: (subject: string, studentName: string) =>
-        fetchApi<RecommendedPathResponse>(
+        fetchApiAuth<RecommendedPathResponse>(
             `/learn/recommended-path/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`
         ),
 };
@@ -1483,8 +1537,16 @@ export const resourcesApi = {
         total_concepts: number;
     }>> => {
         try {
+            let authHeaders: Record<string, string> = {};
+            try {
+                const token = await window.Clerk?.session?.getToken();
+                if (token) {
+                    authHeaders = { Authorization: `Bearer ${token}` };
+                }
+            } catch {}
             const response = await fetch(`${API_BASE}/learn/resources/upload`, {
                 method: 'POST',
+                headers: authHeaders,
                 body: formData, // Don't set Content-Type for FormData
             });
             if (!response.ok) {
@@ -1499,15 +1561,15 @@ export const resourcesApi = {
     },
 
     list: (subject: string, studentId?: string) =>
-        fetchApi<{ resources: Array<{ id: string; file_name: string; file_type: string; concepts_count: number; summary_preview: string; created_at: string }> }>(
+        fetchApiAuth<{ resources: Array<{ id: string; file_name: string; file_type: string; concepts_count: number; summary_preview: string; created_at: string }> }>(
             `/learn/resources/${encodeURIComponent(subject)}${studentId ? `?student_id=${studentId}` : ''}`
         ),
 
     delete: (resourceId: string) =>
-        fetchApi<{ ok: boolean }>(`/learn/resources/${resourceId}`, { method: 'DELETE' }),
+        fetchApiAuth<{ ok: boolean }>(`/learn/resources/${resourceId}`, { method: 'DELETE' }),
 
     regenerateSyllabus: (subject: string, studentId?: string) =>
-        fetchApi<SyllabusTree>('/learn/syllabus/regenerate', {
+        fetchApiAuth<SyllabusTree>('/learn/syllabus/regenerate', {
             method: 'POST',
             body: JSON.stringify({ subject, student_id: studentId }),
         }),
@@ -1519,8 +1581,16 @@ export const resourcesApi = {
         total_concepts: number;
     }>> => {
         try {
+            let authHeaders: Record<string, string> = {};
+            try {
+                const token = await window.Clerk?.session?.getToken();
+                if (token) {
+                    authHeaders = { Authorization: `Bearer ${token}` };
+                }
+            } catch {}
             const response = await fetch(`${API_BASE}/learn/pdf-to-syllabus`, {
                 method: 'POST',
+                headers: authHeaders,
                 body: formData,
             });
             if (!response.ok) {
@@ -1537,7 +1607,7 @@ export const resourcesApi = {
 
 export const scrollApi = {
     resumeFeed: (topic: string, studentName: string) =>
-        fetchApi<{
+        fetchApiAuth<{
             session_id: string;
             topic: string;
             concepts: string[];
@@ -1561,7 +1631,7 @@ export const scrollApi = {
             question_style?: string | null;
         },
     ) =>
-        fetchApi<{
+        fetchApiAuth<{
             session_id: string;
             topic: string;
             concepts: string[];
@@ -1573,7 +1643,7 @@ export const scrollApi = {
         }),
 
     submitAnswer: (sessionId: string, answer: string, timeMs: number, contentItemId?: string, correctAnswer?: string, confidence?: number) =>
-        fetchApi<{
+        fetchApiAuth<{
             session_id: string;
             is_correct: boolean;
             xp_earned: number;
@@ -1591,17 +1661,17 @@ export const scrollApi = {
         }),
 
     getNextCards: (sessionId: string, count = 3) =>
-        fetchApi<{
+        fetchApiAuth<{
             session_id: string;
             cards: ScrollCard[];
             stats: ScrollStats;
         }>(`/learn/scroll/${sessionId}/next?count=${count}`),
 
     getAnalytics: (sessionId: string) =>
-        fetchApi<ScrollSessionAnalytics>(`/learn/scroll/${sessionId}/analytics`),
+        fetchApiAuth<ScrollSessionAnalytics>(`/learn/scroll/${sessionId}/analytics`),
 
     skipCard: (sessionId: string, contentItemId: string, reason: string = 'skipped') =>
-        fetchApi<{
+        fetchApiAuth<{
             session_id: string;
             cards: ScrollCard[];
             stats: ScrollStats;
@@ -1611,7 +1681,7 @@ export const scrollApi = {
         }),
 
     flipFlashcard: (sessionId: string, contentItemId: string, timeToFlipMs: number, rating: number) =>
-        fetchApi<{
+        fetchApiAuth<{
             xp_earned: number;
             stats: ScrollStats;
         }>(`/learn/scroll/${sessionId}/flashcard-flip`, {
@@ -1624,20 +1694,20 @@ export const scrollApi = {
         }),
 
     sendHelpMessage: (sessionId: string, message: string, cardContext: object) =>
-        fetchApi<{ message: string; phase: string; ready_to_try: boolean }>(
+        fetchApiAuth<{ message: string; phase: string; ready_to_try: boolean }>(
             `/learn/scroll/${sessionId}/help`,
             { method: 'POST', body: JSON.stringify({ message, card_context: cardContext }) },
         ),
 
     pregenContent: (topic: string, concepts: string[], subject?: string) =>
-        fetchApi<{ status: string; total_items?: number }>('/learn/content/pregen', {
+        fetchApiAuth<{ status: string; total_items?: number }>('/learn/content/pregen', {
             method: 'POST',
             body: JSON.stringify({ topic, concepts, subject }),
             retry: false,
         }),
 
     getPoolStatus: (topic: string) =>
-        fetchApi<{
+        fetchApiAuth<{
             topic: string;
             total_items: number;
             by_type: Record<string, number>;
@@ -1699,25 +1769,25 @@ export interface AssessmentResult {
 
 export const assessmentApi = {
     start: (subject: string, studentName: string) =>
-        fetchApi<AssessmentStartResponse>('/learn/assessment/start', {
+        fetchApiAuth<AssessmentStartResponse>('/learn/assessment/start', {
             method: 'POST',
             body: JSON.stringify({ subject, student_name: studentName }),
         }),
 
     submitSelfRatings: (subject: string, studentName: string, ratings: Array<{ concept: string; rating: number }>) =>
-        fetchApi<AssessmentSelfRatingsResponse>('/learn/assessment/self-ratings', {
+        fetchApiAuth<AssessmentSelfRatingsResponse>('/learn/assessment/self-ratings', {
             method: 'POST',
             body: JSON.stringify({ subject, student_name: studentName, ratings }),
         }),
 
     submitDiagnostic: (studentName: string, assessmentId: string, answers: Array<{ concept: string; answer: string; correct_answer: string; time_ms: number }>) =>
-        fetchApi<AssessmentDiagnosticResponse>('/learn/assessment/diagnostic', {
+        fetchApiAuth<AssessmentDiagnosticResponse>('/learn/assessment/diagnostic', {
             method: 'POST',
             body: JSON.stringify({ student_name: studentName, assessment_id: assessmentId, answers }),
         }),
 
     getAssessment: (subject: string, studentName: string) =>
-        fetchApi<AssessmentResult>(`/learn/assessment/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`),
+        fetchApiAuth<AssessmentResult>(`/learn/assessment/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`),
 };
 
 // ============================================
@@ -1743,13 +1813,13 @@ export interface CodebaseAnalysisResponse {
 
 export const codebaseApi = {
     analyze: (githubUrl: string, studentId?: string) =>
-        fetchApi<CodebaseAnalysisResponse>('/learn/codebase/analyze', {
+        fetchApiAuth<CodebaseAnalysisResponse>('/learn/codebase/analyze', {
             method: 'POST',
             body: JSON.stringify({ github_url: githubUrl, student_id: studentId }),
         }),
 
     getAnalysis: (analysisId: string) =>
-        fetchApi<{
+        fetchApiAuth<{
             id: string;
             github_url: string;
             repo_name: string;
@@ -1760,7 +1830,7 @@ export const codebaseApi = {
         }>(`/learn/codebase/${analysisId}`),
 
     getResources: (analysisId: string, technology?: string) =>
-        fetchApi<{
+        fetchApiAuth<{
             analysis_id: string;
             resources: Array<{ concept: string; title: string; url: string; source_type: string; description: string; external_domain: string }>;
         }>(`/learn/codebase/${analysisId}/resources${technology ? `?technology=${encodeURIComponent(technology)}` : ''}`),
@@ -1776,7 +1846,7 @@ export const curatedResourcesApi = {
         if (concept) params.set('concept', concept);
         if (resourceType) params.set('resource_type', resourceType);
         params.set('limit', String(limit));
-        return fetchApi<{
+        return fetchApiAuth<{
             subject: string;
             resources: Array<{
                 id: string;
@@ -1796,7 +1866,7 @@ export const curatedResourcesApi = {
     },
 
     triggerCuration: (topic: string, concepts: string[]) =>
-        fetchApi<{ status: string }>('/learn/resources/curate', {
+        fetchApiAuth<{ status: string }>('/learn/resources/curate', {
             method: 'POST',
             body: JSON.stringify({ topic, concepts }),
         }),

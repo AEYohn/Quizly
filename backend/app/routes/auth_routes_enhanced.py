@@ -1,5 +1,10 @@
+# DEPRECATED: This auth module is no longer registered. All auth is handled by Clerk.
+# Kept for reference. Safe to delete after confirming no dependencies.
+# Removed from app.include_router() in main.py as part of Phase 4.1 auth consolidation.
 """
-Enhanced Authentication Routes with OAuth2 and refresh tokens.
+Enhanced Authentication Routes with OAuth2 and refresh tokens. (DEPRECATED)
+Legacy enhanced auth with 2FA, password reset, etc.
+Superseded by Clerk auth (auth_clerk.py / auth_clerk_routes.py).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status

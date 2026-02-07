@@ -20,6 +20,7 @@ Adaptive Socratic System:
 import os
 import json
 import base64
+import asyncio
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional, List
 
@@ -29,6 +30,8 @@ try:
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+from ..utils.llm_utils import call_gemini_with_timeout
 
 try:
     import fitz  # PyMuPDF for PDF handling
@@ -525,10 +528,13 @@ async def generate_smart_peer_response(
         )
 
         try:
-            analysis_response = MODEL.generate_content(
-                [analysis_prompt],
-                generation_config={"response_mime_type": "application/json"}
+            analysis_response = await call_gemini_with_timeout(
+                MODEL, [analysis_prompt],
+                generation_config={"response_mime_type": "application/json"},
+                context={"agent": "smart_peer", "operation": "misconception_detection"},
             )
+            if analysis_response is None:
+                raise RuntimeError("Gemini call returned None")
             analysis = json.loads(analysis_response.text)
 
             # Update state based on analysis
@@ -665,10 +671,13 @@ async def generate_smart_peer_response(
         # Add text prompt
         content_parts.append(prompt)
 
-        response = MODEL.generate_content(
-            content_parts,
-            generation_config={"response_mime_type": "application/json"}
+        response = await call_gemini_with_timeout(
+            MODEL, content_parts,
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "smart_peer", "operation": "generate_response"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
 
         # Handle initial assessment response (sets probing_depth)

@@ -290,3 +290,13 @@ async def require_student_clerk(user: User = Depends(get_current_user_clerk)) ->
             detail="Student access required"
         )
     return user
+
+
+async def verify_websocket_token(token: str) -> Optional[ClerkTokenPayload]:
+    """
+    Verify a Clerk JWT token for WebSocket connections.
+
+    Returns the token payload if valid, None if invalid.
+    Used for WS connections where we can't use HTTP Bearer auth.
+    """
+    return await verify_clerk_token(token)

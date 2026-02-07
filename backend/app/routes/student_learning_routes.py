@@ -463,7 +463,7 @@ async def tag_misconception(
     # Try AI agent first
     if AI_AGENTS_AVAILABLE:
         try:
-            result = MISCONCEPTION_TAGGER.tag_response(
+            result = await MISCONCEPTION_TAGGER.tag_response(
                 student_id=hash(request.student_name) % 100000,
                 question=request.question,
                 student_answer=request.student_answer,

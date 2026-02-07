@@ -27,7 +27,7 @@ class ExitTicket(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     student_name: Mapped[str] = mapped_column(String(255), nullable=False)  # For anonymous students
-    game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)  # Reference to game session
+    game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)  # Reference to game session
     session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sessions.id"), nullable=True)
 
     # Target concept from session
@@ -67,7 +67,7 @@ class ExitTicket(Base):
 
     # Relationships
     student: Mapped[Optional["User"]] = relationship()
-    session: Mapped[Optional["Session"]] = relationship()
+    session: Mapped[Optional["Session"]] = relationship(foreign_keys=[session_id])
 
 
 class DetailedMisconception(Base):
@@ -80,7 +80,7 @@ class DetailedMisconception(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     student_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)
+    game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
     session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("sessions.id"), nullable=True)
     question_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("questions.id"), nullable=True)
 
@@ -113,7 +113,7 @@ class DetailedMisconception(Base):
 
     # Relationships
     student: Mapped[Optional["User"]] = relationship()
-    session: Mapped[Optional["Session"]] = relationship()
+    session: Mapped[Optional["Session"]] = relationship(foreign_keys=[session_id])
     question: Mapped[Optional["Question"]] = relationship()
 
 
@@ -170,7 +170,7 @@ class PeerDiscussionSession(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     student_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)
+    game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
     player_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)  # Player in game
     question_index: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -309,7 +309,7 @@ class StudentAssignment(Base):
     practice_questions: Mapped[dict] = mapped_column(JSON, default=list)  # [{prompt, options, correct_answer, explanation}]
 
     # Source context
-    source_game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)
+    source_game_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
     source_misconceptions: Mapped[dict] = mapped_column(JSON, default=list)  # What the student got wrong
 
     # Status

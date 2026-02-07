@@ -28,19 +28,24 @@ const STEP_ORDER: OnboardingStep[] = [
     "complete",
 ];
 
-// LocalStorage key
-const STORAGE_KEY = "quizly_teacher_onboarding";
+// Student step order for progression
+const STUDENT_STEP_ORDER: StudentOnboardingStep[] = [
+    "welcome",
+    "join-class",
+    "try-quiz",
+    "complete",
+];
 
 // State shape stored in localStorage
-interface OnboardingState {
-    currentStep: OnboardingStep;
-    completedSteps: OnboardingStep[];
+interface OnboardingState<TStep extends string = string> {
+    currentStep: TStep;
+    completedSteps: TStep[];
     skipped: boolean;
     startedAt: string;
     completedAt?: string;
 }
 
-// Return type of the hook
+// Return type of the hooks
 export interface UseTeacherOnboardingReturn {
     currentStep: OnboardingStep;
     completedSteps: OnboardingStep[];
@@ -53,151 +58,6 @@ export interface UseTeacherOnboardingReturn {
     remainingSteps: number;
 }
 
-// Default initial state
-const getInitialState = (): OnboardingState => ({
-    currentStep: "welcome",
-    completedSteps: [],
-    skipped: false,
-    startedAt: new Date().toISOString(),
-});
-
-/**
- * Hook for managing teacher onboarding state with localStorage persistence
- */
-export function useTeacherOnboarding(): UseTeacherOnboardingReturn {
-    const [state, setState] = useState<OnboardingState>(getInitialState());
-    const [isLoading, setIsLoading] = useState(true);
-
-    // Load state from localStorage on mount
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                const parsed = JSON.parse(stored) as OnboardingState;
-                setState(parsed);
-            }
-        } catch (error) {
-            console.error("Failed to load onboarding state:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    // Persist state to localStorage whenever it changes
-    const persistState = useCallback((newState: OnboardingState) => {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-        } catch (error) {
-            console.error("Failed to persist onboarding state:", error);
-        }
-    }, []);
-
-    // Check if a step is complete
-    const isStepComplete = useCallback(
-        (step: OnboardingStep): boolean => {
-            return state.completedSteps.includes(step);
-        },
-        [state.completedSteps]
-    );
-
-    // Complete a step and advance to the next
-    const completeStep = useCallback(
-        (step: OnboardingStep) => {
-            setState((prevState) => {
-                // Don't add duplicate completed steps
-                const newCompletedSteps = prevState.completedSteps.includes(step)
-                    ? prevState.completedSteps
-                    : [...prevState.completedSteps, step];
-
-                // Calculate next step
-                const currentIndex = STEP_ORDER.indexOf(step);
-                const nextStep: OnboardingStep =
-                    currentIndex < STEP_ORDER.length - 1
-                        ? (STEP_ORDER[currentIndex + 1] as OnboardingStep)
-                        : "complete";
-
-                const newState: OnboardingState = {
-                    ...prevState,
-                    currentStep: nextStep,
-                    completedSteps: newCompletedSteps,
-                    completedAt: nextStep === "complete" ? new Date().toISOString() : prevState.completedAt,
-                };
-
-                persistState(newState);
-                return newState;
-            });
-        },
-        [persistState]
-    );
-
-    // Skip onboarding entirely
-    const skipOnboarding = useCallback(() => {
-        setState((prevState) => {
-            const newState: OnboardingState = {
-                ...prevState,
-                skipped: true,
-                currentStep: "complete",
-            };
-            persistState(newState);
-            return newState;
-        });
-    }, [persistState]);
-
-    // Reset onboarding to initial state
-    const resetOnboarding = useCallback(() => {
-        const newState = getInitialState();
-        setState(newState);
-        persistState(newState);
-    }, [persistState]);
-
-    // Determine if onboarding should be shown
-    const shouldShowOnboarding =
-        !isLoading && !state.skipped && state.currentStep !== "complete";
-
-    // Calculate remaining steps (excluding welcome and complete)
-    const actionSteps: OnboardingStep[] = ["create-course", "create-quiz", "invite-students", "start-session"];
-    const remainingSteps = actionSteps.filter(
-        (step) => !state.completedSteps.includes(step)
-    ).length;
-
-    return {
-        currentStep: state.currentStep,
-        completedSteps: state.completedSteps,
-        isLoading,
-        shouldShowOnboarding,
-        completeStep,
-        skipOnboarding,
-        resetOnboarding,
-        isStepComplete,
-        remainingSteps,
-    };
-}
-
-// ============================================
-// Student Onboarding Hook
-// ============================================
-
-// Student step order for progression
-const STUDENT_STEP_ORDER: StudentOnboardingStep[] = [
-    "welcome",
-    "join-class",
-    "try-quiz",
-    "complete",
-];
-
-// Student localStorage key
-const STUDENT_STORAGE_KEY = "quizly_student_onboarding";
-
-// Student state shape stored in localStorage
-interface StudentOnboardingState {
-    currentStep: StudentOnboardingStep;
-    completedSteps: StudentOnboardingStep[];
-    skipped: boolean;
-    startedAt: string;
-    completedAt?: string;
-}
-
-// Return type of the student hook
 export interface UseStudentOnboardingReturn {
     currentStep: StudentOnboardingStep;
     completedSteps: StudentOnboardingStep[];
@@ -210,122 +70,155 @@ export interface UseStudentOnboardingReturn {
     remainingSteps: number;
 }
 
-// Default initial state for student
-const getStudentInitialState = (): StudentOnboardingState => ({
-    currentStep: "welcome",
-    completedSteps: [],
-    skipped: false,
-    startedAt: new Date().toISOString(),
-});
+// ============================================
+// Generic onboarding hook factory
+// ============================================
 
-/**
- * Hook for managing student onboarding state with localStorage persistence
- */
-export function useStudentOnboarding(): UseStudentOnboardingReturn {
-    const [state, setState] = useState<StudentOnboardingState>(getStudentInitialState());
-    const [isLoading, setIsLoading] = useState(true);
+interface OnboardingConfig<TStep extends string> {
+    storageKey: string;
+    stepOrder: TStep[];
+    actionSteps: TStep[];
+    initialStep: TStep;
+    completeStep: TStep;
+}
 
-    // Load state from localStorage on mount
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem(STUDENT_STORAGE_KEY);
-            if (stored) {
-                const parsed = JSON.parse(stored) as StudentOnboardingState;
-                setState(parsed);
+function createOnboardingHook<TStep extends string>(config: OnboardingConfig<TStep>) {
+    return function useOnboarding() {
+        // 5.5: Lazy initializer — only runs once, avoids creating new Date on every render
+        const [state, setState] = useState<OnboardingState<TStep>>(() => ({
+            currentStep: config.initialStep,
+            completedSteps: [] as TStep[],
+            skipped: false,
+            startedAt: new Date().toISOString(),
+        }));
+        const [isLoading, setIsLoading] = useState(true);
+
+        // Load state from localStorage on mount
+        useEffect(() => {
+            try {
+                const stored = localStorage.getItem(config.storageKey);
+                if (stored) {
+                    const parsed = JSON.parse(stored) as OnboardingState<TStep>;
+                    setState(parsed);
+                }
+            } catch (error) {
+                console.error("Failed to load onboarding state:", error);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error("Failed to load student onboarding state:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
+        }, []);
 
-    // Persist state to localStorage whenever it changes
-    const persistState = useCallback((newState: StudentOnboardingState) => {
-        try {
-            localStorage.setItem(STUDENT_STORAGE_KEY, JSON.stringify(newState));
-        } catch (error) {
-            console.error("Failed to persist student onboarding state:", error);
-        }
-    }, []);
+        // Persist state to localStorage whenever it changes
+        const persistState = useCallback((newState: OnboardingState<TStep>) => {
+            try {
+                localStorage.setItem(config.storageKey, JSON.stringify(newState));
+            } catch (error) {
+                console.error("Failed to persist onboarding state:", error);
+            }
+        }, []);
 
-    // Check if a step is complete
-    const isStepComplete = useCallback(
-        (step: StudentOnboardingStep): boolean => {
-            return state.completedSteps.includes(step);
-        },
-        [state.completedSteps]
-    );
+        // Check if a step is complete
+        const isStepComplete = useCallback(
+            (step: TStep): boolean => {
+                return state.completedSteps.includes(step);
+            },
+            [state.completedSteps]
+        );
 
-    // Complete a step and advance to the next
-    const completeStep = useCallback(
-        (step: StudentOnboardingStep) => {
+        // Complete a step and advance to the next
+        const completeStepFn = useCallback(
+            (step: TStep) => {
+                setState((prevState) => {
+                    // Don't add duplicate completed steps
+                    const newCompletedSteps = prevState.completedSteps.includes(step)
+                        ? prevState.completedSteps
+                        : [...prevState.completedSteps, step];
+
+                    // Calculate next step
+                    const currentIndex = config.stepOrder.indexOf(step);
+                    const nextStep: TStep =
+                        currentIndex < config.stepOrder.length - 1
+                            ? (config.stepOrder[currentIndex + 1] as TStep)
+                            : config.completeStep;
+
+                    const newState: OnboardingState<TStep> = {
+                        ...prevState,
+                        currentStep: nextStep,
+                        completedSteps: newCompletedSteps,
+                        completedAt: nextStep === config.completeStep ? new Date().toISOString() : prevState.completedAt,
+                    };
+
+                    persistState(newState);
+                    return newState;
+                });
+            },
+            [persistState]
+        );
+
+        // Skip onboarding entirely
+        const skipOnboarding = useCallback(() => {
             setState((prevState) => {
-                // Don't add duplicate completed steps
-                const newCompletedSteps = prevState.completedSteps.includes(step)
-                    ? prevState.completedSteps
-                    : [...prevState.completedSteps, step];
-
-                // Calculate next step
-                const currentIndex = STUDENT_STEP_ORDER.indexOf(step);
-                const nextStep: StudentOnboardingStep =
-                    currentIndex < STUDENT_STEP_ORDER.length - 1
-                        ? (STUDENT_STEP_ORDER[currentIndex + 1] as StudentOnboardingStep)
-                        : "complete";
-
-                const newState: StudentOnboardingState = {
+                const newState: OnboardingState<TStep> = {
                     ...prevState,
-                    currentStep: nextStep,
-                    completedSteps: newCompletedSteps,
-                    completedAt: nextStep === "complete" ? new Date().toISOString() : prevState.completedAt,
+                    skipped: true,
+                    currentStep: config.completeStep,
                 };
-
                 persistState(newState);
                 return newState;
             });
-        },
-        [persistState]
-    );
+        }, [persistState]);
 
-    // Skip onboarding entirely
-    const skipOnboarding = useCallback(() => {
-        setState((prevState) => {
-            const newState: StudentOnboardingState = {
-                ...prevState,
-                skipped: true,
-                currentStep: "complete",
+        // Reset onboarding to initial state
+        const resetOnboarding = useCallback(() => {
+            const newState: OnboardingState<TStep> = {
+                currentStep: config.initialStep,
+                completedSteps: [] as TStep[],
+                skipped: false,
+                startedAt: new Date().toISOString(),
             };
+            setState(newState);
             persistState(newState);
-            return newState;
-        });
-    }, [persistState]);
+        }, [persistState]);
 
-    // Reset onboarding to initial state
-    const resetOnboarding = useCallback(() => {
-        const newState = getStudentInitialState();
-        setState(newState);
-        persistState(newState);
-    }, [persistState]);
+        // Determine if onboarding should be shown
+        const shouldShowOnboarding =
+            !isLoading && !state.skipped && state.currentStep !== config.completeStep;
 
-    // Determine if onboarding should be shown
-    const shouldShowOnboarding =
-        !isLoading && !state.skipped && state.currentStep !== "complete";
+        // Calculate remaining steps (excluding welcome and complete)
+        const remainingSteps = config.actionSteps.filter(
+            (step) => !state.completedSteps.includes(step)
+        ).length;
 
-    // Calculate remaining steps (excluding welcome and complete)
-    const actionSteps: StudentOnboardingStep[] = ["join-class", "try-quiz"];
-    const remainingSteps = actionSteps.filter(
-        (step) => !state.completedSteps.includes(step)
-    ).length;
-
-    return {
-        currentStep: state.currentStep,
-        completedSteps: state.completedSteps,
-        isLoading,
-        shouldShowOnboarding,
-        completeStep,
-        skipOnboarding,
-        resetOnboarding,
-        isStepComplete,
-        remainingSteps,
+        return {
+            currentStep: state.currentStep,
+            completedSteps: state.completedSteps,
+            isLoading,
+            shouldShowOnboarding,
+            completeStep: completeStepFn,
+            skipOnboarding,
+            resetOnboarding,
+            isStepComplete,
+            remainingSteps,
+        };
     };
 }
+
+// ============================================
+// Concrete hooks using the factory
+// ============================================
+
+export const useTeacherOnboarding = createOnboardingHook<OnboardingStep>({
+    storageKey: "quizly_teacher_onboarding",
+    stepOrder: STEP_ORDER,
+    actionSteps: ["create-course", "create-quiz", "invite-students", "start-session"],
+    initialStep: "welcome",
+    completeStep: "complete",
+});
+
+export const useStudentOnboarding = createOnboardingHook<StudentOnboardingStep>({
+    storageKey: "quizly_student_onboarding",
+    stepOrder: STUDENT_STEP_ORDER,
+    actionSteps: ["join-class", "try-quiz"],
+    initialStep: "welcome",
+    completeStep: "complete",
+});

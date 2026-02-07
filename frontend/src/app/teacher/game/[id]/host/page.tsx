@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import {
     Play,
     SkipForward,
@@ -75,6 +76,7 @@ interface AICommentary {
 export default function GameHostPage() {
     const params = useParams();
     const router = useRouter();
+    const { getToken } = useClerkAuth();
     const gameId = params.id as string;
 
     const [game, setGame] = useState<GameState | null>(null);
@@ -155,7 +157,7 @@ export default function GameHostPage() {
     // Fetch AI commentary for question start
     const fetchQuestionStartCommentary = async (questionText: string, questionIndex: number) => {
         try {
-            const token = localStorage.getItem("token");
+            const token = await getToken();
             const response = await fetch(`${API_URL}/host/react/question-start`, {
                 method: "POST",
                 headers: {
@@ -219,7 +221,7 @@ export default function GameHostPage() {
     // Fetch AI commentary for game end
     const fetchGameEndCommentary = async () => {
         try {
-            const token = localStorage.getItem("token");
+            const token = await getToken();
             const winner = game?.leaderboard?.[0];
             const avgScore = game?.leaderboard?.length
                 ? game.leaderboard.reduce((sum, p) => sum + p.score, 0) / game.leaderboard.length
@@ -273,7 +275,7 @@ export default function GameHostPage() {
 
     const fetchGame = useCallback(async () => {
         try {
-            const token = localStorage.getItem("token");
+            const token = await getToken();
             const response = await fetch(`${API_URL}/games/${gameId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -296,13 +298,13 @@ export default function GameHostPage() {
         } finally {
             setLoading(false);
         }
-    }, [gameId, router]);
+    }, [gameId, router, getToken]);
 
     const fetchQuestionResults = useCallback(async () => {
         if (!game || game.current_question_index < 0) return;
 
         try {
-            const token = localStorage.getItem("token");
+            const token = await getToken();
             const response = await fetch(
                 `${API_URL}/games/${gameId}/questions/${game.current_question_index}/results`,
                 {
@@ -323,7 +325,7 @@ export default function GameHostPage() {
         } catch (error) {
             console.error("Failed to fetch results:", error);
         }
-    }, [gameId, game?.current_question_index, showResults]);
+    }, [gameId, game?.current_question_index, showResults, getToken]);
 
     // Initial fetch
     useEffect(() => {
@@ -376,7 +378,7 @@ export default function GameHostPage() {
     const showQuestionResults = async () => {
         setShowResults(true);
         try {
-            const token = localStorage.getItem("token");
+            const token = await getToken();
             const response = await fetch(
                 `${API_URL}/games/${gameId}/questions/${game?.current_question_index}/results`,
                 {
@@ -401,7 +403,7 @@ export default function GameHostPage() {
         setTimeLeft(null);
         setAnswersReceived(0);
         try {
-            const token = localStorage.getItem("token");
+            const token = await getToken();
             const response = await fetch(`${API_URL}/games/${gameId}/next`, {
                 method: "POST",
                 headers: {

@@ -10,11 +10,17 @@ import json
 import time
 from typing import Dict, Any, Optional
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 
 class FlashcardGenerator:
@@ -35,9 +41,10 @@ class FlashcardGenerator:
                 genai.configure(api_key=self.api_key)
                 self.model = genai.GenerativeModel("gemini-2.0-flash")
             except Exception as e:
-                print(f"Failed to initialize Gemini for FlashcardGenerator: {e}")
+                capture_exception(e, context={"service": "flashcard_generator", "operation": "initialize_gemini"})
+                log_error(logger, "initialize_gemini failed", error=str(e))
 
-    def generate_flashcard(
+    async def generate_flashcard(
         self,
         concept: Dict[str, Any],
         difficulty: float = 0.5,
@@ -86,28 +93,21 @@ Return ONLY valid JSON:
     "hint": "A helpful nudge"
 }}"""
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config={"response_mime_type": "application/json"},
-                )
+        try:
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                generation_config={"response_mime_type": "application/json"},
+                context={"agent": "flashcard_generator", "operation": "generate_flashcard"},
+            )
+            if response is not None:
                 result = json.loads(response.text)
-
                 if self._validate_flashcard(result):
                     result["concept"] = concept.get("id", concept.get("name", "unknown"))
                     result["difficulty"] = difficulty
                     return result
-                else:
-                    print(f"Flashcard failed validation (attempt {attempt + 1})")
-
-            except Exception as e:
-                print(f"Flashcard generation failed (attempt {attempt + 1}/{max_retries}): {e}")
-
-            if attempt < max_retries - 1:
-                sleep_time = 2 * (attempt + 1)
-                time.sleep(sleep_time)
+        except Exception as e:
+            capture_exception(e, context={"service": "flashcard_generator", "operation": "generate_flashcard"})
+            log_error(logger, "generate_flashcard failed", error=str(e))
 
         return self._fallback_flashcard(concept, difficulty)
 

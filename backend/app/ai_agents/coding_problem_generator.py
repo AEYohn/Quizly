@@ -14,11 +14,17 @@ import time
 import uuid
 from typing import Dict, Any, Optional, List
 
+from ..sentry_config import capture_exception
+from ..logging_config import get_logger, log_error
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+logger = get_logger(__name__)
 
 
 # Type mappings for different languages
@@ -76,7 +82,7 @@ class CodingProblemGenerator:
                 genai.configure(api_key=api_key)
                 self.model = genai.GenerativeModel("gemini-2.0-flash")
     
-    def generate_problem(
+    async def generate_problem(
         self,
         concept: str,
         difficulty: str = "medium",
@@ -152,16 +158,15 @@ IMPORTANT:
 - Expected outputs must be exact values (for comparison)
 - Make test cases realistic and educational"""
 
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config={"response_mime_type": "application/json"}
-                )
-                
+        try:
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                generation_config={"response_mime_type": "application/json"},
+                context={"agent": "coding_problem_generator", "operation": "generate_problem"},
+            )
+            if response is not None:
                 result = json.loads(response.text)
-                
+
                 # Validate required fields
                 required = ["title", "description", "function_name", "parameters", "return_type", "test_cases"]
                 if all(k in result for k in required):
@@ -172,7 +177,7 @@ IMPORTANT:
                     result["difficulty"] = difficulty
                     result["subject"] = problem_type
                     result["points"] = {"easy": 50, "medium": 75, "hard": 100}.get(difficulty, 75)
-                    
+
                     # Format test cases for storage
                     result["formatted_test_cases"] = [
                         {
@@ -182,13 +187,11 @@ IMPORTANT:
                         }
                         for tc in result["test_cases"]
                     ]
-                    
+
                     return result
-                    
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    print(f"Failed to generate problem after {max_retries} attempts: {e}")
-                time.sleep(0.5)
+        except Exception as e:
+            capture_exception(e, context={"service": "coding_problem_generator", "operation": "generate_problem"})
+            log_error(logger, "generate_problem failed", error=str(e))
         
         return self._fallback_problem(concept, difficulty)
     
@@ -424,7 +427,7 @@ rl.on('close', () => {{
             "llm_required": True,
         }
     
-    def generate_problems_for_topic(
+    async def generate_problems_for_topic(
         self,
         topic: str,
         concepts: List[str],
@@ -433,48 +436,44 @@ rl.on('close', () => {{
     ) -> List[Dict[str, Any]]:
         """
         Generate multiple coding problems for a topic.
-        
+
         Args:
             topic: Main topic (e.g., "Arrays and Hashing")
             concepts: List of concepts to generate problems for
             difficulty_distribution: Dict like {"easy": 2, "medium": 3, "hard": 1}
             course_context: Optional course context
-            
+
         Returns:
             List of generated problems
         """
         if difficulty_distribution is None:
             difficulty_distribution = {"easy": 1, "medium": 1, "hard": 0}
-        
+
         problems = []
-        
+
         for concept in concepts:
             for difficulty, count in difficulty_distribution.items():
                 for _ in range(count):
-                    problem = self.generate_problem(
+                    problem = await self.generate_problem(
                         concept=concept,
                         difficulty=difficulty,
                         problem_type=topic,
                         course_context=course_context
                     )
                     problems.append(problem)
-                    
-                    # Rate limiting
-                    if self.model:
-                        time.sleep(0.5)
-        
+
         return problems
 
 
 # Convenience function
-def generate_coding_problem(
+async def generate_coding_problem(
     concept: str,
     difficulty: str = "medium",
     course_context: Optional[str] = None
 ) -> Dict[str, Any]:
     """Quick function to generate a single coding problem."""
     generator = CodingProblemGenerator()
-    return generator.generate_problem(concept, difficulty, course_context=course_context)
+    return await generator.generate_problem(concept, difficulty, course_context=course_context)
 
 
 if __name__ == "__main__":

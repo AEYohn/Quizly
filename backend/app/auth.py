@@ -1,6 +1,10 @@
+# DEPRECATED: This auth module is superseded by Clerk auth (auth_clerk.py).
+# Some route files may still import get_current_user from here during migration.
+# Target: migrate all remaining imports to auth_clerk equivalents, then delete.
 """
-Authentication Module
-JWT-based authentication with teacher/student roles.
+Authentication Module (DEPRECATED)
+Legacy JWT-based authentication with teacher/student roles.
+Superseded by Clerk auth (auth_clerk.py).
 """
 
 import os

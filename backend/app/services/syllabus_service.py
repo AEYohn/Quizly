@@ -8,6 +8,8 @@ import os
 import json
 from typing import Optional, Dict, Any
 
+from ..utils.llm_utils import call_gemini_with_timeout
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
@@ -239,10 +241,13 @@ Rules:
 - Use a relevant emoji for each unit icon
 - Use snake_case for all IDs"""
 
-        response = SYLLABUS_MODEL.generate_content(
-            prompt,
+        response = await call_gemini_with_timeout(
+            SYLLABUS_MODEL, prompt,
             generation_config={"response_mime_type": "application/json"},
+            context={"agent": "syllabus_service", "operation": "generate_syllabus"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         tree = json.loads(response.text)
 
         # Validate structure

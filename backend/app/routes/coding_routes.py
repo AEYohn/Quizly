@@ -479,7 +479,7 @@ async def generate_coding_problems_batch(
     generator = CodingProblemGenerator()
     
     # Generate problems
-    generated_problems = generator.generate_problems_for_topic(
+    generated_problems = await generator.generate_problems_for_topic(
         topic=data.topic,
         concepts=data.concepts,
         difficulty_distribution=data.difficulty_distribution,

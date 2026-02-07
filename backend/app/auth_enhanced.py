@@ -1,6 +1,9 @@
+# DEPRECATED: This auth module is no longer registered. All auth is handled by Clerk.
+# Kept for reference. Safe to delete after confirming no dependencies.
 """
-Enhanced Authentication using FastAPI-Users pattern.
+Enhanced Authentication using FastAPI-Users pattern. (DEPRECATED)
 Provides OAuth2, JWT tokens with refresh, and better security practices.
+Superseded by Clerk auth (auth_clerk.py).
 """
 
 from datetime import datetime, timedelta

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from uuid import UUID
 import json
 
+from ..auth_clerk import verify_websocket_token
 from ..database import async_session
 from ..models.game import Player
 from ..websocket_manager import manager, GameTimer, active_timers
@@ -18,7 +19,8 @@ router = APIRouter()
 async def player_websocket(
     websocket: WebSocket,
     game_id: str,
-    player_id: str = Query(...)
+    player_id: str = Query(...),
+    token: str = Query(default="")
 ):
     """
     WebSocket endpoint for players to receive real-time game updates.
@@ -33,6 +35,13 @@ async def player_websocket(
     - player_joined: Another player joined (for lobby)
     - host_disconnected: Host has left the game
     """
+    # Verify player token if provided (optional during rollout)
+    if token:
+        payload = await verify_websocket_token(token)
+        if not payload:
+            await websocket.close(code=4001, reason="Invalid authentication token")
+            return
+
     try:
         await manager.connect_player(websocket, game_id, player_id)
     except Exception as e:
@@ -122,7 +131,16 @@ async def host_websocket(
     - answer_submitted: A player submitted an answer
     - all_answered: All players have answered
     """
-    # TODO: Validate token for host authentication
+    # Verify host token before accepting connection
+    if token:
+        payload = await verify_websocket_token(token)
+        if not payload:
+            await websocket.close(code=4001, reason="Invalid authentication token")
+            return
+    else:
+        await websocket.close(code=4001, reason="Authentication token required")
+        return
+
     await manager.connect_host(websocket, game_id)
 
     try:

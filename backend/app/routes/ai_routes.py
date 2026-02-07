@@ -148,8 +148,8 @@ async def generate_questions(request: Request, data: QuestionGenerateRequest):
                 )
             else:
                 # Generate MCQ question
-                q = generator.generate_question(
-                    concept, 
+                q = await generator.generate_question(
+                    concept,
                     difficulty=min(difficulty, 0.85),
                     question_type=question_type,
                     target_misconception=target_misconception
@@ -217,7 +217,7 @@ async def generate_coding_problem(request: Request, data: CodingProblemRequest):
     generator = CodingProblemGenerator()
     
     try:
-        problem = generator.generate_problem(
+        problem = await generator.generate_problem(
             concept=data.concept,
             difficulty=data.difficulty,
             problem_type=data.problem_type,
@@ -263,7 +263,7 @@ async def generate_coding_problems_batch(request: Request, data: CodingProblemBa
     generator = CodingProblemGenerator()
     
     try:
-        problems = generator.generate_problems_for_topic(
+        problems = await generator.generate_problems_for_topic(
             topic=data.topic,
             concepts=data.concepts,
             difficulty_distribution=data.difficulty_distribution,
@@ -301,7 +301,7 @@ async def generate_remediation_question(request: Request, data: RemediationQuest
     concept_dict = data.concept.model_dump()
     
     try:
-        q = generator.generate_question(
+        q = await generator.generate_question(
             concept_dict,
             difficulty=data.difficulty,
             target_misconception=data.misconception,

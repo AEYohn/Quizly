@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..auth import get_current_user
+from ..auth_clerk import get_current_user_clerk as get_current_user
 from ..db_models import User
 from ..models.game import Player, GameSession
 

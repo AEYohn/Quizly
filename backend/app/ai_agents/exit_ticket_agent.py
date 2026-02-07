@@ -6,6 +6,8 @@ Generates personalized end-of-session micro-lessons and questions.
 import os
 from typing import Dict, Any, Optional, List
 
+from ..utils.llm_utils import call_gemini_with_timeout
+
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
@@ -32,7 +34,7 @@ class ExitTicketAgent:
             except Exception:
                 pass
     
-    def generate_exit_ticket(
+    async def generate_exit_ticket(
         self,
         student_id: int,
         session_responses: List[Dict[str, Any]],
@@ -40,20 +42,20 @@ class ExitTicketAgent:
     ) -> Dict[str, Any]:
         """
         Generate a personalized exit ticket for a student.
-        
+
         Args:
             student_id: Student identifier
             session_responses: List of student's responses from the session
             concepts: List of concepts covered
-            
+
         Returns:
             Exit ticket with micro-lesson and follow-up question
         """
         # Analyze weakest concept
         weakest = self._find_weakest_concept(session_responses, concepts)
-        
+
         if self.model:
-            return self._generate_with_gemini(student_id, weakest, session_responses)
+            return await self._generate_with_gemini(student_id, weakest, session_responses)
         else:
             return self._generate_mock(student_id, weakest)
     
@@ -89,7 +91,7 @@ class ExitTicketAgent:
             "attempts": concept_performance.get(weakest_concept, {}).get("total", 0)
         }
     
-    def _generate_with_gemini(
+    async def _generate_with_gemini(
         self,
         student_id: int,
         weakest: Dict[str, Any],
@@ -98,9 +100,9 @@ class ExitTicketAgent:
         """Generate exit ticket using Gemini API."""
         concept = weakest["concept"]
         accuracy = weakest["accuracy"]
-        
+
         prompt = f"""Create a personalized exit ticket for a student who struggled with: {concept}
-        
+
 Their accuracy on this concept was {accuracy:.0%}.
 
 Create:
@@ -121,7 +123,12 @@ Respond in JSON format:
 }}
 """
         try:
-            response = self.model.generate_content(prompt)
+            response = await call_gemini_with_timeout(
+                self.model, prompt,
+                context={"agent": "exit_ticket", "operation": "generate_exit_ticket"},
+            )
+            if response is None:
+                return self._generate_mock(student_id, weakest)
             import json
             text = response.text
             start = text.find("{")
@@ -133,7 +140,7 @@ Respond in JSON format:
                 return result
         except Exception:
             pass
-        
+
         return self._generate_mock(student_id, weakest)
     
     def _generate_mock(
@@ -170,7 +177,7 @@ Respond in JSON format:
             "llm_required": True
         }
     
-    def batch_generate(
+    async def batch_generate(
         self,
         student_responses: Dict[int, List[Dict[str, Any]]],
         concepts: List[str]
@@ -178,6 +185,6 @@ Respond in JSON format:
         """Generate exit tickets for multiple students."""
         tickets = []
         for student_id, responses in student_responses.items():
-            ticket = self.generate_exit_ticket(student_id, responses, concepts)
+            ticket = await self.generate_exit_ticket(student_id, responses, concepts)
             tickets.append(ticket)
         return tickets
