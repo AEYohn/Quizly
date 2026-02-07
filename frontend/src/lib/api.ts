@@ -1261,6 +1261,11 @@ export const learnApi = {
             `/learn/subject/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`,
             { method: 'DELETE' },
         ),
+
+    getCalibration: (studentName: string, subject?: string) =>
+        fetchApi<CalibrationResponse>(
+            `/learn/scroll/calibration/${encodeURIComponent(studentName)}${subject ? `?subject=${encodeURIComponent(subject)}` : ''}`,
+        ),
 };
 
 export interface SubjectHistory {
@@ -1294,6 +1299,31 @@ export interface LearningHistoryResponse {
     };
     active_session?: ResumeSessionInfo;
     suggestions?: string[];
+}
+
+export interface CalibrationBucket {
+    range: string;
+    midpoint: number;
+    count: number;
+    accuracy: number;
+}
+
+export interface DKConcept {
+    concept: string;
+    avg_confidence: number;
+    accuracy: number;
+    dk_score: number;
+}
+
+export interface CalibrationResponse {
+    calibration: {
+        buckets: CalibrationBucket[];
+        brier_score: number;
+        ece: number;
+        overconfidence_index: number;
+        total_responses: number;
+    };
+    dk_concepts: DKConcept[];
 }
 
 // ============================================
@@ -1339,6 +1369,14 @@ export interface ScrollStats {
     cards_shown: number;
 }
 
+export interface CalibrationNudge {
+    type: string;
+    message: string;
+    confidence_avg: number;
+    accuracy: number;
+    gap: number;
+}
+
 export interface ScrollAnalytics {
     concept: string;
     concept_accuracy: number;
@@ -1346,6 +1384,7 @@ export interface ScrollAnalytics {
     improvement_areas: string[];
     strengths: string[];
     difficulty_trend: 'harder' | 'easier' | 'stable';
+    calibration_nudge?: CalibrationNudge;
 }
 
 export interface ScrollSessionAnalytics {
@@ -1533,7 +1572,7 @@ export const scrollApi = {
             body: JSON.stringify({ topic, student_name: studentName, student_id: studentId, notes, preferences }),
         }),
 
-    submitAnswer: (sessionId: string, answer: string, timeMs: number, contentItemId?: string, correctAnswer?: string) =>
+    submitAnswer: (sessionId: string, answer: string, timeMs: number, contentItemId?: string, correctAnswer?: string, confidence?: number) =>
         fetchApi<{
             session_id: string;
             is_correct: boolean;
@@ -1548,7 +1587,7 @@ export const scrollApi = {
             stats: ScrollStats;
         }>(`/learn/scroll/${sessionId}/answer`, {
             method: 'POST',
-            body: JSON.stringify({ answer, time_ms: timeMs, content_item_id: contentItemId, correct_answer: correctAnswer }),
+            body: JSON.stringify({ answer, time_ms: timeMs, content_item_id: contentItemId, correct_answer: correctAnswer, confidence }),
         }),
 
     getNextCards: (sessionId: string, count = 3) =>

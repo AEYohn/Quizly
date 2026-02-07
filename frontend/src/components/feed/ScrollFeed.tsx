@@ -24,6 +24,8 @@ import {
     Lock,
     Sparkles,
     Play,
+    AlertTriangle,
+    Shield,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { scrollApi, syllabusApi, curriculumApi, learnApi, resourcesApi } from "~/lib/api";
@@ -35,6 +37,7 @@ import { ChatContainer } from "~/components/chat/ChatContainer";
 import { ChatMessage } from "~/components/chat/ChatMessage";
 import { ChatInput } from "~/components/chat/ChatInput";
 import { AiThinkingIndicator } from "~/components/chat/AiThinkingIndicator";
+import { ConfidenceSlider } from "~/components/learning/ConfidenceSlider";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
 import { FeedTuneControls } from "~/components/feed/FeedTuneControls";
@@ -158,7 +161,7 @@ function QuizCard({
     analytics,
 }: {
     card: ScrollCard;
-    onAnswer: (answer: string) => void;
+    onAnswer: (answer: string, confidence: number) => void;
     onNext: () => void;
     onHelp: () => void;
     result: { isCorrect: boolean; xpEarned: number; streakBroken: boolean } | null;
@@ -167,10 +170,12 @@ function QuizCard({
 }) {
     const [selected, setSelected] = useState<string | null>(null);
     const [submitted, setSubmitted] = useState(false);
+    const [confidence, setConfidence] = useState(50);
 
     useEffect(() => {
         setSelected(null);
         setSubmitted(false);
+        setConfidence(50);
     }, [card.id]);
 
     const handleSelect = (e: React.MouseEvent, letter: string) => {
@@ -183,7 +188,7 @@ function QuizCard({
         e.stopPropagation();
         if (!selected || submitted || result) return;
         setSubmitted(true);
-        onAnswer(selected);
+        onAnswer(selected, confidence);
     };
 
     const handleNext = (e: React.MouseEvent) => {
@@ -199,12 +204,18 @@ function QuizCard({
 
     return (
         <div className="h-full w-full flex flex-col px-5 pt-4 pb-5 overflow-y-auto">
-            {/* Concept + review badge */}
+            {/* Concept + review badge + prove-it badge */}
             <div className="flex items-center gap-2 mb-5 shrink-0">
                 {card.is_reintroduction && (
                     <span className="flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
                         <RotateCcw className="w-3 h-3" />
                         Review
+                    </span>
+                )}
+                {card.card_type === "prove_it" && (
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                        <Shield className="w-3 h-3" />
+                        Prove It
                     </span>
                 )}
                 <span className="text-[11px] font-medium text-gray-500 tracking-wide uppercase">{card.concept}</span>
@@ -259,6 +270,13 @@ function QuizCard({
                     );
                 })}
             </div>
+
+            {/* Confidence slider (appears after selecting an option) */}
+            {selected && !result && (
+                <div className="mb-4 shrink-0">
+                    <ConfidenceSlider value={confidence} onChange={setConfidence} />
+                </div>
+            )}
 
             {/* Check button + help link */}
             {!result && (
@@ -321,6 +339,16 @@ function QuizCard({
                         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-500/5 border border-orange-500/10">
                             <Flame className="w-3.5 h-3.5 text-orange-400/60" />
                             <span className="text-xs text-orange-400/70">Streak lost — this question will come back later</span>
+                        </div>
+                    )}
+
+                    {!result.isCorrect && analytics?.calibration_nudge && (
+                        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
+                            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                                <div className="text-xs font-semibold text-amber-400 mb-1">Calibration Check</div>
+                                <p className="text-xs text-amber-300/70 leading-relaxed">{analytics.calibration_nudge.message}</p>
+                            </div>
                         </div>
                     )}
 
@@ -695,7 +723,7 @@ export function ScrollFeed() {
     // ----- SUBMIT ANSWER -----
     const answeredCardIdx = useRef<number>(-1);
     const handleAnswer = useCallback(
-        async (answer: string) => {
+        async (answer: string, confidence?: number) => {
             if (!store.sessionId || store.result) return;
 
             const timeMs = Date.now() - answerStartTime.current;
@@ -712,7 +740,7 @@ export function ScrollFeed() {
             });
 
             try {
-                const res = await scrollApi.submitAnswer(store.sessionId, answer, timeMs, currentCard.content_item_id, currentCard.correct_answer);
+                const res = await scrollApi.submitAnswer(store.sessionId, answer, timeMs, currentCard.content_item_id, currentCard.correct_answer, confidence);
                 if (res.success) {
                     store.setStats(res.data.stats);
                     if (res.data.next_cards.length > 0) {

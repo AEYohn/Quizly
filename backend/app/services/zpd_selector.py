@@ -54,9 +54,18 @@ class ZPDSelector:
         wrong_streak = concept_stats.get("wrong_streak", 0)
         avg_time_ms = feed_state_dict.get("avg_time_ms", 5000.0)
 
+        # --- Dunning-Kruger "Prove It" override ---
+        confidence_records = feed_state_dict.get("confidence_records", [])
+        concept_records = [r for r in confidence_records if r.get("concept") == concept]
+        if len(concept_records) >= 3:
+            avg_conf = sum(r["confidence"] for r in concept_records) / len(concept_records)
+            accuracy = sum(1 for r in concept_records if r["is_correct"]) / len(concept_records) * 100
+            if (avg_conf - accuracy) / 100.0 > 0.25:
+                target_p = 0.50  # "Prove it" — harder than normal
+
         if streak >= 5:
             # Student is on a roll — push harder to prevent boredom
-            target_p = 0.55
+            target_p = min(target_p, 0.55)
         elif wrong_streak >= 2:
             # Struggling — back off to prevent frustration
             target_p = 0.75

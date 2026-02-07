@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Zap, BookOpen, Target, LogOut, ExternalLink } from "lucide-react";
+import { User, Zap, BookOpen, Target, LogOut, ExternalLink, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { cn } from "~/lib/utils";
 import { learnApi } from "~/lib/api";
-import type { LearnProgressResponse } from "~/lib/api";
+import type { LearnProgressResponse, CalibrationResponse } from "~/lib/api";
 import { useAuth } from "~/lib/auth";
+import { CalibrationChart } from "~/components/feed/CalibrationChart";
 
 export function ProfilePanel() {
     const auth = useAuth();
     const [progress, setProgress] = useState<LearnProgressResponse | null>(null);
+    const [calibration, setCalibration] = useState<CalibrationResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const studentName = auth.user?.name || "Student";
@@ -19,9 +21,15 @@ export function ProfilePanel() {
     useEffect(() => {
         async function load() {
             setIsLoading(true);
-            const res = await learnApi.getProgress(studentName);
-            if (res.success) {
-                setProgress(res.data);
+            const [progressRes, calibrationRes] = await Promise.all([
+                learnApi.getProgress(studentName),
+                learnApi.getCalibration(studentName),
+            ]);
+            if (progressRes.success) {
+                setProgress(progressRes.data);
+            }
+            if (calibrationRes.success) {
+                setCalibration(calibrationRes.data);
             }
             setIsLoading(false);
         }
@@ -125,6 +133,42 @@ export function ProfilePanel() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Calibration Chart */}
+                {calibration && calibration.calibration.total_responses >= 10 && (
+                    <div className="p-4 rounded-2xl bg-gray-900/60 border border-gray-800/40">
+                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Confidence Calibration</h3>
+                        <CalibrationChart
+                            buckets={calibration.calibration.buckets}
+                            brierScore={calibration.calibration.brier_score}
+                            overconfidenceIndex={calibration.calibration.overconfidence_index}
+                            totalResponses={calibration.calibration.total_responses}
+                        />
+
+                        {/* Top DK concepts */}
+                        {calibration.dk_concepts.length > 0 && (
+                            <div className="mt-4 pt-3 border-t border-gray-800/40">
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                    <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wide">Overconfident Areas</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                    {calibration.dk_concepts.slice(0, 3).map((dk) => (
+                                        <div key={dk.concept} className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-300 truncate">{dk.concept}</span>
+                                            <span className="text-gray-500 tabular-nums shrink-0 ml-2">
+                                                <span className="text-amber-400">{dk.avg_confidence}%</span>
+                                                {" conf / "}
+                                                <span className="text-red-400">{dk.accuracy}%</span>
+                                                {" acc"}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

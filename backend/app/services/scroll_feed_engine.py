@@ -124,6 +124,10 @@ class FeedState:
     # User preferences (from feed tuning controls)
     user_preferences: Dict[str, Any] = field(default_factory=dict)
 
+    # Confidence tracking (Dunning-Kruger detection)
+    confidence_records: List[Dict[str, Any]] = field(default_factory=list)
+    # [{"concept": "x", "confidence": 75, "is_correct": true, "timestamp": "..."}]
+
     # Socratic help chat history
     help_history: List[Dict[str, str]] = field(default_factory=list)
 
@@ -254,6 +258,7 @@ class ScrollFeedEngine:
         answer: str,
         time_ms: int = 0,
         correct_answer: Optional[str] = None,
+        confidence: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Process an answer. This is where the algorithm runs.
@@ -276,6 +281,18 @@ class ScrollFeedEngine:
 
         # Grade answer
         is_correct = self._grade_answer(answer, state, correct_answer)
+
+        # ---- Confidence tracking (Dunning-Kruger detection) ----
+        conf = confidence if confidence is not None else self._estimate_confidence(time_ms, is_correct)
+        state.confidence_records.append({
+            "concept": concept,
+            "confidence": conf,
+            "is_correct": is_correct,
+            "timestamp": utc_now().isoformat(),
+        })
+        # Cap at 200 records
+        if len(state.confidence_records) > 200:
+            state.confidence_records = state.confidence_records[-200:]
 
         # ---- BKT UPDATE (replaces simple mastery) ----
         old_mastery = (await self.bkt.get_all_masteries(session.student_name)).get(concept)
@@ -361,6 +378,11 @@ class ScrollFeedEngine:
 
         # Build analytics snippet (shown on card)
         analytics = self._build_card_analytics(state, concept, is_correct)
+
+        # Check for Dunning-Kruger nudge
+        dk_nudge = self._check_dk_nudge(state, concept, conf, is_correct)
+        if dk_nudge:
+            analytics["calibration_nudge"] = dk_nudge
 
         return {
             "session_id": session_id,
@@ -508,6 +530,39 @@ class ScrollFeedEngine:
         if time_ms < 8000:
             return 60  # Medium
         return 35  # Slow = uncertain
+
+    def _check_dk_nudge(
+        self, state: FeedState, concept: str, confidence: int, is_correct: bool
+    ) -> Optional[Dict[str, Any]]:
+        """Check for Dunning-Kruger overconfidence nudge."""
+        # Only trigger on high-confidence wrong answers
+        if is_correct or confidence < 60:
+            return None
+
+        # Need ≥3 records for this concept
+        concept_records = [r for r in state.confidence_records if r["concept"] == concept]
+        if len(concept_records) < 3:
+            return None
+
+        avg_confidence = sum(r["confidence"] for r in concept_records) / len(concept_records)
+        accuracy = sum(1 for r in concept_records if r["is_correct"]) / len(concept_records) * 100
+        gap = avg_confidence - accuracy
+
+        if gap >= 25:
+            messages = [
+                f"Your confidence on {concept} is running ahead of your accuracy. Try slowing down and double-checking.",
+                f"You feel {int(avg_confidence)}% confident on {concept}, but your accuracy is {int(accuracy)}%. Let's close that gap.",
+                f"Calibration check: your gut says {int(avg_confidence)}% but results show {int(accuracy)}%. Focus on understanding, not speed.",
+            ]
+            import random as _rand
+            return {
+                "type": "dk_overconfident",
+                "message": _rand.choice(messages),
+                "confidence_avg": round(avg_confidence, 1),
+                "accuracy": round(accuracy, 1),
+                "gap": round(gap, 1),
+            }
+        return None
 
     def _grade_answer(self, answer: str, state: FeedState, correct_answer: Optional[str] = None) -> bool:
         """Grade the answer against the correct answer sent by the frontend."""

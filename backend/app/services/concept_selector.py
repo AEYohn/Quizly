@@ -72,6 +72,20 @@ class ConceptSelector:
         # Score each candidate via Thompson Sampling
         concept_stats = feed_state_dict.get("concept_stats", {})
         cards_shown = feed_state_dict.get("cards_shown", 0)
+        confidence_records = feed_state_dict.get("confidence_records", [])
+
+        # Pre-compute DK gaps per concept from confidence records
+        dk_gaps: Dict[str, float] = {}
+        concept_records: Dict[str, List[Dict[str, Any]]] = {}
+        for r in confidence_records:
+            concept_records.setdefault(r.get("concept", ""), []).append(r)
+        for c_name, recs in concept_records.items():
+            if len(recs) >= 3:
+                avg_conf = sum(r["confidence"] for r in recs) / len(recs)
+                accuracy = sum(1 for r in recs if r["is_correct"]) / len(recs) * 100
+                gap = (avg_conf - accuracy) / 100.0
+                if gap > 0.25:
+                    dk_gaps[c_name] = gap
 
         scores: Dict[str, float] = {}
         for c in candidates:
@@ -91,7 +105,13 @@ class ConceptSelector:
             attempts = stats.get("attempts", 0)
             recency_penalty = 1.0 / (1 + attempts) if cards_shown > 0 else 1.0
 
-            scores[c] = learning_potential * zpd_bonus * (1 - 0.3 * recency_penalty)
+            score = learning_potential * zpd_bonus * (1 - 0.3 * recency_penalty)
+
+            # DK overconfidence boost: prioritize concepts the student is overconfident on
+            if c in dk_gaps:
+                score *= 1 + dk_gaps[c] * 2  # up to ~2x boost
+
+            scores[c] = score
 
         return max(scores, key=scores.get)  # type: ignore[arg-type]
 

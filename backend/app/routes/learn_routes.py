@@ -80,6 +80,7 @@ class ScrollAnswerRequest(BaseModel):
     time_ms: int = Field(default=0, ge=0)  # Time spent on card
     content_item_id: Optional[str] = None  # Pool item ID for interaction tracking
     correct_answer: Optional[str] = None  # Expected answer for grading
+    confidence: Optional[int] = Field(default=None, ge=0, le=100)  # Self-rated confidence
 
 
 class ScrollSkipRequest(BaseModel):
@@ -611,6 +612,7 @@ async def scroll_answer(
         answer=request.answer,
         time_ms=request.time_ms,
         correct_answer=request.correct_answer,
+        confidence=request.confidence,
     )
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -656,6 +658,18 @@ async def scroll_analytics(
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result
+
+
+@router.get("/scroll/calibration/{student_name}")
+async def get_calibration(
+    student_name: str,
+    subject: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get calibration metrics and DK-overconfident concepts for a student."""
+    from ..services.calibration_service import CalibrationService
+    service = CalibrationService(db)
+    return await service.get_student_calibration(student_name, subject)
 
 
 @router.post("/scroll/{session_id}/help")
