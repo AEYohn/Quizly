@@ -6,7 +6,7 @@ A) Self-rating generation (pure data transform, no LLM)
 B) Diagnostic quiz generation (reuses QuestionBankGenerator)
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 from .question_generator import QuestionBankGenerator
 

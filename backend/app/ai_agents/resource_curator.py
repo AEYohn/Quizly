@@ -8,7 +8,6 @@ Follows the same Gemini + fallback pattern as FlashcardGenerator.
 
 import os
 import json
-import time
 from typing import Dict, Any, Optional, List
 from urllib.parse import urlparse
 

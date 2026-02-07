@@ -21,7 +21,6 @@ from ..db_models import (
     LearningSession,
     ConceptMastery,
     StudentMisconception,
-    SpacedRepetitionItem,
 )
 from ..services.adaptive_learning_service import AdaptiveLearningService
 from ..ai_agents.question_generator import QuestionBankGenerator
@@ -447,7 +446,6 @@ Return JSON:
         Returns { action, message, content?, agent }
         """
         quadrant = assessment.get("quadrant", "")
-        is_correct = assessment.get("is_correct", False)
         changes = refine_result.get("changes", [])
         concept = assessment.get("concept", "")
         explanation = assessment.get("explanation", "")
@@ -484,7 +482,7 @@ Return JSON:
             )
             return {
                 "action": "teach",
-                "message": f"Let me explain this a bit differently.",
+                "message": "Let me explain this a bit differently.",
                 "lesson": lesson,
                 "agent": "teach",
             }
@@ -592,7 +590,7 @@ Return JSON:
         greeting = f"Let's learn about **{topic}**! "
         if mastery_summary:
             greeting += mastery_summary
-        greeting += f"\n\nI'll start with a few questions to see where you're at."
+        greeting += "\n\nI'll start with a few questions to see where you're at."
 
         plan_msg = f"**Session plan:** {plan.get('rationale', f'Covering {len(concepts)} concepts.')}"
 

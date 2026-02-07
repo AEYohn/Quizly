@@ -1393,7 +1393,6 @@ async def curate_resources(
                                 dupe = True
                                 break
                         if not dupe:
-                            import uuid
                             item = ContentItem(
                                 content_type="resource_card",
                                 topic=request.topic,
