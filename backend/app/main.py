@@ -102,11 +102,14 @@ app.add_exception_handler(QuizlyException, quizly_exception_handler)
 
 # CORS configuration
 # Default: allow all origins so Vercel preview/production deployments can reach the API
+# Note: credentials=True is incompatible with origins=["*"] per CORS spec,
+# so we set credentials=False when using wildcard origins.
 origins = os.getenv("CORS_ORIGINS", "*").split(",")
+use_wildcard = "*" in origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if "*" in origins else origins,
-    allow_credentials=True,
+    allow_origins=["*"] if use_wildcard else origins,
+    allow_credentials=not use_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )
