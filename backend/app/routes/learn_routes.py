@@ -582,6 +582,13 @@ async def scroll_resume(
     from ..services.scroll_feed_engine import FeedState
     state = FeedState.from_dict(session.state_json)
     engine = ScrollFeedEngine(db)
+
+    # Backfill resource context for sessions created before PDF-context fix
+    if not state.notes_context:
+        resource_ctx = await engine._get_resource_context(session.topic)
+        if resource_ctx:
+            state.notes_context = resource_ctx
+
     cards = await engine._generate_card_batch_from_pool(
         state, session.topic, count=3, student_name=session.student_name
     )

@@ -21,7 +21,6 @@ import {
     ChevronLeft,
     Users,
     Clock,
-    Lock,
     Sparkles,
     Play,
     AlertTriangle,

@@ -735,6 +735,12 @@ class ScrollFeedEngine:
         except Exception as e:
             print(f"Pool card selection failed, falling back to inline: {e}")
 
+        # Backfill resource context for sessions created before PDF-context fix
+        if not state.notes_context:
+            resource_ctx = await self._get_resource_context(topic)
+            if resource_ctx:
+                state.notes_context = resource_ctx
+
         # Fallback to inline generation with BKT-aware concept selection
         return self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
 
