@@ -95,7 +95,10 @@ export function CosmicQuizCard({
 
     const handleSubmit = () => {
         if (!selectedOption || result) return;
-        onAnswer(selectedOption);
+        // Send the letter (A/B/C/D) not the full option text
+        const idx = card.options.indexOf(selectedOption);
+        const letter = String.fromCharCode(65 + idx);
+        onAnswer(letter);
     };
 
     const isAnswered = result !== null;
@@ -128,7 +131,7 @@ export function CosmicQuizCard({
                 {card.options.map((option, i) => {
                     const letter = String.fromCharCode(65 + i);
                     const isSelected = selectedOption === option;
-                    const isCorrect = isAnswered && option === card.correct_answer;
+                    const isCorrect = isAnswered && letter === card.correct_answer;
                     const isWrong = isAnswered && isSelected && !result?.isCorrect;
 
                     return (

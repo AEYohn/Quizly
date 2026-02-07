@@ -41,7 +41,7 @@ import { ChatInput } from "~/components/chat/ChatInput";
 import { AiThinkingIndicator } from "~/components/chat/AiThinkingIndicator";
 import { ConfidenceSlider } from "~/components/learning/ConfidenceSlider";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
-import type { SyllabusTopic } from "~/stores/scrollSessionStore";
+import type { SyllabusTopic, SyllabusTree } from "~/stores/scrollSessionStore";
 import { FeedTuneControls } from "~/components/feed/FeedTuneControls";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import { SkillTreePath } from "~/components/feed/SkillTreePath";
@@ -1005,27 +1005,53 @@ export function ScrollFeed() {
         }
     }, [store, auth.user]);
 
-    // ----- SUBJECT SELECTION -----
+    // ----- SUBJECT SELECTION (uses prefetch cache when available) -----
     const handleSubjectSelect = useCallback(async (subject: string) => {
         store.setSelectedSubject(subject);
-        store.setSyllabusLoading(true);
         store.setError(null);
+
+        // Check prefetch cache first — instant transition
+        const cached = prefetchCache.current.get(subject);
+        if (cached) {
+            store.setSyllabus(cached);
+            store.setSelectedSubject(cached.subject);
+            // Still pre-gen content for first 2 topics (may already be done)
+            const firstTopics = cached.units
+                .flatMap((u) => u.topics)
+                .slice(0, 2);
+            firstTopics.forEach((t, i) => {
+                setTimeout(() => {
+                    scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
+                }, i * 3000);
+            });
+            resourcesApi.list(cached.subject, auth.user?.id).then((rRes) => {
+                if (rRes.success) {
+                    store.setSubjectResources(rRes.data.resources.map((r) => ({
+                        id: r.id,
+                        file_name: r.file_name,
+                        file_type: r.file_type,
+                        concepts_count: r.concepts_count,
+                    })));
+                }
+            }).catch(() => {});
+            return;
+        }
+
+        // No cache — fetch live
+        store.setSyllabusLoading(true);
         try {
             const res = await syllabusApi.generate(subject, auth.user?.id);
             if (res.success) {
                 store.setSyllabus(res.data);
-                // Use the AI-cleaned subject name instead of raw input
                 store.setSelectedSubject(res.data.subject);
-                // Fire-and-forget: pre-generate content for first 2 topics (staggered to avoid DB lock contention)
                 const firstTopics = res.data.units
                     .flatMap((u) => u.topics)
                     .slice(0, 2);
                 firstTopics.forEach((t, i) => {
                     setTimeout(() => {
                         scrollApi.pregenContent(t.name, t.concepts).catch(() => {});
-                    }, i * 3000); // 3s stagger between pregen calls
+                    }, i * 3000);
                 });
-                // Load uploaded resources for this subject
                 resourcesApi.list(res.data.subject, auth.user?.id).then((rRes) => {
                     if (rRes.success) {
                         store.setSubjectResources(rRes.data.resources.map((r) => ({
@@ -1140,6 +1166,41 @@ export function ScrollFeed() {
         }).finally(() => store.setHistoryLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [store.sessionId, store.syllabus]);
+
+    // ----- PREFETCH SYLLABI for recommended subjects -----
+    const prefetchCache = useRef<Map<string, SyllabusTree>>(new Map());
+    const [prefetchedSubjects, setPrefetchedSubjects] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (store.sessionId || store.syllabus) return;
+        // Prefetch suggestions + first 2 history subjects
+        const toPrefetch = [
+            ...store.suggestions.slice(0, 3),
+            ...store.history.slice(0, 2).map((h) => h.subject),
+        ];
+        if (toPrefetch.length === 0) return;
+
+        const studentId = auth.user?.id;
+        toPrefetch.forEach((subject, i) => {
+            if (prefetchCache.current.has(subject)) return;
+            // Stagger requests to avoid hammering the API
+            setTimeout(() => {
+                syllabusApi.generate(subject, studentId).then((res) => {
+                    if (res.success) {
+                        prefetchCache.current.set(subject, res.data);
+                        setPrefetchedSubjects((prev) => new Set(prev).add(subject));
+                        // Also pre-generate content for the first topic
+                        const firstTopic = res.data.units
+                            .flatMap((u) => u.topics)[0];
+                        if (firstTopic) {
+                            scrollApi.pregenContent(firstTopic.name, firstTopic.concepts).catch(() => {});
+                        }
+                    }
+                }).catch(() => {});
+            }, i * 2000);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [store.suggestions.length, store.history.length, store.sessionId, store.syllabus]);
 
     // ----- IDLE STATE -----
     if (!store.sessionId) {
@@ -1513,20 +1574,27 @@ export function ScrollFeed() {
                                 Recommended
                             </h2>
                             <div className="flex flex-wrap gap-2">
-                                {store.suggestions.map((s) => (
-                                    <button
-                                        key={s}
-                                        onClick={() => handleSubjectSelect(s)}
-                                        disabled={store.syllabusLoading}
-                                        className="px-3.5 py-2 rounded-xl text-[13px] font-semibold text-gray-300 active:scale-[0.97] transition-all disabled:opacity-40 hover:text-white"
-                                        style={{
-                                            background: "rgba(139,92,246,0.06)",
-                                            border: "1px solid rgba(139,92,246,0.15)",
-                                        }}
-                                    >
-                                        {s}
-                                    </button>
-                                ))}
+                                {store.suggestions.map((s) => {
+                                    const isReady = prefetchedSubjects.has(s);
+                                    return (
+                                        <button
+                                            key={s}
+                                            onClick={() => handleSubjectSelect(s)}
+                                            disabled={store.syllabusLoading}
+                                            className={cn(
+                                                "px-3.5 py-2 rounded-xl text-[13px] font-semibold active:scale-[0.97] transition-all disabled:opacity-40 flex items-center gap-1.5",
+                                                isReady ? "text-gray-200 hover:text-white" : "text-gray-400 hover:text-gray-300",
+                                            )}
+                                            style={{
+                                                background: isReady ? "rgba(139,92,246,0.10)" : "rgba(139,92,246,0.04)",
+                                                border: isReady ? "1px solid rgba(139,92,246,0.25)" : "1px solid rgba(139,92,246,0.10)",
+                                            }}
+                                        >
+                                            {s}
+                                            {isReady && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
