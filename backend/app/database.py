@@ -244,7 +244,7 @@ def run_migrations(conn):
 async def init_db():
     """Initialize database: run Alembic migrations, then create any missing tables."""
     # Import all models so they're registered with Base
-    from .db_models import User, Course, Session, Question, Response  # noqa
+    from .db_models import User, Course, Session, Question, Response, LearningSession, ConceptMastery, StudentMisconception, SpacedRepetitionItem  # noqa
     from .models.game import Quiz, QuizQuestion, GameSession, Player, PlayerAnswer  # noqa
     from .db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession, StudentAssignment  # noqa
     from .db_models_content_pool import ContentItem, UserContentInteraction, UserTopicPreference  # noqa
@@ -268,17 +268,14 @@ async def init_db():
             print("   Alembic migrations complete", flush=True)
         else:
             print(f"   Alembic migration note: {result.stderr.strip()}", flush=True)
-            # Fall back to create_all if Alembic fails
-            async with engine.begin() as conn:
-                print("   Falling back to create_all...", flush=True)
-                await conn.run_sync(Base.metadata.create_all)
-                print("   Tables created via create_all", flush=True)
     except Exception as e:
         print(f"   Alembic migration note: {e}", flush=True)
-        async with engine.begin() as conn:
-            print("   Falling back to create_all...", flush=True)
-            await conn.run_sync(Base.metadata.create_all)
-            print("   Tables created via create_all", flush=True)
+
+    # Always run create_all to ensure any new tables are created
+    async with engine.begin() as conn:
+        print("   Ensuring all tables exist...", flush=True)
+        await conn.run_sync(Base.metadata.create_all)
+        print("   Tables verified", flush=True)
 
     # Run legacy column migrations for backwards compatibility
     async with engine.begin() as conn:
