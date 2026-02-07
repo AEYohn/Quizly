@@ -189,17 +189,16 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     }, [fetchCuratedResources]);
 
     // Trigger AI curation on first visit per subject, then re-fetch after delay
-    useEffect(() => {
-        if (!store.selectedSubject || !store.syllabus) return;
-        if (curationTriggeredRef.current === store.selectedSubject) return;
-        curationTriggeredRef.current = store.selectedSubject;
-
-        const allConcepts = store.syllabus.units.flatMap(u => u.topics.flatMap(t => t.concepts));
-        curatedResourcesApi.triggerCuration(store.selectedSubject, allConcepts).catch(() => {});
-
-        const timer = setTimeout(() => fetchCuratedResources(), 8000);
-        return () => clearTimeout(timer);
-    }, [store.selectedSubject, store.syllabus, fetchCuratedResources]);
+    // NOTE: Disabled until a valid SERPER_API_KEY is configured — failing requests overwhelm the backend
+    // useEffect(() => {
+    //     if (!store.selectedSubject || !store.syllabus) return;
+    //     if (curationTriggeredRef.current === store.selectedSubject) return;
+    //     curationTriggeredRef.current = store.selectedSubject;
+    //     const allConcepts = store.syllabus.units.flatMap(u => u.topics.flatMap(t => t.concepts)).slice(0, 5);
+    //     curatedResourcesApi.triggerCuration(store.selectedSubject, allConcepts).catch(() => {});
+    //     const timer = setTimeout(() => fetchCuratedResources(), 8000);
+    //     return () => clearTimeout(timer);
+    // }, [store.selectedSubject, store.syllabus, fetchCuratedResources]);
 
     // Start assessment flow
     const handleStartAssessment = useCallback(async () => {
