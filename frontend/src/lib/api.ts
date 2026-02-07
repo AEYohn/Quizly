@@ -109,11 +109,11 @@ async function fetchApi<T>(
     for (let attempt = 0; attempt <= (shouldRetry ? retryConfig.maxRetries : 0); attempt++) {
         try {
             const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
                 headers: {
                     'Content-Type': 'application/json',
                     ...options?.headers,
                 },
-                ...options,
             });
 
             // Check if we should retry based on status code
