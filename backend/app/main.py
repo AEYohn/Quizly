@@ -101,11 +101,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(QuizlyException, quizly_exception_handler)
 
 # CORS configuration
-# Allow both dev ports by default so the frontend (3000/3001) can reach the API during development
-origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002").split(",")
+# Default: allow all origins so Vercel preview/production deployments can reach the API
+origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if "*" in origins else origins,  # Support wildcard
+    allow_origins=["*"] if "*" in origins else origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
