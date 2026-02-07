@@ -816,7 +816,9 @@ export function ScrollFeed() {
                     if (res.data.next_cards.length > 0) {
                         store.addCards(res.data.next_cards);
                     }
-                    if (answeredCardIdx.current === store.currentIdx) {
+                    // Use live store state — the closure's store.currentIdx is stale if user already advanced
+                    const liveIdx = useScrollSessionStore.getState().currentIdx;
+                    if (answeredCardIdx.current === liveIdx) {
                         store.setAnalytics(res.data.analytics);
                         // Use server XP/streak but keep local isCorrect (already accurate)
                         store.setResult({
