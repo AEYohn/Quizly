@@ -772,6 +772,19 @@ async def scroll_flashcard_flip(
     }
 
 
+@router.post("/content/clear-stale-mcqs")
+async def clear_stale_mcqs(
+    db: AsyncSession = Depends(get_db),
+):
+    """One-time admin endpoint to clear stale MCQ pool items with bad correct_answer mapping."""
+    from ..db_models_content_pool import ContentItem
+    result = await db.execute(
+        delete(ContentItem).where(ContentItem.content_type == "mcq")
+    )
+    await db.commit()
+    return {"cleared": result.rowcount}
+
+
 @router.get("/content/pool-status")
 async def pool_status(
     topic: str = Query(..., min_length=1),
