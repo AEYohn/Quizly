@@ -6,6 +6,18 @@ import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
 const config = {
+    async redirects() {
+        return [
+            { source: "/learn/scroll", destination: "/feed", permanent: true },
+            { source: "/compete", destination: "/feed", permanent: true },
+            { source: "/student/learning", destination: "/student/dashboard", permanent: true },
+            { source: "/student/inbox", destination: "/student/dashboard", permanent: true },
+            { source: "/student/study", destination: "/student/dashboard", permanent: true, missing: [{ type: "query", key: "redirect", value: "false" }] },
+            { source: "/login", destination: "/sign-in", permanent: true },
+            { source: "/register", destination: "/sign-up", permanent: true },
+            { source: "/progress", destination: "/feed", permanent: true },
+        ];
+    },
     images: {
         remotePatterns: [
             {

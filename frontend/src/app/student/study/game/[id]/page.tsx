@@ -88,7 +88,7 @@ export default function GamePlayPage() {
     useEffect(() => {
         if (authLoading) return;
         if (!token) {
-            router.push("/login");
+            router.push("/sign-in");
             return;
         }
 
@@ -226,7 +226,7 @@ export default function GamePlayPage() {
                 <div className="text-center">
                     <p className="text-red-600 mb-4">{error || "Game not found"}</p>
                     <Link
-                        href="/student/study"
+                        href="/student/dashboard"
                         className="text-indigo-600 hover:text-indigo-800"
                     >
                         Back to Study
@@ -244,7 +244,7 @@ export default function GamePlayPage() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Link
-                                href="/student/study"
+                                href="/student/dashboard"
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 <ArrowLeft className="h-5 w-5 text-gray-600" />
@@ -336,7 +336,7 @@ export default function GamePlayPage() {
                             Game type &quot;{game.template_type}&quot; is not yet supported.
                         </p>
                         <Link
-                            href="/student/study"
+                            href="/student/dashboard"
                             className="mt-4 inline-block text-indigo-600 hover:text-indigo-800"
                         >
                             Back to Study

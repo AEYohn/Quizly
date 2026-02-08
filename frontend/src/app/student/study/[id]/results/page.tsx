@@ -122,7 +122,7 @@ export default function ResultsPage() {
                 <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link
-                            href="/student/study"
+                            href="/student/dashboard"
                             className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
                         >
                             <ArrowLeft className="w-5 h-5" />

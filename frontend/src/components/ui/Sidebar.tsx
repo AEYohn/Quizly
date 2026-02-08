@@ -17,8 +17,7 @@ import {
     BarChart3,
     BookOpen,
     LayoutDashboard,
-    Inbox,
-    GraduationCap,
+    Zap,
 } from "lucide-react";
 import { ProfileModal } from "~/components/ProfileModal";
 
@@ -31,8 +30,7 @@ const teacherNavigation = [
 const studentNavigation = [
     { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
     { name: "My Library", href: "/student/library", icon: BookOpen },
-    { name: "Inbox", href: "/student/inbox", icon: Inbox },
-    { name: "Learning", href: "/student/learning", icon: GraduationCap },
+    { name: "Learn", href: "/feed", icon: Zap },
 ];
 
 const EXPANDED_WIDTH = 256;

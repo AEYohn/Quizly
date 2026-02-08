@@ -8,13 +8,10 @@ const isPublicRoute = createRouteMatcher([
     "/auth/callback(.*)",  // Auth callback after sign-in/sign-up
     "/join(.*)",           // Student join page for live sessions
     "/play(.*)",           // Game play pages
-    "/explore(.*)",        // Public explore/marketplace
     "/practice(.*)",       // Public quiz practice (shareable links)
-    "/learn(.*)",          // Conversational learning + scroll mode
-    "/compete(.*)",        // Leaderboard / compete
+    "/learn(.*)",          // Conversational learning
     "/feed(.*)",           // TikTok-style feed with tabs
-    // "/v/(.*)" removed — single design, no variant routes
-    "/progress(.*)",       // Learning progress dashboard
+    "/privacy(.*)",        // Privacy policy
     "/api/webhooks(.*)",   // Webhooks
 ]);
 

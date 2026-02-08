@@ -76,7 +76,7 @@ export default function PracticePage() {
             });
 
             if (!quizRes.ok) {
-                router.push("/student/study");
+                router.push("/student/dashboard");
                 return;
             }
 
@@ -201,7 +201,7 @@ export default function PracticePage() {
                     <h2 className="text-xl font-semibold mb-2">No Questions</h2>
                     <p className="text-gray-400 mb-4">This quiz doesn't have any questions yet.</p>
                     <Link
-                        href="/student/study"
+                        href="/student/dashboard"
                         className="text-emerald-400 hover:text-emerald-300"
                     >
                         Back to Study
@@ -218,7 +218,7 @@ export default function PracticePage() {
                 <div className="text-center">
                     <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold mb-2">Question not found</h2>
-                    <Link href="/student/study" className="text-emerald-400 hover:text-emerald-300">
+                    <Link href="/student/dashboard" className="text-emerald-400 hover:text-emerald-300">
                         Back to Study
                     </Link>
                 </div>
@@ -235,7 +235,7 @@ export default function PracticePage() {
                 <div className="max-w-3xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between mb-3">
                         <Link
-                            href="/student/study"
+                            href="/student/dashboard"
                             className="flex items-center gap-2 text-gray-400 hover:text-white"
                         >
                             <ArrowLeft className="w-4 h-4" />

@@ -123,7 +123,7 @@ export default function StudentProfilePage() {
                 <h1 className="text-2xl font-bold text-white mb-2">Profile Not Found</h1>
                 <p className="text-white/70 mb-6">Please log in to view your learning profile.</p>
                 <Link
-                    href="/login"
+                    href="/sign-in"
                     className="rounded-full bg-white px-6 py-3 font-bold text-purple-600 hover:scale-105 transition-transform"
                 >
                     Log In

@@ -56,7 +56,7 @@ export default function ClassroomsPage() {
     async function fetchClassrooms() {
         const token = localStorage.getItem("token");
         if (!token) {
-            router.push("/login");
+            router.push("/sign-in");
             return;
         }
 

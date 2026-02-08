@@ -89,7 +89,7 @@ function TeacherAnalyticsContent() {
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
-            router.push("/login");
+            router.push("/sign-in");
             return;
         }
         fetchGames(token);

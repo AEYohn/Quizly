@@ -638,7 +638,7 @@ function NewQuizPageContent() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button
-                                onClick={() => router.push(isEditMode ? "/student/dashboard" : isStudyMode ? "/student/study" : "/teacher")}
+                                onClick={() => router.push(isEditMode ? "/student/dashboard" : isStudyMode ? "/student/dashboard" : "/teacher")}
                                 className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white"
                             >
                                 <ArrowLeft className="h-5 w-5" />

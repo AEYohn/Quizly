@@ -156,7 +156,7 @@ export default function ClassroomDetailPage() {
     async function fetchCourse() {
         const token = localStorage.getItem("token");
         if (!token) {
-            router.push("/login");
+            router.push("/sign-in");
             return;
         }
 

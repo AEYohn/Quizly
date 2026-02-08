@@ -338,14 +338,14 @@ export default function LearnPage() {
                             TikTok Mode
                         </Link>
                         <Link
-                            href="/compete"
+                            href="/feed"
                             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
                         >
                             <Trophy className="w-3.5 h-3.5" />
                             Compete
                         </Link>
                         <Link
-                            href="/progress"
+                            href="/feed"
                             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
                         >
                             <BarChart3 className="w-3.5 h-3.5" />
@@ -466,7 +466,7 @@ export default function LearnPage() {
                                 Learn Something New
                             </button>
                             <Link
-                                href="/progress"
+                                href="/feed"
                                 className="px-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-gray-300 text-sm hover:bg-gray-700"
                             >
                                 View Progress

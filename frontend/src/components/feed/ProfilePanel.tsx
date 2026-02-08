@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Zap, BookOpen, Target, LogOut, ExternalLink, AlertTriangle } from "lucide-react";
-import Link from "next/link";
+import { User, Zap, BookOpen, Target, LogOut, AlertTriangle } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { learnApi } from "~/lib/api";
 import type { LearnProgressResponse, CalibrationResponse } from "~/lib/api";
@@ -188,17 +187,6 @@ export function ProfilePanel() {
                         )}
                     </div>
                 )}
-
-                {/* Links */}
-                <div className="space-y-2">
-                    <Link
-                        href="/progress"
-                        className="flex items-center justify-between px-4 py-3 rounded-2xl bg-gray-900/40 border border-gray-800/40 hover:bg-gray-800/40 transition-colors"
-                    >
-                        <span className="text-sm text-gray-200">Full Progress Dashboard</span>
-                        <ExternalLink className="w-4 h-4 text-gray-500" />
-                    </Link>
-                </div>
 
                 {/* Logout */}
                 <button

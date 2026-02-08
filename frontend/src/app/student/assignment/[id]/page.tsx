@@ -180,7 +180,7 @@ export default function AssignmentPracticePage() {
                 <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
                 <p className="text-white text-lg mb-4">{error || "Assignment not found"}</p>
                 <button
-                    onClick={() => router.push("/student/inbox")}
+                    onClick={() => router.push("/student/dashboard")}
                     className="px-4 py-2 rounded-lg bg-sky-600 text-white"
                 >
                     Back to Inbox
@@ -261,7 +261,7 @@ export default function AssignmentPracticePage() {
                     {/* Actions */}
                     <div className="mt-8 flex justify-center gap-4">
                         <button
-                            onClick={() => router.push("/student/inbox")}
+                            onClick={() => router.push("/student/dashboard")}
                             className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gray-800 text-white hover:bg-gray-700"
                         >
                             <ArrowLeft className="h-5 w-5" />
@@ -287,7 +287,7 @@ export default function AssignmentPracticePage() {
                 <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm">
                     <div className="mx-auto max-w-2xl px-6 py-4">
                         <Link
-                            href="/student/inbox"
+                            href="/student/dashboard"
                             className="flex items-center gap-2 text-gray-400 hover:text-white"
                         >
                             <ArrowLeft className="h-5 w-5" />
