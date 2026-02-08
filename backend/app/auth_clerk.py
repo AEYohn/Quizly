@@ -311,15 +311,11 @@ async def resolve_student_identity(
             user = await get_or_create_user_from_clerk(db, clerk_payload)
             return (user.name, user)
 
-    # No valid token — allow guest access only with guest_ prefix
-    if student_name and student_name.startswith("guest_"):
+    # No valid token — allow through with whatever name was provided (MVP: no auth wall)
+    if student_name:
         return (student_name, None)
 
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentication required",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    return ("Student", None)
 
 
 async def verify_session_ownership(

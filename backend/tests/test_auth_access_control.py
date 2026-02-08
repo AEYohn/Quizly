@@ -137,49 +137,43 @@ class TestResolveStudentIdentity:
         assert user is None
 
     @pytest.mark.asyncio
-    async def test_no_token_no_guest_prefix_raises_401(self, db_session: AsyncSession):
-        """No token and no guest_ prefix should raise 401."""
-        from fastapi import HTTPException
+    async def test_no_token_no_guest_prefix_allows_through(self, db_session: AsyncSession):
+        """MVP: No token and no guest_ prefix should still allow through."""
+        student_name, user = await resolve_student_identity(
+            student_name="SomeUser",
+            credentials=None,
+            db=db_session,
+        )
 
-        with pytest.raises(HTTPException) as exc_info:
-            await resolve_student_identity(
-                student_name="SomeUser",
-                credentials=None,
-                db=db_session,
-            )
-
-        assert exc_info.value.status_code == 401
+        assert student_name == "SomeUser"
+        assert user is None
 
     @pytest.mark.asyncio
-    async def test_no_token_no_name_raises_401(self, db_session: AsyncSession):
-        """No token and no student_name should raise 401."""
-        from fastapi import HTTPException
+    async def test_no_token_no_name_defaults_to_student(self, db_session: AsyncSession):
+        """MVP: No token and no student_name should default to 'Student'."""
+        student_name, user = await resolve_student_identity(
+            student_name=None,
+            credentials=None,
+            db=db_session,
+        )
 
-        with pytest.raises(HTTPException) as exc_info:
-            await resolve_student_identity(
-                student_name=None,
-                credentials=None,
-                db=db_session,
-            )
-
-        assert exc_info.value.status_code == 401
+        assert student_name == "Student"
+        assert user is None
 
     @pytest.mark.asyncio
-    async def test_invalid_token_no_guest_prefix_raises_401(self, db_session: AsyncSession):
-        """Invalid token + non-guest name should raise 401."""
-        from fastapi import HTTPException
-
+    async def test_invalid_token_allows_through_with_name(self, db_session: AsyncSession):
+        """MVP: Invalid token + name should still allow through."""
         credentials = MagicMock()
         credentials.credentials = "bad-token"
 
-        with pytest.raises(HTTPException) as exc_info:
-            await resolve_student_identity(
-                student_name="NotAGuest",
-                credentials=credentials,
-                db=db_session,
-            )
+        student_name, user = await resolve_student_identity(
+            student_name="NotAGuest",
+            credentials=credentials,
+            db=db_session,
+        )
 
-        assert exc_info.value.status_code == 401
+        assert student_name == "NotAGuest"
+        assert user is None
 
     @pytest.mark.asyncio
     async def test_expired_token_with_guest_prefix_falls_through(
@@ -274,18 +268,18 @@ class TestAccessControlHTTPIntegration:
     """Integration tests hitting actual API endpoints."""
 
     @pytest.mark.asyncio
-    async def test_progress_returns_401_without_token(self, client: AsyncClient):
-        """GET /learn/progress without token or guest_ should return 401."""
+    async def test_progress_works_without_token(self, client: AsyncClient):
+        """MVP: GET /learn/progress without token should still work."""
         response = await client.get(
             "/learn/progress?student_name=SomeUser",
         )
-        assert response.status_code == 401
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_progress_returns_401_no_params(self, client: AsyncClient):
-        """GET /learn/progress with no params at all should return 401."""
+    async def test_progress_works_no_params(self, client: AsyncClient):
+        """MVP: GET /learn/progress with no params defaults to 'Student'."""
         response = await client.get("/learn/progress")
-        assert response.status_code == 401
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_progress_works_for_guest(self, client: AsyncClient):
@@ -323,10 +317,10 @@ class TestAccessControlHTTPIntegration:
         assert data["student_name"] == "Auth Progress User"
 
     @pytest.mark.asyncio
-    async def test_history_returns_401_without_auth(self, client: AsyncClient):
-        """GET /learn/history without auth should return 401."""
+    async def test_history_works_without_auth(self, client: AsyncClient):
+        """MVP: GET /learn/history without auth should still work."""
         response = await client.get("/learn/history")
-        assert response.status_code == 401
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_history_works_for_guest(self, client: AsyncClient):
@@ -370,18 +364,18 @@ class TestAccessControlHTTPIntegration:
         assert response.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_delete_subject_requires_auth(self, client: AsyncClient):
-        """DELETE /learn/subject/Math without auth should return 401."""
+    async def test_delete_subject_works_without_auth(self, client: AsyncClient):
+        """MVP: DELETE /learn/subject/Math without auth should still work."""
         response = await client.delete(
             "/learn/subject/Math?student_name=SomeUser",
         )
-        assert response.status_code == 401
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_leaderboard_requires_auth(self, client: AsyncClient):
-        """GET /learn/leaderboard without auth should return 401."""
+    async def test_leaderboard_works_without_auth(self, client: AsyncClient):
+        """MVP: GET /learn/leaderboard without auth should still work."""
         response = await client.get("/learn/leaderboard")
-        assert response.status_code == 401
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_leaderboard_works_for_guest(self, client: AsyncClient):

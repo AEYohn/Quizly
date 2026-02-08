@@ -3,7 +3,7 @@ Learn API Routes
 Conversational adaptive learning endpoints.
 """
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
 from ..exceptions import (
     QuizlyException, ErrorCodes, SessionNotFound, ResourceNotFound,
@@ -811,19 +811,12 @@ async def get_calibration(
     db: AsyncSession = Depends(get_db),
 ):
     """Get calibration metrics and DK-overconfident concepts for a student."""
-    # Manual auth: can't use resolve_student_identity (path param name collision)
+    # MVP: no auth wall — use JWT identity when available, otherwise allow through
     if credentials:
         clerk_payload = await verify_clerk_token(credentials.credentials)
         if clerk_payload:
             user = await get_or_create_user_from_clerk(db, clerk_payload)
-            if user.name != student_name:
-                raise Forbidden()
-        else:
-            if not student_name.startswith("guest_"):
-                raise HTTPException(status_code=401, detail="Authentication required")
-    else:
-        if not student_name.startswith("guest_"):
-            raise HTTPException(status_code=401, detail="Authentication required")
+            student_name = user.name  # Override with server-verified identity
     from ..services.calibration_service import CalibrationService
     service = CalibrationService(db)
     return await service.get_student_calibration(student_name, subject)
@@ -1462,19 +1455,12 @@ async def get_bkt_mastery(
     db: AsyncSession = Depends(get_db),
 ):
     """Return full BKT state for all concepts (P(L), confidence)."""
-    # Manual auth: can't use resolve_student_identity (path param name collision)
+    # MVP: no auth wall — use JWT identity when available, otherwise allow through
     if credentials:
         clerk_payload = await verify_clerk_token(credentials.credentials)
         if clerk_payload:
             user = await get_or_create_user_from_clerk(db, clerk_payload)
-            if user.name != student_name:
-                raise Forbidden()
-        else:
-            if not student_name.startswith("guest_"):
-                raise HTTPException(status_code=401, detail="Authentication required")
-    else:
-        if not student_name.startswith("guest_"):
-            raise HTTPException(status_code=401, detail="Authentication required")
+            student_name = user.name  # Override with server-verified identity
     engine = ScrollFeedEngine(db)
     mastery = await engine.get_bkt_mastery_map(student_name)
     return {

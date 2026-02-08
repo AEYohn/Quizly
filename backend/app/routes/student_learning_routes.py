@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from ..exceptions import (
     SessionNotFound, ResourceNotFound,
@@ -1154,22 +1154,13 @@ async def get_student_dashboard(
     db: AsyncSession = Depends(get_db),
 ):
     """Get aggregated dashboard data for a student - includes learning profile format."""
-    # Can't use resolve_student_identity here because student_name is a path param
-    # (FastAPI conflicts with the Query param in the dependency). Verify manually.
+    # MVP: no auth wall — use JWT identity when available, otherwise allow through
     from ..auth_clerk import verify_clerk_token, get_or_create_user_from_clerk
     if credentials:
         clerk_payload = await verify_clerk_token(credentials.credentials)
         if clerk_payload:
             user = await get_or_create_user_from_clerk(db, clerk_payload)
-            if user.name != student_name:
-                from ..exceptions import Forbidden
-                raise Forbidden()
-        else:
-            if not student_name.startswith("guest_"):
-                raise HTTPException(status_code=401, detail="Authentication required")
-    else:
-        if not student_name.startswith("guest_"):
-            raise HTTPException(status_code=401, detail="Authentication required")
+            student_name = user.name  # Override with server-verified identity
     # Get exit tickets
     exit_result = await db.execute(
         select(ExitTicket)
