@@ -281,6 +281,25 @@ export function useAuth() {
     return context;
 }
 
+/**
+ * Get the student name for API calls.
+ * Authenticated users: returns user.name from JWT.
+ * Guests: returns a guest_ prefixed identifier so the backend allows access.
+ */
+export function getStudentName(user: User | null): string {
+    if (user?.name) return user.name;
+    // Generate a stable guest ID per browser session
+    if (typeof window !== "undefined") {
+        let guestId = sessionStorage.getItem("quizly_guest_id");
+        if (!guestId) {
+            guestId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            sessionStorage.setItem("quizly_guest_id", guestId);
+        }
+        return guestId;
+    }
+    return "guest_anonymous";
+}
+
 // ==============================================================================
 // Helper Hook for getting fresh token
 // ==============================================================================

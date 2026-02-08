@@ -6,7 +6,7 @@ import { HomeScreen } from "./HomeScreen";
 import { SkillTree } from "./SkillTree";
 import { ActiveFeed } from "./ActiveFeed";
 import { SkillTreeAnalysis } from "~/components/feed/SkillTreeAnalysis";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 
 function CosmicFeed() {
     const auth = useAuth();
@@ -115,7 +115,7 @@ function CosmicFeed() {
                     open={skillTree.showAnalysis}
                     onClose={() => skillTree.setShowAnalysis(false)}
                     subject={store.selectedSubject!}
-                    studentName={auth.user?.name || "Student"}
+                    studentName={getStudentName(auth.user)}
                     onStudyNow={(concept) => {
                         skillTree.setShowAnalysis(false);
                         const topic = store.syllabus!.units

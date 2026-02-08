@@ -31,7 +31,7 @@ import {
 import { cn } from "~/lib/utils";
 import { scrollApi, syllabusApi, curriculumApi, learnApi, resourcesApi, codebaseApi } from "~/lib/api";
 import type { ScrollCard, ScrollStats, ScrollAnalytics, ScrollSessionAnalytics } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 import { FlashcardCard } from "~/components/learning/FlashcardCard";
 import { InfoCardComponent } from "~/components/learning/InfoCardComponent";
 import { ChatContainer } from "~/components/chat/ChatContainer";
@@ -700,7 +700,7 @@ export function ScrollFeed() {
         store.setError(null);
 
         try {
-            const studentName = auth.user?.name || "Student";
+            const studentName = getStudentName(auth.user);
             // Build preferences for API
             const prefs = store.preferences;
             const apiPrefs = {
@@ -923,7 +923,7 @@ export function ScrollFeed() {
         }, 60000);
 
         try {
-            const studentName = auth.user?.name || "Student";
+            const studentName = getStudentName(auth.user);
 
             // Try resuming an existing session first
             const resumeRes = await scrollApi.resumeFeed(topic, studentName);
@@ -1053,7 +1053,7 @@ export function ScrollFeed() {
     // ----- MASTERY FETCH + RECOMMENDED PATH -----
     const fetchMastery = useCallback(async () => {
         if (!store.syllabus) return;
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         const res = await learnApi.getProgress(studentName);
         if (res.success) {
             const masteryMap: Record<string, number> = {};
@@ -1106,7 +1106,7 @@ export function ScrollFeed() {
     // ----- HEARTBEAT WHILE IN FEED -----
     useEffect(() => {
         if (!store.sessionId || !store.selectedSubject || !store.activeSyllabusNode) return;
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         const beat = () => {
             syllabusApi.heartbeat(store.selectedSubject!, store.activeSyllabusNode!, studentName);
         };
@@ -1125,7 +1125,7 @@ export function ScrollFeed() {
     // Fetch learning history on mount (for personalized home)
     useEffect(() => {
         if (store.sessionId || store.syllabus) return; // Only on home screen
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         store.setHistoryLoading(true);
         learnApi.getHistory(studentName).then((res) => {
             if (res.success) {
@@ -1201,7 +1201,7 @@ export function ScrollFeed() {
                         open={showAnalysis}
                         onClose={() => setShowAnalysis(false)}
                         subject={store.selectedSubject}
-                        studentName={auth.user?.name || "Student"}
+                        studentName={getStudentName(auth.user)}
                         onStudyNow={(concept) => {
                             setShowAnalysis(false);
                             // Find the matching topic from the syllabus

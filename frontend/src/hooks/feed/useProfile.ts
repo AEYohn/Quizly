@@ -9,7 +9,7 @@ import type {
     QuestionHistorySessionSummary,
     PaginationMeta,
 } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 import type { ProfileTab, HistoryFilter, WeakConcept } from "~/variants/contracts";
 
 const HISTORY_BATCH = 20;
@@ -186,7 +186,7 @@ export function useProfile() {
     const auth = useAuth();
     const [state, dispatch] = useReducer(profileReducer, initialState);
 
-    const studentName = auth.user?.name || "Student";
+    const studentName = getStudentName(auth.user);
     const initial = studentName.charAt(0).toUpperCase();
 
     // Initial load: progress + calibration

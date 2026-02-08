@@ -16,7 +16,7 @@ import { DiscussionThread } from "~/components/discussion/DiscussionThread";
 import { useLearningSessionStore } from "~/stores/learningSessionStore";
 import type { ChatMessage as ChatMsg, QuestionData } from "~/stores/learningSessionStore";
 import { learnApi } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 
 function generateId() {
     return Math.random().toString(36).slice(2, 10);
@@ -51,7 +51,7 @@ export default function LearnPage() {
     const handleStartSession = useCallback(
         async (topic: string) => {
             if (!topic.trim()) return;
-            const studentName = auth.user?.name || "Student";
+            const studentName = getStudentName(auth.user);
 
             setError(null);
             store.setIsLoading(true);

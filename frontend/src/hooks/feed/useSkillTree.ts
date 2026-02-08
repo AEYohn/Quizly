@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { syllabusApi, learnApi, resourcesApi, assessmentApi, curatedResourcesApi } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
 
@@ -101,7 +101,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     // Mastery fetch + recommended path
     const fetchMastery = useCallback(async () => {
         if (!store.syllabus) return;
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         const res = await learnApi.getProgress(studentName);
         if (res.success) {
             const masteryMap: Record<string, number> = {};
@@ -152,7 +152,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     // Heartbeat while in feed
     useEffect(() => {
         if (!store.sessionId || !store.selectedSubject || !store.activeSyllabusNode) return;
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         const beat = () => {
             syllabusApi.heartbeat(store.selectedSubject!, store.activeSyllabusNode!, studentName);
         };
@@ -216,7 +216,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     // Start assessment flow
     const handleStartAssessment = useCallback(async () => {
         if (!store.selectedSubject || !store.syllabus) return;
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         store.setAssessmentPhase('self_rating');
         setShowAssessment(true);
         try {

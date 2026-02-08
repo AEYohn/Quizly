@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { scrollApi, syllabusApi, learnApi, resourcesApi, codebaseApi } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 
 export function useHomeScreen() {
@@ -57,7 +57,7 @@ export function useHomeScreen() {
         }, 60000);
 
         try {
-            const studentName = auth.user?.name || "Student";
+            const studentName = getStudentName(auth.user);
             // Use parent subject as session topic to avoid "Subject: Subtopic" duplicates in history
             const sessionTopic = store.selectedSubject || topic;
             const resumeRes = await scrollApi.resumeFeed(sessionTopic, studentName);
@@ -194,7 +194,7 @@ export function useHomeScreen() {
 
     // Delete a subject and all its data
     const handleDeleteSubject = useCallback(async (subject: string) => {
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         try {
             const res = await learnApi.deleteSubject(subject, studentName);
             if (res.success) {
@@ -240,7 +240,7 @@ export function useHomeScreen() {
     // Shows cached data instantly, refreshes in background
     useEffect(() => {
         if (store.sessionId || store.syllabus) return;
-        const studentName = auth.user?.name || "Student";
+        const studentName = getStudentName(auth.user);
         // Only show loading skeleton if we have NO cached data
         if (!store.history || store.history.length === 0) {
             store.setHistoryLoading(true);

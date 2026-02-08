@@ -26,7 +26,7 @@ import { cn } from "~/lib/utils";
 import { useScrollSessionStore, PRESETS, DEFAULT_PREFERENCES } from "~/stores/scrollSessionStore";
 import type { FeedPreferences } from "~/stores/scrollSessionStore";
 import { scrollApi, curriculumApi } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 import { useRouter } from "next/navigation";
 
 const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
@@ -80,7 +80,7 @@ export default function DesignCPage() {
         store.setIsLoading(true);
         store.setError(null);
         try {
-            const studentName = auth.user?.name || "Student";
+            const studentName = getStudentName(auth.user);
             const res = await scrollApi.startFeed(store.topicInput.trim(), studentName, auth.user?.id,
                 store.notesInput.trim() || undefined,
                 { difficulty: store.preferences.difficulty, content_mix: store.preferences.contentMix, question_style: store.preferences.questionStyle });

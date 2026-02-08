@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { scrollApi, curriculumApi } from "~/lib/api";
 import type { ScrollSessionAnalytics } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 
 export function useActiveFeed(answerStartTime: React.MutableRefObject<number>) {
@@ -54,7 +54,7 @@ export function useActiveFeed(answerStartTime: React.MutableRefObject<number>) {
         store.setError(null);
 
         try {
-            const studentName = auth.user?.name || "Student";
+            const studentName = getStudentName(auth.user);
             const prefs = store.preferences;
             const apiPrefs = {
                 difficulty: prefs.difficulty,

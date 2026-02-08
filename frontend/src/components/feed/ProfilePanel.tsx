@@ -5,7 +5,7 @@ import { User, Zap, BookOpen, Target, LogOut, AlertTriangle } from "lucide-react
 import { cn } from "~/lib/utils";
 import { learnApi } from "~/lib/api";
 import type { LearnProgressResponse, CalibrationResponse } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 import dynamic from "next/dynamic";
 
 // Lazy-load the chart widget (SVG-heavy, only shown when sufficient data exists)
@@ -31,7 +31,7 @@ export function ProfilePanel() {
     const [calibration, setCalibration] = useState<CalibrationResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const studentName = auth.user?.name || "Student";
+    const studentName = getStudentName(auth.user);
     const initial = studentName.charAt(0).toUpperCase();
 
     useEffect(() => {

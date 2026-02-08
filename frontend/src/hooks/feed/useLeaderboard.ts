@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { learnApi } from "~/lib/api";
 import type { LeaderboardEntry } from "~/lib/api";
-import { useAuth } from "~/lib/auth";
+import { useAuth, getStudentName } from "~/lib/auth";
 
 export function useLeaderboard() {
     const auth = useAuth();
@@ -13,7 +13,7 @@ export function useLeaderboard() {
     const [totalPlayers, setTotalPlayers] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
 
-    const studentName = auth.user?.name || "Student";
+    const studentName = getStudentName(auth.user);
 
     const fetchLeaderboard = useCallback(
         async (p: "weekly" | "alltime") => {
