@@ -207,6 +207,15 @@ async function fetchFormDataAuth<T>(
 // Scroll (TikTok-style Feed) API
 // ============================================
 
+/**
+ * Build a query string with student_name for guest auth.
+ * Authenticated users don't need this (JWT is used), but it doesn't hurt.
+ */
+function withStudentName(endpoint: string, studentName: string): string {
+  const sep = endpoint.includes("?") ? "&" : "?";
+  return `${endpoint}${sep}student_name=${encodeURIComponent(studentName)}`;
+}
+
 export const scrollApi = {
   resumeFeed: (topic: string, studentName: string) =>
     fetchApiAuth<{
@@ -216,7 +225,7 @@ export const scrollApi = {
       cards: ScrollCard[];
       stats: ScrollStats;
       resumed: boolean;
-    }>("/learn/scroll/resume", {
+    }>(withStudentName("/learn/scroll/resume", studentName), {
       method: "POST",
       body: JSON.stringify({ topic, student_name: studentName }),
       retry: false,
@@ -243,7 +252,7 @@ export const scrollApi = {
       concepts: string[];
       cards: ScrollCard[];
       stats: ScrollStats;
-    }>("/learn/scroll/start", {
+    }>(withStudentName("/learn/scroll/start", studentName), {
       method: "POST",
       body: JSON.stringify({
         topic,
@@ -368,16 +377,17 @@ export const learnApi = {
     );
   },
 
-  getProgress: (studentName: string) => {
-    const params = new URLSearchParams({ student_name: studentName });
-    return fetchApiAuth<LearnProgressResponse>(
-      `/learn/progress?${params.toString()}`,
-    );
-  },
+  getProgress: (studentName: string) =>
+    fetchApiAuth<LearnProgressResponse>(
+      withStudentName("/learn/progress", studentName),
+    ),
 
   getHistory: (studentName: string, studentId?: string) =>
     fetchApiAuth<LearningHistoryResponse>(
-      `/learn/history?student_name=${encodeURIComponent(studentName)}${studentId ? `&student_id=${encodeURIComponent(studentId)}` : ""}`,
+      withStudentName(
+        `/learn/history${studentId ? `?student_id=${encodeURIComponent(studentId)}` : ""}`,
+        studentName,
+      ),
     ),
 
   deleteSubject: (subject: string, studentName: string) =>
@@ -385,13 +395,19 @@ export const learnApi = {
       ok: boolean;
       deleted: { sessions: number; syllabi: number; resources: number };
     }>(
-      `/learn/subject/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`,
+      withStudentName(
+        `/learn/subject/${encodeURIComponent(subject)}`,
+        studentName,
+      ),
       { method: "DELETE" },
     ),
 
   getCalibration: (studentName: string, subject?: string) =>
     fetchApiAuth<CalibrationResponse>(
-      `/learn/scroll/calibration/${encodeURIComponent(studentName)}${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`,
+      withStudentName(
+        `/learn/scroll/calibration/${encodeURIComponent(studentName)}${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`,
+        studentName,
+      ),
     ),
 };
 
@@ -417,24 +433,35 @@ export const syllabusApi = {
     ),
 
   heartbeat: (subject: string, nodeId: string, studentName: string) =>
-    fetchApiAuth<{ ok: boolean }>("/learn/presence/heartbeat", {
-      method: "POST",
-      body: JSON.stringify({
-        subject,
-        node_id: nodeId,
-        student_name: studentName,
-      }),
-    }),
+    fetchApiAuth<{ ok: boolean }>(
+      withStudentName("/learn/presence/heartbeat", studentName),
+      {
+        method: "POST",
+        body: JSON.stringify({
+          subject,
+          node_id: nodeId,
+          student_name: studentName,
+        }),
+      },
+    ),
 
   getMastery: (studentName: string) =>
     fetchApiAuth<{
       student_name: string;
       concepts: Record<string, BKTMasteryState>;
-    }>(`/learn/mastery/${encodeURIComponent(studentName)}`),
+    }>(
+      withStudentName(
+        `/learn/mastery/${encodeURIComponent(studentName)}`,
+        studentName,
+      ),
+    ),
 
   getRecommendedPath: (subject: string, studentName: string) =>
     fetchApiAuth<RecommendedPathResponse>(
-      `/learn/recommended-path/${encodeURIComponent(subject)}?student_name=${encodeURIComponent(studentName)}`,
+      withStudentName(
+        `/learn/recommended-path/${encodeURIComponent(subject)}`,
+        studentName,
+      ),
     ),
 };
 
@@ -499,10 +526,13 @@ export const resourcesApi = {
 
 export const assessmentApi = {
   start: (subject: string, studentName: string) =>
-    fetchApiAuth<AssessmentStartResponse>("/learn/assessment/start", {
-      method: "POST",
-      body: JSON.stringify({ subject, student_name: studentName }),
-    }),
+    fetchApiAuth<AssessmentStartResponse>(
+      withStudentName("/learn/assessment/start", studentName),
+      {
+        method: "POST",
+        body: JSON.stringify({ subject, student_name: studentName }),
+      },
+    ),
 
   submitSelfRatings: (
     subject: string,
@@ -510,7 +540,7 @@ export const assessmentApi = {
     ratings: Array<{ concept: string; rating: number }>,
   ) =>
     fetchApiAuth<AssessmentSelfRatingsResponse>(
-      "/learn/assessment/self-ratings",
+      withStudentName("/learn/assessment/self-ratings", studentName),
       {
         method: "POST",
         body: JSON.stringify({ subject, student_name: studentName, ratings }),
@@ -528,7 +558,7 @@ export const assessmentApi = {
     }>,
   ) =>
     fetchApiAuth<AssessmentDiagnosticResponse>(
-      "/learn/assessment/diagnostic",
+      withStudentName("/learn/assessment/diagnostic", studentName),
       {
         method: "POST",
         body: JSON.stringify({

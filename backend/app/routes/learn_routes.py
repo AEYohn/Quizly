@@ -3,7 +3,8 @@ Learn API Routes
 Conversational adaptive learning endpoints.
 """
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials
 from ..exceptions import (
     QuizlyException, ErrorCodes, SessionNotFound, ResourceNotFound,
     Forbidden, InvalidInput,
@@ -21,7 +22,10 @@ from ..database import get_db
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
 from ..db_models import LearningSession, ConceptMastery, SpacedRepetitionItem, SyllabusCache, SubjectResource, User
-from ..auth_clerk import get_current_user_clerk_optional, require_teacher_clerk
+from ..auth_clerk import (
+    require_teacher_clerk, resolve_student_identity, verify_session_ownership,
+    clerk_security, verify_clerk_token, get_or_create_user_from_clerk,
+)
 from ..cache import CacheService, _get_redis
 from ..services.learning_orchestrator import LearningOrchestrator
 from ..services.scroll_feed_engine import ScrollFeedEngine
@@ -93,7 +97,7 @@ async def validate_upload_file(upload_file: UploadFile) -> bytes:
 
 class StartSessionRequest(BaseModel):
     topic: str = Field(..., min_length=1)
-    student_name: str = Field(..., min_length=1)
+    student_name: Optional[str] = Field(default=None)
     student_id: Optional[str] = None
 
 
@@ -118,7 +122,7 @@ class FeedPreferences(BaseModel):
 class ScrollStartRequest(BaseModel):
     """Start a TikTok-style scroll session from notes/topic."""
     topic: str = Field(..., min_length=1)
-    student_name: str = Field(..., min_length=1)
+    student_name: Optional[str] = Field(default=None)
     student_id: Optional[str] = None
     notes: Optional[str] = None  # Paste notes/syllabus for question generation
     preferences: Optional[FeedPreferences] = None  # Feed tuning controls
@@ -159,7 +163,7 @@ class FlashcardFlipRequest(BaseModel):
 class ScrollResumeRequest(BaseModel):
     """Resume an existing scroll session."""
     topic: str = Field(..., min_length=1)
-    student_name: str = Field(..., min_length=1)
+    student_name: Optional[str] = Field(default=None)
 
 
 class CurateResourcesRequest(BaseModel):
@@ -172,19 +176,19 @@ class CurateResourcesRequest(BaseModel):
 class AssessmentStartRequest(BaseModel):
     """Start a familiarity assessment."""
     subject: str = Field(..., min_length=1)
-    student_name: str = Field(..., min_length=1)
+    student_name: Optional[str] = Field(default=None)
 
 
 class AssessmentSelfRatingsRequest(BaseModel):
     """Submit self-ratings for assessment."""
     subject: str = Field(..., min_length=1)
-    student_name: str = Field(..., min_length=1)
+    student_name: Optional[str] = Field(default=None)
     ratings: list[dict] = Field(...)  # [{concept: str, rating: int}]
 
 
 class AssessmentDiagnosticRequest(BaseModel):
     """Submit diagnostic quiz answers."""
-    student_name: str = Field(..., min_length=1)
+    student_name: Optional[str] = Field(default=None)
     assessment_id: str = Field(..., min_length=1)
     answers: list[dict] = Field(...)  # [{concept, answer, correct_answer, time_ms}]
 
@@ -210,15 +214,14 @@ class PregenContentRequest(BaseModel):
 @router.post("/session/start")
 async def start_session(
     request: StartSessionRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Start a new learning session. Runs Retrieve → Plan, returns first question."""
-    if current_user and current_user.name != request.student_name:
-        raise Forbidden()
+    student_name, user = identity
     orchestrator = LearningOrchestrator(db)
     result = await orchestrator.start_session(
-        student_name=request.student_name,
+        student_name=student_name,
         topic=request.topic,
         student_id=request.student_id,
     )
@@ -229,10 +232,11 @@ async def start_session(
 async def submit_answer(
     session_id: str,
     request: SubmitAnswerRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit an answer. Runs Assess → Refine → next action."""
+    await verify_session_ownership(session_id, identity, db)
     orchestrator = LearningOrchestrator(db)
     result = await orchestrator.process_answer(
         session_id=session_id,
@@ -248,10 +252,11 @@ async def submit_answer(
 async def send_message(
     session_id: str,
     request: SendMessageRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Send a discussion message during Socratic dialogue."""
+    await verify_session_ownership(session_id, identity, db)
     orchestrator = LearningOrchestrator(db)
     result = await orchestrator.process_message(
         session_id=session_id,
@@ -265,10 +270,11 @@ async def send_message(
 @router.post("/session/{session_id}/end")
 async def end_session(
     session_id: str,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """End session. Final refine pass, mastery updates, spaced rep scheduling."""
+    await verify_session_ownership(session_id, identity, db)
     orchestrator = LearningOrchestrator(db)
     result = await orchestrator.end_session(session_id=session_id)
     if "error" in result:
@@ -278,13 +284,11 @@ async def end_session(
 
 @router.get("/review-queue")
 async def get_review_queue(
-    student_name: str,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get spaced repetition items due for review."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
     now = datetime.now(timezone.utc)
     query = select(SpacedRepetitionItem).where(
         and_(
@@ -315,15 +319,13 @@ async def get_review_queue(
 
 @router.get("/progress")
 async def get_progress(
-    student_name: str,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get mastery data across all concepts for a student."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
 
     # Count total mastery items for pagination metadata
     count_query = select(func.count()).select_from(ConceptMastery).where(
@@ -424,19 +426,17 @@ async def get_progress(
 
 @router.get("/question-history")
 async def get_question_history(
-    student_name: str,
     topic: Optional[str] = Query(None),
     concept: Optional[str] = Query(None),
     is_correct: Optional[bool] = Query(None),
     mode: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get paginated question history for a student."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
 
     from ..db_models_question_history import QuestionHistory
 
@@ -494,15 +494,13 @@ async def get_question_history(
 
 @router.get("/question-history/sessions")
 async def get_question_history_sessions(
-    student_name: str,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get session summaries with question counts from history."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
 
     from ..db_models_question_history import QuestionHistory
 
@@ -582,12 +580,14 @@ async def get_question_history_sessions(
 @router.get("/question-history/session/{session_id}")
 async def get_session_question_history(
     session_id: str,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get all questions for a specific session."""
     from ..db_models_question_history import QuestionHistory
     import uuid as _uuid
+
+    student_name, user = identity
 
     query = (
         select(QuestionHistory)
@@ -601,7 +601,7 @@ async def get_session_question_history(
         return {"session_id": session_id, "items": []}
 
     # Auth check: ensure current user owns this data
-    if current_user and items[0].student_name != current_user.name:
+    if items[0].student_name != student_name:
         raise Forbidden()
 
     return {
@@ -634,14 +634,12 @@ async def get_session_question_history(
 
 @router.get("/history")
 async def get_learning_history(
-    student_name: str,
     student_id: Optional[str] = None,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get aggregated learning history per subject for personalized home screen."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
     return await _get_learning_history(db, student_name, student_id)
 
 
@@ -653,19 +651,17 @@ async def get_learning_history(
 @router.post("/scroll/start")
 async def scroll_start(
     request: ScrollStartRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Start a TikTok-style scroll feed. Returns session + first batch of cards."""
-    if current_user and current_user.name != request.student_name:
-        raise Forbidden()
-    print(f"[DEBUG] scroll_start called: topic={request.topic}, student={request.student_name}", flush=True)
+    student_name, user = identity
     engine = ScrollFeedEngine(db)
     prefs_dict = None
     if request.preferences:
         prefs_dict = request.preferences.model_dump(exclude_none=True)
     result = await engine.start_feed(
-        student_name=request.student_name,
+        student_name=student_name,
         topic=request.topic,
         student_id=request.student_id,
         notes=request.notes,
@@ -677,19 +673,17 @@ async def scroll_start(
 @router.post("/scroll/resume")
 async def scroll_resume(
     request: ScrollResumeRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Resume the most recent active scroll session for a topic."""
-    if current_user and current_user.name != request.student_name:
-        raise Forbidden()
-    print(f"[DEBUG] scroll_resume called: topic={request.topic}, student={request.student_name}", flush=True)
+    student_name, user = identity
     # Find most recent non-ended session with progress for this topic+student
     query = (
         select(LearningSession)
         .where(
             and_(
-                LearningSession.student_name == request.student_name,
+                LearningSession.student_name == student_name,
                 LearningSession.topic == request.topic,
                 LearningSession.ended_at.is_(None),
                 LearningSession.questions_answered > 0,
@@ -742,10 +736,11 @@ async def scroll_resume(
 async def scroll_answer(
     session_id: str,
     request: ScrollAnswerRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit answer for current scroll card. Returns result + next cards."""
+    await verify_session_ownership(session_id, identity, db)
     engine = ScrollFeedEngine(db)
     result = await engine.process_answer(
         session_id=session_id,
@@ -781,10 +776,11 @@ async def scroll_answer(
 async def scroll_next(
     session_id: str,
     count: int = 3,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get next batch of cards for the scroll feed."""
+    await verify_session_ownership(session_id, identity, db)
     engine = ScrollFeedEngine(db)
     result = await engine.get_next_cards(session_id=session_id, count=count)
     if "error" in result:
@@ -795,10 +791,11 @@ async def scroll_next(
 @router.get("/scroll/{session_id}/analytics")
 async def scroll_analytics(
     session_id: str,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get live analytics for the scroll session."""
+    await verify_session_ownership(session_id, identity, db)
     engine = ScrollFeedEngine(db)
     result = await engine.get_session_analytics(session_id=session_id)
     if "error" in result:
@@ -810,12 +807,23 @@ async def scroll_analytics(
 async def get_calibration(
     student_name: str,
     subject: Optional[str] = Query(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(clerk_security),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get calibration metrics and DK-overconfident concepts for a student."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    # Manual auth: can't use resolve_student_identity (path param name collision)
+    if credentials:
+        clerk_payload = await verify_clerk_token(credentials.credentials)
+        if clerk_payload:
+            user = await get_or_create_user_from_clerk(db, clerk_payload)
+            if user.name != student_name:
+                raise Forbidden()
+        else:
+            if not student_name.startswith("guest_"):
+                raise HTTPException(status_code=401, detail="Authentication required")
+    else:
+        if not student_name.startswith("guest_"):
+            raise HTTPException(status_code=401, detail="Authentication required")
     from ..services.calibration_service import CalibrationService
     service = CalibrationService(db)
     return await service.get_student_calibration(student_name, subject)
@@ -825,10 +833,11 @@ async def get_calibration(
 async def scroll_help(
     session_id: str,
     request: ScrollHelpRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Socratic help chat for 'I don't know'. Guides without revealing the answer."""
+    await verify_session_ownership(session_id, identity, db)
     engine = ScrollFeedEngine(db)
     result = await engine.help_chat(
         session_id=session_id,
@@ -849,10 +858,11 @@ async def scroll_help(
 async def scroll_skip(
     session_id: str,
     request: ScrollSkipRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Skip a card. Records signal, returns next cards."""
+    await verify_session_ownership(session_id, identity, db)
     pool = ContentPoolService(db)
 
     # Get session to find student name
@@ -880,10 +890,11 @@ async def scroll_skip(
 async def scroll_flashcard_flip(
     session_id: str,
     request: FlashcardFlipRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Record flashcard flip interaction. Awards XP based on self-rating."""
+    await verify_session_ownership(session_id, identity, db)
     session = await db.execute(
         select(LearningSession).where(LearningSession.id == session_id)
     )
@@ -1319,13 +1330,11 @@ async def pdf_to_syllabus(
 @router.delete("/subject/{subject}")
 async def delete_subject(
     subject: str,
-    student_name: str = Query(..., min_length=1),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Delete all data for a subject: syllabi, resources, and learning sessions."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
     # Delete syllabus cache
     syl_result = await db.execute(
         delete(SyllabusCache).where(
@@ -1373,21 +1382,20 @@ async def delete_subject(
 class PresenceHeartbeatRequest(BaseModel):
     subject: str = Field(..., min_length=1)
     node_id: str = Field(..., min_length=1)
-    student_name: str = Field(..., min_length=1)
+    student_name: Optional[str] = Field(default=None)
 
 
 @router.post("/presence/heartbeat")
 async def presence_heartbeat(
     request: PresenceHeartbeatRequest,
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
+    identity: tuple = Depends(resolve_student_identity),
 ):
     """Record that a student is active on a node. TTL 90s via Redis."""
-    if current_user and current_user.name != request.student_name:
-        raise Forbidden()
+    student_name, user = identity
 
     PRESENCE_TTL = 90  # seconds — Redis auto-expires, no manual cleanup needed
 
-    redis_key = f"presence:{request.subject}:{request.node_id}:{request.student_name}"
+    redis_key = f"presence:{request.subject}:{request.node_id}:{student_name}"
     now = datetime.now(timezone.utc).isoformat()
 
     try:
@@ -1450,12 +1458,23 @@ async def presence_get(subject: str):
 @router.get("/mastery/{student_name}")
 async def get_bkt_mastery(
     student_name: str,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(clerk_security),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Return full BKT state for all concepts (P(L), confidence)."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    # Manual auth: can't use resolve_student_identity (path param name collision)
+    if credentials:
+        clerk_payload = await verify_clerk_token(credentials.credentials)
+        if clerk_payload:
+            user = await get_or_create_user_from_clerk(db, clerk_payload)
+            if user.name != student_name:
+                raise Forbidden()
+        else:
+            if not student_name.startswith("guest_"):
+                raise HTTPException(status_code=401, detail="Authentication required")
+    else:
+        if not student_name.startswith("guest_"):
+            raise HTTPException(status_code=401, detail="Authentication required")
     engine = ScrollFeedEngine(db)
     mastery = await engine.get_bkt_mastery_map(student_name)
     return {
@@ -1467,13 +1486,11 @@ async def get_bkt_mastery(
 @router.get("/skill-tree-analysis/{subject}")
 async def get_skill_tree_analysis(
     subject: str,
-    student_name: str = Query(..., min_length=1),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Get comprehensive skill tree analysis for a student+subject."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
     from ..services.skill_tree_analytics_service import SkillTreeAnalyticsService
     service = SkillTreeAnalyticsService(db)
     return await service.get_analysis(subject=subject, student_name=student_name)
@@ -1482,13 +1499,11 @@ async def get_skill_tree_analysis(
 @router.get("/recommended-path/{subject}")
 async def get_recommended_path(
     subject: str,
-    student_name: str = Query(..., min_length=1),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Return ordered list of concepts to study (knowledge graph optimal path)."""
-    if current_user and current_user.name != student_name:
-        raise Forbidden()
+    student_name, user = identity
     # Load syllabus
     service = SyllabusService(db)
     tree = await service._get_cached(subject)
@@ -1643,16 +1658,15 @@ async def curate_resources(
 @router.post("/assessment/start")
 async def assessment_start(
     request: AssessmentStartRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Start a familiarity assessment. Returns self-rating items from syllabus."""
-    if current_user and current_user.name != request.student_name:
-        raise Forbidden()
+    student_name, user = identity
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     return await service.start_assessment(
-        student_name=request.student_name,
+        student_name=student_name,
         subject=request.subject,
     )
 
@@ -1660,16 +1674,15 @@ async def assessment_start(
 @router.post("/assessment/self-ratings")
 async def assessment_self_ratings(
     request: AssessmentSelfRatingsRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit self-ratings. Returns diagnostic quiz questions."""
-    if current_user and current_user.name != request.student_name:
-        raise Forbidden()
+    student_name, user = identity
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     return await service.submit_self_ratings(
-        student_name=request.student_name,
+        student_name=student_name,
         subject=request.subject,
         ratings=request.ratings,
     )
@@ -1678,16 +1691,15 @@ async def assessment_self_ratings(
 @router.post("/assessment/diagnostic")
 async def assessment_diagnostic(
     request: AssessmentDiagnosticRequest,
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
     """Submit diagnostic answers. Seeds BKT, returns summary."""
-    if current_user and current_user.name != request.student_name:
-        raise Forbidden()
+    student_name, user = identity
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     result = await service.submit_diagnostic_answers(
-        student_name=request.student_name,
+        student_name=student_name,
         assessment_id=request.assessment_id,
         answers=request.answers,
     )
@@ -1699,10 +1711,11 @@ async def assessment_diagnostic(
 @router.get("/assessment/{subject}")
 async def get_assessment(
     subject: str,
-    student_name: str = Query(..., min_length=1),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get latest assessment results for a student+subject."""
+    student_name, user = identity
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     result = await service.get_assessment(subject, student_name)
@@ -1820,12 +1833,16 @@ async def get_codebase_resources(
 @router.get("/leaderboard")
 async def get_leaderboard(
     period: str = Query("weekly", regex="^(weekly|alltime)$"),
-    student_name: str = Query("", description="Current user name for highlighting"),
+    student_name: str = Query("", description="Current user name for highlighting (ignored for auth users)"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get leaderboard rankings aggregated from learning sessions."""
+    auth_name, user = identity
+    # Use server-verified identity for current-user highlighting
+    student_name = auth_name
     # Check Redis cache first (30s TTL)
     cache_key = f"leaderboard:{period}:{offset}:{limit}"
     cached = await CacheService.get(cache_key)

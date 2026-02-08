@@ -56,7 +56,9 @@ export function useHomeScreen() {
       }, 60000);
 
       try {
-        const studentName = auth.nickname || "Student";
+        const studentName = auth.isSignedIn
+          ? (auth.nickname || "Student")
+          : (auth.userId ?? "guest_anonymous");
         const sessionTopic = store.selectedSubject || topic;
         const resumeRes = await scrollApi.resumeFeed(
           sessionTopic,
@@ -185,7 +187,9 @@ export function useHomeScreen() {
 
   const handleDeleteSubject = useCallback(
     async (subject: string) => {
-      const studentName = auth.nickname || "Student";
+      const studentName = auth.isSignedIn
+        ? (auth.nickname || "Student")
+        : (auth.userId ?? "guest_anonymous");
       try {
         const res = await learnApi.deleteSubject(subject, studentName);
         if (res.success) {
@@ -218,7 +222,9 @@ export function useHomeScreen() {
   // Fetch learning history on mount and when returning from a session
   useEffect(() => {
     if (store.sessionId) return; // skip while actively in a feed session
-    const studentName = auth.nickname || "Student";
+    const studentName = auth.isSignedIn
+      ? (auth.nickname || "Student")
+      : (auth.userId ?? "guest_anonymous");
     if (!store.history || store.history.length === 0) {
       store.setHistoryLoading(true);
     }

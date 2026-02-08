@@ -9,7 +9,8 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.security import HTTPAuthorizationCredentials
 from ..exceptions import (
     SessionNotFound, ResourceNotFound,
     InvalidInput, AIServiceUnavailable,
@@ -23,7 +24,7 @@ from ..database import get_db
 from ..db_models import User
 from ..db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession
 from ..models.game import Player, GameSession
-from ..auth_clerk import get_current_user_clerk
+from ..auth_clerk import get_current_user_clerk, resolve_student_identity, clerk_security
 from ..services.discussion_service import generate_discussion_summary
 
 # Import AI agents from backend package
@@ -199,13 +200,17 @@ class PeerDiscussionResponse(BaseModel):
 @router.post("/exit-ticket", response_model=ExitTicketResponse)
 async def generate_exit_ticket(
     request: ExitTicketRequest,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Generate a personalized exit ticket for a student based on their session performance.
     Uses AI to identify the student's weakest concept and generate a targeted micro-lesson.
     Falls back to a simple exit ticket if AI agents aren't available.
     """
+    student_name, user = identity
+    # Override request student_name with server-verified identity
+    request.student_name = student_name
     # Calculate session accuracy
     total_responses = len(request.responses)
     correct_responses = sum(1 for r in request.responses if r.get("is_correct", False))
@@ -285,11 +290,12 @@ async def generate_exit_ticket(
 
 @router.get("/exit-tickets", response_model=List[ExitTicketResponse])
 async def get_student_exit_tickets(
-    student_name: str,
     limit: int = Query(default=10, le=50),
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all exit tickets for a student, ordered by most recent first."""
+    student_name, user = identity
     result = await db.execute(
         select(ExitTicket)
         .where(ExitTicket.student_name == student_name)
@@ -354,10 +360,11 @@ async def answer_exit_ticket(
 
 @router.get("/exit-tickets/export")
 async def export_study_guide(
-    student_name: str,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Export all exit tickets as a markdown study guide."""
+    student_name, user = identity
     result = await db.execute(
         select(ExitTicket)
         .where(ExitTicket.student_name == student_name)
@@ -447,13 +454,16 @@ async def get_my_exit_tickets(
 @router.post("/misconception/tag", response_model=MisconceptionResponse)
 async def tag_misconception(
     request: MisconceptionTagRequest,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Tag a wrong answer with misconception analysis using AI.
     Identifies the type of misconception, its severity, and suggested remediation.
     Falls back to simple classification if AI agents aren't available.
     """
+    student_name, _user = identity
+    request.student_name = student_name
     misconception_type = "unknown"
     category = "conceptual"
     severity = "moderate"
@@ -528,12 +538,13 @@ async def tag_misconception(
 
 @router.get("/misconceptions", response_model=List[MisconceptionResponse])
 async def get_student_misconceptions(
-    student_name: str,
     include_resolved: bool = False,
     limit: int = Query(default=20, le=100),
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all misconceptions for a student, optionally including resolved ones."""
+    student_name, user = identity
     query = select(DetailedMisconception).where(
         DetailedMisconception.student_name == student_name
     )
@@ -589,10 +600,11 @@ async def resolve_misconception(
 
 @router.get("/misconceptions/summary")
 async def get_misconception_summary(
-    student_name: str,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get a summary of student's misconceptions by category and severity."""
+    student_name, user = identity
     result = await db.execute(
         select(DetailedMisconception).where(
             DetailedMisconception.student_name == student_name
@@ -633,9 +645,12 @@ async def get_misconception_summary(
 @router.post("/adaptive/update")
 async def update_adaptive_state(
     request: AdaptiveUpdateRequest,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Update adaptive learning state after a question is answered."""
+    student_name, _user = identity
+    request.student_name = student_name
     if not AI_AGENTS_AVAILABLE:
         raise AIServiceUnavailable("AI agents not available")
 
@@ -700,11 +715,12 @@ async def update_adaptive_state(
 
 @router.get("/adaptive/stats", response_model=AdaptiveStatsResponse)
 async def get_adaptive_stats(
-    student_name: str,
     session_id: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get adaptive learning statistics for a student."""
+    student_name, user = identity
     query = select(AdaptiveLearningState).where(
         AdaptiveLearningState.student_name == student_name
     )
@@ -748,9 +764,12 @@ async def get_adaptive_stats(
 @router.post("/debate/start")
 async def start_debate(
     request: DebateStartRequest,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Start an AI peer discussion session after a wrong answer."""
+    student_name, _user = identity
+    request.student_name = student_name
     # Create debate session
     debate = DebateSession(
         student_name=request.student_name,
@@ -893,9 +912,12 @@ def _generate_ai_peer_response(question: Dict, student_answer: str, transcript: 
 @router.post("/peer-discussion/start", response_model=PeerDiscussionResponse)
 async def start_peer_discussion(
     request: PeerDiscussionCreateRequest,
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Start a new peer discussion session - stores the initial context."""
+    student_name, _user = identity
+    request.student_name = student_name
     session = PeerDiscussionSession(
         student_name=request.student_name,
         game_id=uuid.UUID(request.game_id) if request.game_id else None,
@@ -1029,12 +1051,13 @@ async def complete_peer_discussion(
 
 @router.get("/peer-discussions", response_model=List[PeerDiscussionResponse])
 async def get_student_peer_discussions(
-    student_name: str,
     game_id: Optional[str] = None,
     limit: int = Query(default=20, le=100),
-    db: AsyncSession = Depends(get_db)
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get all peer discussion sessions for a student."""
+    student_name, user = identity
     query = select(PeerDiscussionSession).where(
         PeerDiscussionSession.student_name == student_name
     )
@@ -1127,9 +1150,26 @@ async def get_game_peer_discussions(
 @router.get("/dashboard/{student_name}")
 async def get_student_dashboard(
     student_name: str,
-    db: AsyncSession = Depends(get_db)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(clerk_security),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get aggregated dashboard data for a student - includes learning profile format."""
+    # Can't use resolve_student_identity here because student_name is a path param
+    # (FastAPI conflicts with the Query param in the dependency). Verify manually.
+    from ..auth_clerk import verify_clerk_token, get_or_create_user_from_clerk
+    if credentials:
+        clerk_payload = await verify_clerk_token(credentials.credentials)
+        if clerk_payload:
+            user = await get_or_create_user_from_clerk(db, clerk_payload)
+            if user.name != student_name:
+                from ..exceptions import Forbidden
+                raise Forbidden()
+        else:
+            if not student_name.startswith("guest_"):
+                raise HTTPException(status_code=401, detail="Authentication required")
+    else:
+        if not student_name.startswith("guest_"):
+            raise HTTPException(status_code=401, detail="Authentication required")
     # Get exit tickets
     exit_result = await db.execute(
         select(ExitTicket)

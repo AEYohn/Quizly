@@ -24,7 +24,9 @@ export function useActiveFeed(
     store.setError(null);
 
     try {
-      const studentName = auth.nickname || "Student";
+      const studentName = auth.isSignedIn
+        ? (auth.nickname || "Student")
+        : (auth.userId ?? "guest_anonymous");
       const prefs = store.preferences;
       const apiPrefs = {
         difficulty: prefs.difficulty,

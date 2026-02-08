@@ -6,9 +6,9 @@ Verifies Clerk JWTs and syncs users to local database.
 import os
 import httpx
 import jwt
-from typing import Optional
+from typing import Optional, Tuple
 from datetime import datetime, timezone
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -290,6 +290,77 @@ async def require_student_clerk(user: User = Depends(get_current_user_clerk)) ->
             detail="Student access required"
         )
     return user
+
+
+async def resolve_student_identity(
+    student_name: Optional[str] = Query(default=None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(clerk_security),
+    db: AsyncSession = Depends(get_db),
+) -> Tuple[str, Optional[User]]:
+    """
+    Resolve the authoritative student identity.
+
+    - Authenticated (valid JWT): ignore client student_name, return (user.name, user)
+    - Guest (no token, name starts with 'guest_'): return (student_name, None)
+    - Otherwise: raise 401
+    """
+    # Try to authenticate via JWT
+    if credentials:
+        clerk_payload = await verify_clerk_token(credentials.credentials)
+        if clerk_payload:
+            user = await get_or_create_user_from_clerk(db, clerk_payload)
+            return (user.name, user)
+
+    # No valid token — allow guest access only with guest_ prefix
+    if student_name and student_name.startswith("guest_"):
+        return (student_name, None)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def verify_session_ownership(
+    session_id: str,
+    identity: Tuple[str, Optional[User]],
+    db: AsyncSession,
+):
+    """
+    Load a LearningSession by ID and verify the current user owns it.
+
+    Raises 404 if session not found, 403 if not owned by current user.
+    """
+    import uuid as _uuid
+    from .db_models import LearningSession
+
+    try:
+        session_uuid = _uuid.UUID(session_id) if isinstance(session_id, str) else session_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found",
+        )
+
+    result = await db.execute(
+        select(LearningSession).where(LearningSession.id == session_uuid)
+    )
+    session = result.scalars().first()
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found",
+        )
+
+    student_name, user = identity
+    if session.student_name != student_name:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot access another user's session",
+        )
+
+    return session
 
 
 async def verify_websocket_token(token: str) -> Optional[ClerkTokenPayload]:
