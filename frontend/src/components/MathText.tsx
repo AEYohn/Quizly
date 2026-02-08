@@ -90,6 +90,24 @@ export default function MathText({ text, className = "" }: MathTextProps) {
             return `<code class="rounded bg-gray-700 px-1.5 py-0.5 font-mono text-sm text-cyan-300">${escapeHtml(match)}</code>`;
         });
 
+        // Process \[...\] display math
+        result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => {
+            try {
+                return katex.renderToString(latex.trim(), { displayMode: true, throwOnError: false });
+            } catch {
+                return `\\[${latex}\\]`;
+            }
+        });
+
+        // Process \(...\) inline math
+        result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => {
+            try {
+                return katex.renderToString(latex.trim(), { displayMode: false, throwOnError: false });
+            } catch {
+                return `\\(${latex}\\)`;
+            }
+        });
+
         // Process display math first ($$...$$)
         result = result.replace(/\$\$([^$]+)\$\$/g, (_, latex) => {
             try {

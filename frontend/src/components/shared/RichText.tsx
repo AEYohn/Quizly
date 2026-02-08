@@ -1,40 +1,7 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
-
-/**
- * Render subscripts (_t, _{text}) and superscripts (^2, ^{text}) in plain text.
- * Only converts single-char _X / ^X at word boundaries to avoid breaking snake_case.
- */
-function renderMathText(src: string, key: number): ReactNode {
-    const re = /_{([^}]+)}|\^{([^}]+)}|\b([a-zA-Z])_([a-zA-Z0-9])|\b([a-zA-Z])\^([a-zA-Z0-9])/g;
-    const nodes: ReactNode[] = [];
-    let last = 0;
-    let m: RegExpExecArray | null;
-    let found = false;
-
-    while ((m = re.exec(src)) !== null) {
-        found = true;
-        if (m.index > last) nodes.push(src.slice(last, m.index));
-
-        if (m[1] != null) {
-            nodes.push(<sub key={`m${m.index}`}>{m[1]}</sub>);
-        } else if (m[2] != null) {
-            nodes.push(<sup key={`m${m.index}`}>{m[2]}</sup>);
-        } else if (m[3] != null && m[4] != null) {
-            nodes.push(m[3]);
-            nodes.push(<sub key={`m${m.index}`}>{m[4]}</sub>);
-        } else if (m[5] != null && m[6] != null) {
-            nodes.push(m[5]);
-            nodes.push(<sup key={`m${m.index}`}>{m[6]}</sup>);
-        }
-        last = m.index + m[0].length;
-    }
-
-    if (!found) return <span key={key}>{src}</span>;
-    if (last < src.length) nodes.push(src.slice(last));
-    return <span key={key}>{nodes}</span>;
-}
+import { Fragment } from "react";
+import MathText from "~/components/MathText";
 
 export function RichText({ text, className }: { text: string; className?: string }) {
     const parts: { type: "text" | "code-block" | "inline-code"; content: string; lang?: string }[] = [];
@@ -87,7 +54,7 @@ export function RichText({ text, className }: { text: string; className?: string
                             j % 2 === 1 ? (
                                 <strong key={j} className="font-semibold text-gray-100">{bp}</strong>
                             ) : (
-                                renderMathText(bp, j)
+                                <MathText key={j} text={bp} />
                             )
                         )}
                     </Fragment>
