@@ -7,7 +7,6 @@ by Paper Banana's agentic architecture. Each agent has a single job; the
 conductor decides which agent runs next.
 """
 
-import os
 import json
 import uuid
 from typing import Dict, Any, Optional, List
@@ -19,7 +18,7 @@ from sqlalchemy import select, and_
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 from ..db_models import (
     LearningSession,
@@ -31,21 +30,7 @@ from ..ai_agents.question_generator import QuestionBankGenerator
 from ..ai_agents.misconception_tagger import MisconceptionTagger
 from ..ai_agents.exit_ticket_agent import ExitTicketAgent
 
-try:
-    import google.generativeai as genai
-
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-
 logger = get_logger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    PLANNER_MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-else:
-    PLANNER_MODEL = None
 
 
 def utc_now() -> datetime:
@@ -193,7 +178,7 @@ class LearningOrchestrator:
         misconceptions = student_data.get("misconceptions", [])
         review_concepts = student_data.get("review_concepts", [])
 
-        if PLANNER_MODEL:
+        if GEMINI_AVAILABLE:
             return await self._plan_with_llm(
                 topic, mastery, misconceptions, review_concepts
             )
@@ -235,7 +220,7 @@ Return JSON:
 
         try:
             response = await call_gemini_with_timeout(
-                PLANNER_MODEL, prompt,
+                prompt,
                 generation_config={"response_mime_type": "application/json"},
                 context={"agent": "learning_orchestrator", "operation": "plan_with_llm"},
             )

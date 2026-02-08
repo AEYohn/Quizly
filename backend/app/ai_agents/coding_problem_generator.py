@@ -8,20 +8,13 @@ Generates coding problems dynamically with:
 - Test cases with expected outputs
 """
 
-import os
 import json
 import uuid
 from typing import Dict, Any, Optional, List
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 logger = get_logger(__name__)
 
@@ -73,13 +66,7 @@ class CodingProblemGenerator:
     """
     
     def __init__(self, api_key: Optional[str] = None):
-        self.model = None
-        
-        if GEMINI_AVAILABLE:
-            api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-            if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        self.available = GEMINI_AVAILABLE
     
     async def generate_problem(
         self,
@@ -100,7 +87,7 @@ class CodingProblemGenerator:
         Returns:
             Complete problem dict with description, starter_code, driver_code, test_cases
         """
-        if not self.model:
+        if not self.available:
             return self._fallback_problem(concept, difficulty)
         
         context_instruction = ""
@@ -159,7 +146,7 @@ IMPORTANT:
 
         try:
             response = await call_gemini_with_timeout(
-                self.model, prompt,
+                prompt,
                 generation_config={"response_mime_type": "application/json"},
                 context={"agent": "coding_problem_generator", "operation": "generate_problem"},
             )

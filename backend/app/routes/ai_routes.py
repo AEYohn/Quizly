@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from ..rate_limiter import limiter, AI_RATE_LIMIT
-from ..utils.llm_utils import GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 
 def utc_now() -> datetime:
@@ -68,22 +68,6 @@ try:
 except ImportError as e:
     print(f"Warning: AI agents not available: {e}")
     AI_AGENTS_AVAILABLE = False
-
-# Try to configure Gemini
-try:
-    import google.generativeai as genai
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    if GEMINI_API_KEY:
-        genai.configure(api_key=GEMINI_API_KEY)
-        MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        GEMINI_AVAILABLE = True
-    else:
-        MODEL = None
-        GEMINI_AVAILABLE = False
-except ImportError:
-    MODEL = None
-    GEMINI_AVAILABLE = False
-
 
 router = APIRouter()
 
@@ -342,10 +326,14 @@ Return ONLY valid JSON array:
 ]"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "generate_concepts"},
         )
+        if response is None:
+            return [{"id": f"concept_{i}", "name": f"{topic} Concept {i+1}", "topics": [], "misconceptions": []}
+                    for i in range(num_concepts)]
         return json.loads(response.text)
     except Exception as e:
         print(f"Failed to generate concepts: {e}")
@@ -459,12 +447,15 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "generate_code_question"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
-        
+
         return {
             "id": str(uuid.uuid4()),
             "concept": concept_name,
@@ -576,10 +567,13 @@ Be educational and encouraging. Don't give the complete solution, but guide them
 Return ONLY valid JSON."""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "analyze_code"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
         return AnalyzeCodeResponse(**result)
     except Exception as e:
@@ -647,10 +641,13 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "analyze_response"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
         return AnalyzeResponseResponse(**result)
     except Exception as e:
@@ -719,10 +716,13 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "peer_discussion"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
         # Handle case where AI returns a list instead of an object
         if isinstance(result, list):
@@ -818,10 +818,13 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "student_reply"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
         return DiscussionContinueResponse(**result)
     except Exception as e:
@@ -916,10 +919,13 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "teacher_intervene"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
         return DiscussionContinueResponse(**result)
     except Exception as e:
@@ -997,10 +1003,13 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "ai_routes", "operation": "exit_ticket"},
         )
+        if response is None:
+            raise RuntimeError("Gemini call returned None")
         result = json.loads(response.text)
         return ExitTicketResponse(**result)
     except Exception as e:
@@ -1076,6 +1085,9 @@ async def chat_generate(request: Request, data: ChatGenerateRequest):
     
     # Add attachments to prompt
     if data.attachments:
+        from google.genai import types as genai_types
+        import base64 as b64
+
         for att in data.attachments:
             # Handle base64 content (extract after data: prefix)
             content = att.content
@@ -1084,18 +1096,18 @@ async def chat_generate(request: Request, data: ChatGenerateRequest):
 
             if att.type == "image":
                 # Create image part for Gemini
-                image_part = {
-                    "mime_type": att.mime_type or "image/jpeg",
-                    "data": content
-                }
+                image_part = genai_types.Part.from_bytes(
+                    data=b64.b64decode(content),
+                    mime_type=att.mime_type or "image/jpeg",
+                )
                 prompt_parts.append(image_part)
                 prompt_parts.append("\n[Image uploaded]\n")
             elif att.type == "pdf":
-                # Create PDF part for Gemini (Gemini 2.0 supports PDFs directly)
-                pdf_part = {
-                    "mime_type": "application/pdf",
-                    "data": content
-                }
+                # Create PDF part for Gemini
+                pdf_part = genai_types.Part.from_bytes(
+                    data=b64.b64decode(content),
+                    mime_type="application/pdf",
+                )
                 prompt_parts.append(pdf_part)
                 prompt_parts.append(f"\n[PDF document: {att.name}]\n")
             elif att.type == "file":
@@ -1205,8 +1217,13 @@ Return ONLY valid JSON in this exact format:
     
     try:
         # Generate with Gemini
-        response = MODEL.generate_content(prompt_parts)
-        
+        response = await call_gemini_with_timeout(
+            prompt_parts,
+            context={"agent": "ai_routes", "operation": "chat_generate"},
+        )
+        if response is None:
+            raise HTTPException(status_code=503, detail="Gemini AI did not return a response.")
+
         # Parse the response
         response_text = response.text.strip()
         

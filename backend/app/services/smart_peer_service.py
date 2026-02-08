@@ -17,34 +17,18 @@ Adaptive Socratic System:
 - Personalized explanations referencing student's words
 """
 
-import os
 import json
 import base64
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional, List
 
-try:
-    import google.generativeai as genai
-    from google.generativeai.types import content_types  # noqa: F401
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 try:
     import fitz  # PyMuPDF for PDF handling
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
-
-# Configure Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-else:
-    MODEL = None
 
 # Peer names for variety
 PEER_NAMES = ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Quinn"]
@@ -461,7 +445,7 @@ async def generate_smart_peer_response(
     state = discussion_state if discussion_state else DiscussionState()
     state.initial_confidence = confidence or 50
 
-    if not MODEL:
+    if not GEMINI_AVAILABLE:
         fallback = _fallback_response(
             peer_name, is_correct, student_answer_text, correct_answer_text,
             len(chat_history)
@@ -528,7 +512,7 @@ async def generate_smart_peer_response(
 
         try:
             analysis_response = await call_gemini_with_timeout(
-                MODEL, [analysis_prompt],
+                analysis_prompt,
                 generation_config={"response_mime_type": "application/json"},
                 context={"agent": "smart_peer", "operation": "misconception_detection"},
             )
@@ -671,7 +655,7 @@ async def generate_smart_peer_response(
         content_parts.append(prompt)
 
         response = await call_gemini_with_timeout(
-            MODEL, content_parts,
+            content_parts,
             generation_config={"response_mime_type": "application/json"},
             context={"agent": "smart_peer", "operation": "generate_response"},
         )

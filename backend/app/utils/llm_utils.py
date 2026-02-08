@@ -1,10 +1,12 @@
 """
 LLM Call Utilities
 
-Provides timeout and retry wrapper for Gemini API calls.
+Provides timeout and retry wrapper for Gemini API calls
+using the google-genai SDK.
 """
 
 import asyncio
+import os
 from typing import Optional, Any
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error, log_warning
@@ -23,45 +25,76 @@ BASE_DELAY = 1.0
 # Semaphore to limit concurrent Gemini API calls
 _gemini_semaphore = asyncio.Semaphore(5)
 
+# Shared Gemini client — initialised once at import time
+gemini_client = None
+GEMINI_AVAILABLE = False
+
+try:
+    from google import genai
+    from google.genai import types  # noqa: F401 — re-exported for consumers
+
+    _api_key = os.environ.get("GEMINI_API_KEY", "")
+    if _api_key:
+        gemini_client = genai.Client(api_key=_api_key)
+        GEMINI_AVAILABLE = True
+    else:
+        logger.warning("GEMINI_API_KEY not set — Gemini calls will be unavailable")
+except ImportError:
+    logger.warning("google-genai SDK not installed — Gemini calls will be unavailable")
+
 
 async def call_gemini_with_timeout(
-    model: Any,
-    prompt: str,
+    prompt,
     *,
     timeout: int = DEFAULT_TIMEOUT,
     retries: int = DEFAULT_RETRIES,
-    generation_config: Optional[Any] = None,
-    tools: Optional[Any] = None,
+    generation_config: Optional[dict] = None,
+    tools: Optional[list] = None,
+    system_instruction: Optional[str] = None,
     context: Optional[dict] = None,
 ) -> Optional[Any]:
     """
-    Call Gemini model.generate_content() with timeout and retry logic.
+    Call Gemini via the shared client with timeout and retry logic.
 
     Args:
-        model: The Gemini GenerativeModel instance
         prompt: The prompt string or list of content parts
         timeout: Timeout in seconds per attempt
         retries: Number of retry attempts (0 = no retries)
-        generation_config: Optional Gemini generation config
+        generation_config: Optional dict of generation params (temperature, max_output_tokens, etc.)
+        tools: Optional list of Tool objects for grounding etc.
+        system_instruction: Optional system instruction string
         context: Optional context dict for error reporting
 
     Returns:
         The Gemini response object, or None if all attempts fail
     """
+    if not gemini_client:
+        log_warning(logger, "Gemini client not available, skipping call")
+        return None
+
     last_error: Optional[Exception] = None
     ctx = context or {}
 
+    # Build config
+    config_kwargs = {}
+    if generation_config:
+        config_kwargs.update(generation_config)
+    if tools:
+        config_kwargs["tools"] = tools
+    if system_instruction:
+        config_kwargs["system_instruction"] = system_instruction
+
+    config = types.GenerateContentConfig(**config_kwargs) if config_kwargs else None
+
     for attempt in range(retries + 1):
         try:
-            kwargs = {}
-            if generation_config is not None:
-                kwargs["generation_config"] = generation_config
-            if tools is not None:
-                kwargs["tools"] = tools
-
             async with _gemini_semaphore:
                 response = await asyncio.wait_for(
-                    asyncio.to_thread(model.generate_content, prompt, **kwargs),
+                    gemini_client.aio.models.generate_content(
+                        model=GEMINI_MODEL_NAME,
+                        contents=prompt,
+                        config=config,
+                    ),
                     timeout=timeout,
                 )
 

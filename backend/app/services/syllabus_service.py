@@ -4,30 +4,15 @@ Uses Gemini to decompose subjects into units → topics → concepts.
 Caches results in SyllabusCache table.
 """
 
-import os
 import json
 from typing import Optional, Dict, Any
 
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
 from ..db_models import SyllabusCache, SubjectResource
-
-try:
-    import google.generativeai as genai
-
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    SYLLABUS_MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-else:
-    SYLLABUS_MODEL = None
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +158,7 @@ class SyllabusService:
 
     async def generate_syllabus(self, subject: str, document_context: Optional[str] = None) -> Dict[str, Any]:
         """Generate a skill tree via Gemini, with fallback."""
-        if SYLLABUS_MODEL:
+        if GEMINI_AVAILABLE:
             try:
                 return await self._generate_with_llm(subject, document_context=document_context)
             except Exception:
@@ -242,7 +227,7 @@ Rules:
 - Use snake_case for all IDs"""
 
         response = await call_gemini_with_timeout(
-            SYLLABUS_MODEL, prompt,
+            prompt,
             generation_config={"response_mime_type": "application/json"},
             context={"agent": "syllabus_service", "operation": "generate_syllabus"},
         )

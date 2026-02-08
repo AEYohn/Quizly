@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from ..database import get_db
 from ..db_models import CodingProblem, TestCase, CodeSubmission, User
 from ..auth_clerk import get_current_user_clerk as get_current_user, get_current_user_clerk_optional as get_current_user_optional
-from ..utils.llm_utils import GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 
 router = APIRouter()
@@ -255,16 +255,10 @@ async def generate_coding_problem(
     - Starter code for specified language
     - Test cases with inputs/outputs
     """
-    import google.generativeai as genai
-    import os
     import json
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="Gemini API key not configured")
-
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+    if not GEMINI_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Gemini API not available")
 
     # Build the prompt
     topic = data.topic or data.concept or "a coding problem"
@@ -310,16 +304,19 @@ Return ONLY valid JSON, no markdown code blocks."""
 
     # Add files (images/PDFs) if present
     if data.attachments:
+        import base64 as b64
+        from google.genai import types as genai_types
+
         file_types = []
         for att in data.attachments:
             if att.content:
                 # Handle base64 content
                 base64_data = att.content.split(",")[1] if "," in att.content else att.content
                 mime = att.mime_type or ("application/pdf" if att.type == "pdf" else "image/jpeg")
-                content_parts.append({
-                    "mime_type": mime,
-                    "data": base64_data
-                })
+                content_parts.append(genai_types.Part.from_bytes(
+                    data=b64.b64decode(base64_data),
+                    mime_type=mime,
+                ))
                 file_types.append("PDF" if att.type == "pdf" else "image")
         if content_parts:
             types_str = "/".join(set(file_types))
@@ -328,7 +325,12 @@ Return ONLY valid JSON, no markdown code blocks."""
     content_parts.append(prompt)
 
     try:
-        response = model.generate_content(content_parts)
+        response = await call_gemini_with_timeout(
+            content_parts,
+            context={"agent": "coding_routes", "operation": "generate_problem"},
+        )
+        if response is None:
+            raise HTTPException(status_code=503, detail="Gemini did not return a response")
         text = response.text.strip()
 
         # Clean up response

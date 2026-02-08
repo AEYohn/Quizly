@@ -18,22 +18,7 @@ from typing import Dict, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 
-from .utils.llm_utils import GEMINI_MODEL_NAME
-
-# Gemini setup
-try:
-    import google.generativeai as genai
-    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-    if GEMINI_API_KEY:
-        genai.configure(api_key=GEMINI_API_KEY)
-        MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        GEMINI_AVAILABLE = True
-    else:
-        GEMINI_AVAILABLE = False
-        MODEL = None
-except ImportError:
-    GEMINI_AVAILABLE = False
-    MODEL = None
+from .utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE, gemini_client
 
 
 @dataclass
@@ -85,7 +70,7 @@ class DocumentProcessor:
         """
         Process PDF using Gemini's native multimodal understanding (Async).
         """
-        if not GEMINI_AVAILABLE or not MODEL:
+        if not GEMINI_AVAILABLE:
             return ProcessedDocument(
                 source=Path(pdf_path).name,
                 file_type="pdf",
@@ -144,11 +129,19 @@ For concepts: Be specific - not just "algorithms" but "time complexity of merge 
 For objectives: Use action verbs like "explain", "implement", "compare", "analyze"."""
 
         try:
-            response = await MODEL.generate_content_async([
-                {"mime_type": "application/pdf", "data": pdf_b64},
-                prompt
-            ])
-            
+            from google.genai import types as genai_types
+
+            pdf_part = genai_types.Part.from_bytes(
+                data=base64.b64decode(pdf_b64),
+                mime_type="application/pdf",
+            )
+            response = await call_gemini_with_timeout(
+                [pdf_part, prompt],
+                context={"agent": "document_processor", "operation": "process_inline_pdf"},
+            )
+            if response is None:
+                raise RuntimeError("Gemini call returned None")
+
             result = self._parse_json_response(response.text)
             
             return ProcessedDocument(
@@ -174,13 +167,10 @@ For objectives: Use action verbs like "explain", "implement", "compare", "analyz
         """Process large PDF using File API (> 20MB) (Async)."""
         
         try:
-            # Upload to Gemini File API (Upload is still sync usually, but fast enough or run in thread)
-            # genai.upload_file is sync. We can wrap it if needed, but it's IO bound.
-            # ideally: await loop.run_in_executor(None, genai.upload_file, pdf_path)
-            # For now keeping sync upload as it's separate from generation
-            uploaded_file = genai.upload_file(pdf_path)
+            # Upload to Gemini File API
+            uploaded_file = gemini_client.files.upload(file=pdf_path)
             self.uploaded_files[file_name] = uploaded_file
-            
+
             prompt = """Analyze this PDF document and extract educational content.
 
 Return JSON:
@@ -193,7 +183,12 @@ Return JSON:
 
 Focus on concepts that would make good quiz questions."""
 
-            response = await MODEL.generate_content_async([uploaded_file, prompt])
+            response = await call_gemini_with_timeout(
+                [uploaded_file, prompt],
+                context={"agent": "document_processor", "operation": "process_large_pdf"},
+            )
+            if response is None:
+                raise RuntimeError("Gemini call returned None")
             result = self._parse_json_response(response.text)
             
             return ProcessedDocument(
@@ -213,7 +208,7 @@ Focus on concepts that would make good quiz questions."""
     async def process_text(self, text: str, source: str = "pasted") -> ProcessedDocument:
         """Process text content with Gemini (Async)."""
         
-        if not GEMINI_AVAILABLE or not MODEL:
+        if not GEMINI_AVAILABLE:
             return ProcessedDocument(
                 source=source,
                 file_type="text",
@@ -249,7 +244,12 @@ CRITICAL RULES:
 - If no good MCQ questions exist, return empty array []"""
 
         try:
-            response = await MODEL.generate_content_async(prompt)
+            response = await call_gemini_with_timeout(
+                prompt,
+                context={"agent": "document_processor", "operation": "process_text"},
+            )
+            if response is None:
+                raise RuntimeError("Gemini call returned None")
             result = self._parse_json_response(response.text)
             
             return ProcessedDocument(
@@ -272,7 +272,7 @@ CRITICAL RULES:
     async def process_image(self, image_path: str) -> ProcessedDocument:
         """Process image (diagram, chart, etc.) with Gemini vision (Async)."""
         
-        if not GEMINI_AVAILABLE or not MODEL:
+        if not GEMINI_AVAILABLE:
             return ProcessedDocument(
                 source=Path(image_path).name,
                 file_type="image",
@@ -303,11 +303,19 @@ Return JSON:
 }"""
 
         try:
-            response = await MODEL.generate_content_async([
-                {"mime_type": mime, "data": image_b64},
-                prompt
-            ])
-            
+            from google.genai import types as genai_types
+
+            image_part = genai_types.Part.from_bytes(
+                data=base64.b64decode(image_b64),
+                mime_type=mime,
+            )
+            response = await call_gemini_with_timeout(
+                [image_part, prompt],
+                context={"agent": "document_processor", "operation": "process_image"},
+            )
+            if response is None:
+                raise RuntimeError("Gemini call returned None")
+
             result = self._parse_json_response(response.text)
             
             return ProcessedDocument(

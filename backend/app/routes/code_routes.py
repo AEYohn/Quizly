@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import os
 
-from ..utils.llm_utils import GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 # Code execution engine: "piston" (default/free), "judge0", or "local"
 CODE_RUNNER = os.getenv("CODE_RUNNER", "piston").lower().strip()
@@ -430,22 +430,16 @@ async def generate_test_cases(data: dict):
     
     Takes a problem description and generates appropriate test cases.
     """
+    import json
+
+    if not GEMINI_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Gemini API not available")
+
     try:
-        import google.generativeai as genai
-        import os
-        import json
-        
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise HTTPException(status_code=500, detail="Gemini API key not configured")
-        
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        
         problem = data.get("problem", "")
         function_signature = data.get("function_signature", "def solution()")
         num_cases = data.get("num_cases", 5)
-        
+
         prompt = f"""Generate test cases for this coding problem:
 
 PROBLEM:
@@ -475,14 +469,17 @@ IMPORTANT:
 - Output should be the exact expected return value
 - Make test cases progressively harder"""
 
-        response = model.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "code_routes", "operation": "generate_test_cases"},
         )
-        
+        if response is None:
+            raise HTTPException(status_code=503, detail="Gemini did not return a response")
+
         test_cases = json.loads(response.text)
-        
+
         return {"test_cases": test_cases}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate test cases: {str(e)}")

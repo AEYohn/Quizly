@@ -5,7 +5,6 @@ Uses Gemini with Google Search grounding to find and curate real learning
 resources in a single call. No external search API needed.
 """
 
-import os
 import json
 import re
 from typing import Dict, Any, Optional, List
@@ -13,13 +12,7 @@ from urllib.parse import urlparse
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 logger = get_logger(__name__)
 
@@ -35,16 +28,7 @@ class ResourceCuratorAgent:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = None
-
-        if GEMINI_AVAILABLE and self.api_key:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            except Exception as e:
-                capture_exception(e, context={"service": "resource_curator", "operation": "initialize_gemini"})
-                log_error(logger, "initialize_gemini failed", error=str(e))
+        self.available = GEMINI_AVAILABLE
 
     async def curate_resources(
         self,
@@ -65,7 +49,7 @@ class ResourceCuratorAgent:
         Returns:
             List of curated resource dicts with title, url, source_type, etc.
         """
-        if not self.model:
+        if not self.available:
             return []
 
         if resource_types is None:
@@ -124,14 +108,15 @@ Return ONLY a valid JSON array:
 
 Only include resources you are confident are real and accessible."""
 
-        # Note: google_search grounding requires the new google-genai SDK.
-        # With the legacy SDK, we call Gemini without grounding tools and rely
-        # on its training knowledge to recommend well-known resources.
         try:
+            from google.genai import types as genai_types
+
+            # Use Google Search grounding — the new SDK supports it natively.
+            # Note: response_mime_type (JSON mode) is NOT compatible with
+            # google_search tools, so we parse text manually instead.
             response = await call_gemini_with_timeout(
-                self.model,
                 prompt,
-                generation_config={"response_mime_type": "application/json"},
+                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
                 context={"agent": "resource_curator", "operation": "search_with_grounding"},
             )
             if response is None:
@@ -199,7 +184,6 @@ Only include resources you are confident are real and accessible."""
         """Extract verified URLs from Gemini grounding metadata."""
         urls = []
         try:
-            # grounding_metadata is available on candidates in the legacy SDK
             for candidate in getattr(response, "candidates", []):
                 metadata = getattr(candidate, "grounding_metadata", None)
                 if not metadata:

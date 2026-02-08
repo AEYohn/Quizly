@@ -4,25 +4,14 @@ Assignment Service
 Generates personalized practice questions for student assignments.
 """
 
-import os
 import json
 from typing import Dict, List, Any
 
-import google.generativeai as genai
-
-from ..utils.llm_utils import GEMINI_MODEL_NAME
-
-# Configure Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+from ..utils.llm_utils import GEMINI_AVAILABLE, call_gemini_with_timeout
 
 
 class AssignmentService:
     """Generate practice assignments based on student misconceptions."""
-
-    def __init__(self):
-        self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
 
     async def generate_practice_questions(
         self,
@@ -79,15 +68,26 @@ Return JSON:
     ]
 }}"""
 
+        if not GEMINI_AVAILABLE:
+            return {
+                "title": "Practice Questions",
+                "questions": self._generate_fallback_questions(misconceptions)
+            }
+
         try:
-            response = await self.model.generate_content_async(
+            response = await call_gemini_with_timeout(
                 prompt,
                 generation_config={
                     "temperature": 0.7,
                     "max_output_tokens": 1500,
-                    "response_mime_type": "application/json"
-                }
+                    "response_mime_type": "application/json",
+                },
             )
+            if not response:
+                return {
+                    "title": "Practice Questions",
+                    "questions": self._generate_fallback_questions(misconceptions)
+                }
             result = json.loads(response.text)
             if isinstance(result, list):
                 result = result[0] if result else {}

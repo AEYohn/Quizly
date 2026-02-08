@@ -6,7 +6,6 @@ AI-powered evaluation of peer debate arguments.
 Determines winner, identifies logical flaws, and provides feedback.
 """
 
-import os
 import json
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
@@ -14,13 +13,7 @@ from datetime import datetime
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 logger = get_logger(__name__)
 
@@ -90,12 +83,7 @@ class DebateJudge:
     """
     
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
-        self.model = None
-        
-        if GEMINI_AVAILABLE and self.api_key:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        self.available = GEMINI_AVAILABLE
     
     async def evaluate_debate(
         self,
@@ -118,7 +106,7 @@ class DebateJudge:
         Returns:
             JudgmentResult with winner, analyses, and recommendations
         """
-        if not self.model:
+        if not self.available:
             return self._fallback_judgment(debate_id, question, student_a, student_b)
         
         # Build transcript string
@@ -181,7 +169,7 @@ Evaluate this debate and return JSON:
 
         try:
             response = await call_gemini_with_timeout(
-                self.model, prompt,
+                prompt,
                 context={"agent": "debate_judge", "operation": "evaluate_debate"},
             )
             if response is None:

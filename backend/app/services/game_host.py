@@ -8,20 +8,18 @@ The Game Host provides:
 - Post-game insights for teachers
 """
 
-import os
 import json
 import random
 from typing import Dict, Any, AsyncGenerator
 from enum import Enum
 
-import google.generativeai as genai
-
-from ..utils.llm_utils import GEMINI_MODEL_NAME
-
-# Configure Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+from ..utils.llm_utils import (
+    GEMINI_AVAILABLE,
+    GEMINI_MODEL_NAME,
+    call_gemini_with_timeout,
+    gemini_client,
+)
+from google.genai import types
 
 
 class HostEvent(str, Enum):
@@ -87,10 +85,6 @@ class GameHost:
     """AI Game Show Host powered by Gemini."""
 
     def __init__(self):
-        self.model = genai.GenerativeModel(
-            GEMINI_MODEL_NAME,
-            system_instruction=HOST_SYSTEM_PROMPT
-        )
         # Track streaks per player
         self.player_streaks: Dict[str, int] = {}
 
@@ -129,13 +123,19 @@ class GameHost:
 
             prompt = prompt_template.format(**context)
 
-            response = await self.model.generate_content_async(
+            if not GEMINI_AVAILABLE:
+                return self._fallback_reaction(event, context)
+
+            response = await call_gemini_with_timeout(
                 prompt,
+                system_instruction=HOST_SYSTEM_PROMPT,
                 generation_config={
                     "temperature": 0.9,
                     "max_output_tokens": 150,
-                }
+                },
             )
+            if not response:
+                return self._fallback_reaction(event, context)
 
             return response.text.strip()
 
@@ -161,13 +161,18 @@ class GameHost:
         try:
             prompt = prompt_template.format(**context)
 
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config={
-                    "temperature": 0.9,
-                    "max_output_tokens": 150,
-                },
-                stream=True
+            if not gemini_client:
+                yield self._fallback_reaction(event, context)
+                return
+
+            response = await gemini_client.aio.models.generate_content_stream(
+                model=GEMINI_MODEL_NAME,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=HOST_SYSTEM_PROMPT,
+                    temperature=0.9,
+                    max_output_tokens=150,
+                ),
             )
 
             async for chunk in response:
@@ -204,14 +209,20 @@ Give a brief, encouraging explanation (2-3 sentences):
 
 Keep it simple and supportive!"""
 
+        if not GEMINI_AVAILABLE:
+            return f"The correct answer was {correct_answer}. Keep learning, you've got this!"
+
         try:
-            response = await self.model.generate_content_async(
+            response = await call_gemini_with_timeout(
                 prompt,
+                system_instruction=HOST_SYSTEM_PROMPT,
                 generation_config={
                     "temperature": 0.7,
                     "max_output_tokens": 200,
-                }
+                },
             )
+            if not response:
+                return f"The correct answer was {correct_answer}. Keep learning, you've got this!"
             return response.text.strip()
         except Exception as e:
             print(f"Explain error: {e}")
@@ -255,15 +266,35 @@ Provide a JSON analysis with:
     "next_steps": ["2-3 actionable recommendations for the teacher"]
 }}"""
 
+        if not GEMINI_AVAILABLE:
+            return {
+                "overall_performance": "Game completed successfully!",
+                "class_strengths": [],
+                "areas_for_review": [],
+                "common_misconceptions": [],
+                "engagement_notes": "Good participation",
+                "next_steps": ["Review missed questions with the class"],
+            }
+
         try:
-            response = await self.model.generate_content_async(
+            response = await call_gemini_with_timeout(
                 prompt,
+                system_instruction=HOST_SYSTEM_PROMPT,
                 generation_config={
                     "temperature": 0.5,
                     "max_output_tokens": 500,
-                    "response_mime_type": "application/json"
-                }
+                    "response_mime_type": "application/json",
+                },
             )
+            if not response:
+                return {
+                    "overall_performance": "Game completed successfully!",
+                    "class_strengths": [],
+                    "areas_for_review": [],
+                    "common_misconceptions": [],
+                    "engagement_notes": "Good participation",
+                    "next_steps": ["Review missed questions with the class"],
+                }
             return json.loads(response.text)
         except Exception as e:
             print(f"Insights error: {e}")

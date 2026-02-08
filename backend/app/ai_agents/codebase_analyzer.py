@@ -10,7 +10,7 @@ import re
 import json
 from typing import Dict, Any, Optional
 
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 try:
     import httpx
@@ -20,12 +20,6 @@ except ImportError:
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
 
 logger = get_logger(__name__)
 
@@ -40,17 +34,8 @@ class CodebaseAnalyzerAgent:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = None
+        self.available = GEMINI_AVAILABLE
         self.github_token = GITHUB_TOKEN
-
-        if GEMINI_AVAILABLE and self.api_key:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            except Exception as e:
-                capture_exception(e, context={"service": "codebase_analyzer", "operation": "initialize_gemini"})
-                log_error(logger, "initialize_gemini failed", error=str(e))
 
     def _parse_repo(self, github_url: str) -> Optional[tuple]:
         """Parse owner/repo from GitHub URL."""
@@ -180,7 +165,7 @@ class CodebaseAnalyzerAgent:
 
     async def _analyze_with_gemini(self, repo_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use Gemini to analyze repo data and extract learning topics."""
-        if not self.model:
+        if not self.available:
             return self._fallback_analysis(repo_data)
 
         owner = repo_data.get("owner", "")
@@ -234,7 +219,7 @@ Rules:
 
         try:
             response = await call_gemini_with_timeout(
-                self.model, prompt,
+                prompt,
                 generation_config={"response_mime_type": "application/json"},
                 context={"agent": "codebase_analyzer", "operation": "analyze_with_gemini"},
             )

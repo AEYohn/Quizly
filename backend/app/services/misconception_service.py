@@ -3,25 +3,10 @@ Misconception Service
 Async service wrapper for analyzing student misconceptions using AI.
 """
 
-import os
 import json
 from typing import Dict, Any, Optional, List
 
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-
-# Configure Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-else:
-    MODEL = None
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 
 async def analyze_wrong_answer(
@@ -51,7 +36,7 @@ async def analyze_wrong_answer(
         - remediation: How to help
         - confidence: 0-1 confidence score
     """
-    if not MODEL:
+    if not GEMINI_AVAILABLE:
         return _fallback_analysis(student_answer, correct_answer)
 
     # Get the actual text of options for better analysis
@@ -106,7 +91,7 @@ Return JSON:
 
     try:
         response = await call_gemini_with_timeout(
-            MODEL, prompt,
+            prompt,
             generation_config={"response_mime_type": "application/json"},
             context={"agent": "misconception_service", "operation": "analyze_wrong_answer"},
         )

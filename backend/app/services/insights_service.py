@@ -8,16 +8,13 @@ Generates deep AI-powered insights for teachers using:
 - Learning progression tracking
 """
 
-import os
 import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from collections import Counter
 
-import google.generativeai as genai
-
-from ..utils.llm_utils import GEMINI_MODEL_NAME
+from ..utils.llm_utils import GEMINI_AVAILABLE, call_gemini_with_timeout
 
 # Add experimentation folder to path
 EXPERIMENTATION_PATH = Path(__file__).parent.parent.parent.parent / "experimentation"
@@ -35,17 +32,10 @@ except ImportError as e:
     ANALYTICS_AVAILABLE = False
 
 
-# Configure Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
-
 class InsightsService:
     """Generate comprehensive game insights using AI and analytics."""
 
     def __init__(self):
-        self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         if ANALYTICS_AVAILABLE:
             self.confidence_analyzer = ConfidenceAnalyzer()
             self.misconception_clusterer = MisconceptionClusterer()
@@ -288,7 +278,7 @@ class InsightsService:
                 q = question_map.get(q_id, {})
 
                 # Generate better label using actual question
-                if q and self.model:
+                if q and GEMINI_AVAILABLE:
                     try:
                         label_result = await self._label_misconception_with_context(
                             question_text=q.get("question_text", ""),
@@ -530,14 +520,20 @@ Return JSON:
 }}"""
 
         try:
-            response = await self.model.generate_content_async(
+            response = await call_gemini_with_timeout(
                 prompt,
                 generation_config={
                     "temperature": 0.3,
                     "max_output_tokens": 200,
-                    "response_mime_type": "application/json"
-                }
+                    "response_mime_type": "application/json",
+                },
             )
+            if not response:
+                return {
+                    "label": f"Wrong answer: {wrong_answer}",
+                    "description": f"{student_count} students chose {wrong_answer} instead of {correct_answer}",
+                    "intervention": "Review this question with the class",
+                }
             result = json.loads(response.text)
             if isinstance(result, list):
                 result = result[0] if result else {}
@@ -547,7 +543,7 @@ Return JSON:
             return {
                 "label": f"Wrong answer: {wrong_answer}",
                 "description": f"{student_count} students chose {wrong_answer} instead of {correct_answer}",
-                "intervention": "Review this question with the class"
+                "intervention": "Review this question with the class",
             }
 
     async def _generate_ai_recommendations(
@@ -586,14 +582,24 @@ Provide a JSON response with:
 }}"""
 
         try:
-            response = await self.model.generate_content_async(
+            response = await call_gemini_with_timeout(
                 prompt,
                 generation_config={
                     "temperature": 0.7,
                     "max_output_tokens": 800,
-                    "response_mime_type": "application/json"
-                }
+                    "response_mime_type": "application/json",
+                },
             )
+            if not response:
+                return {
+                    "overall_summary": "Game completed. Review the detailed analytics for insights.",
+                    "class_strengths": [],
+                    "areas_for_improvement": [],
+                    "immediate_actions": ["Review questions with low accuracy with the class"],
+                    "individual_interventions": [],
+                    "follow_up_topics": [],
+                    "misconception_corrections": [],
+                }
             result = json.loads(response.text)
             # Ensure we return a dict, not a list
             if isinstance(result, list):

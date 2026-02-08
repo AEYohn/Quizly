@@ -11,16 +11,9 @@ Uses proven prompt engineering techniques:
 """
 
 import json
-import os
 from typing import Dict, Any, Optional, List
 
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 
 class ExitTicketAgent:
@@ -35,15 +28,7 @@ class ExitTicketAgent:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = None
-
-        if GEMINI_AVAILABLE and self.api_key:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            except Exception:
-                pass
+        self.available = GEMINI_AVAILABLE
 
     # ------------------------------------------------------------------
     # Public API
@@ -74,7 +59,7 @@ class ExitTicketAgent:
             study_notes, micro_lesson, encouragement, question,
             practice_questions, flashcards, misconceptions).
         """
-        if self.model:
+        if self.available:
             return await self._generate_with_gemini(
                 student_name=student_name,
                 target_concept=target_concept,
@@ -411,7 +396,6 @@ Return ONLY valid JSON:
 
         try:
             response = await call_gemini_with_timeout(
-                self.model,
                 prompt,
                 generation_config={
                     "response_mime_type": "application/json",

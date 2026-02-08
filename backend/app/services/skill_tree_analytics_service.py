@@ -5,7 +5,6 @@ Aggregates mastery, misconceptions, spaced repetition, and session data
 to produce a comprehensive analysis of a student's skill tree progress.
 """
 
-import os
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -13,9 +12,7 @@ from typing import Any, Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, func, select
 
-import google.generativeai as genai
-
-from ..utils.llm_utils import GEMINI_MODEL_NAME
+from ..utils.llm_utils import GEMINI_AVAILABLE, call_gemini_with_timeout
 
 from ..db_models import (
     ConceptMastery,
@@ -28,10 +25,6 @@ from ..logging_config import get_logger
 from ..sentry_config import capture_exception
 
 logger = get_logger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 
 class SkillTreeAnalyticsService:
@@ -321,7 +314,7 @@ class SkillTreeAnalyticsService:
         overdue_count: int,
     ) -> Dict[str, Any]:
         """Generate AI-powered insights via Gemini."""
-        if not GEMINI_API_KEY:
+        if not GEMINI_AVAILABLE:
             return self._fallback_insights(
                 overall_mastery_pct, trend, weaknesses, strengths, overdue_count
             )
@@ -347,8 +340,11 @@ Return ONLY a JSON object (no markdown fences) with this structure:
 Keep it concise, encouraging, and specific. Max 3 recommendations, 2 overconfidence alerts, 2 pattern insights."""
 
         try:
-            model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            response = await model.generate_content_async(prompt)
+            response = await call_gemini_with_timeout(prompt)
+            if not response:
+                return self._fallback_insights(
+                    overall_mastery_pct, trend, weaknesses, strengths, overdue_count
+                )
             text = response.text.strip()
 
             # Strip markdown code fences if present

@@ -6,20 +6,13 @@ Designed for passive learning — no question, just insight delivery.
 Follows the same Gemini + fallback pattern as QuestionBankGenerator.
 """
 
-import os
 import json
 import random
 from typing import Dict, Any, Optional
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 logger = get_logger(__name__)
 
@@ -38,16 +31,7 @@ class InfoCardGenerator:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = None
-
-        if GEMINI_AVAILABLE and self.api_key:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            except Exception as e:
-                capture_exception(e, context={"service": "info_card_generator", "operation": "initialize_gemini"})
-                log_error(logger, "initialize_gemini failed", error=str(e))
+        self.available = GEMINI_AVAILABLE
 
     async def generate_info_card(
         self,
@@ -69,7 +53,7 @@ class InfoCardGenerator:
         if style is None:
             style = random.choice(INFO_CARD_STYLES)
 
-        if not self.model:
+        if not self.available:
             return self._fallback_info_card(concept, style)
 
         style_guidance = {
@@ -101,7 +85,7 @@ Return ONLY valid JSON:
 
         try:
             response = await call_gemini_with_timeout(
-                self.model, prompt,
+                prompt,
                 generation_config={"response_mime_type": "application/json"},
                 context={"agent": "info_card_generator", "operation": "generate_info_card"},
             )

@@ -4,11 +4,10 @@ Generates AI-powered summaries for peer discussion sessions.
 """
 
 import json
-import os
 from typing import Any, Dict
 
 from ..db_models_learning import PeerDiscussionSession
-from ..utils.llm_utils import GEMINI_MODEL_NAME
+from ..utils.llm_utils import GEMINI_AVAILABLE, call_gemini_with_timeout
 
 
 async def generate_discussion_summary(
@@ -23,16 +22,10 @@ async def generate_discussion_summary(
 
     Falls back to a heuristic-based summary if Gemini is unavailable.
     """
+    if not GEMINI_AVAILABLE:
+        return fallback_summary(session)
+
     try:
-        import google.generativeai as genai
-
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            return fallback_summary(session)
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-
         # Build transcript text
         transcript_text = "\n".join([
             f"{msg.get('sender', 'Unknown')}: {msg.get('content', '')}"
@@ -60,7 +53,10 @@ Provide a JSON response with:
 
 Return ONLY valid JSON, no markdown."""
 
-        response = model.generate_content(prompt)
+        response = await call_gemini_with_timeout(prompt)
+        if not response:
+            return fallback_summary(session)
+
         response_text = response.text.strip()
 
         # Parse JSON response

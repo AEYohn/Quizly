@@ -5,7 +5,6 @@ Generates complete question banks for peer instruction experiments
 with full, educational content (not placeholder text).
 """
 
-import os
 import json
 import time
 import random
@@ -14,13 +13,7 @@ from typing import Dict, Any, Optional, List
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 logger = get_logger(__name__)
 
@@ -131,16 +124,7 @@ class QuestionBankGenerator:
     """
     
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = None
-        
-        if GEMINI_AVAILABLE and self.api_key:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            except Exception as e:
-                capture_exception(e, context={"service": "question_generator", "operation": "initialize_gemini"})
-                log_error(logger, "initialize_gemini failed", error=str(e))
+        self.available = GEMINI_AVAILABLE
     
     async def generate_question(
         self,
@@ -164,7 +148,7 @@ class QuestionBankGenerator:
         Returns:
             Question dict with prompt, options, correct_answer, explanation
         """
-        if not self.model:
+        if not self.available:
             return self._fallback_question(concept, difficulty)
         
         difficulty_label = "easy" if difficulty < 0.4 else "medium" if difficulty < 0.7 else "hard"
@@ -230,7 +214,7 @@ Return ONLY valid JSON matching this structure:
 
         try:
             response = await call_gemini_with_timeout(
-                self.model, prompt,
+                prompt,
                 generation_config={"response_mime_type": "application/json"},
                 context={"agent": "question_generator", "operation": "generate_question"},
             )

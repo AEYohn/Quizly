@@ -16,7 +16,7 @@ from ..schemas import (
     ExtractedQuestion,
     GenerateFromCurriculumRequest,
 )
-from ..utils.llm_utils import GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 # Import document processor
 try:
@@ -27,22 +27,6 @@ except ImportError as e:
     print(f"Document processor import error: {e}")
     DOC_PROCESSOR_AVAILABLE = False
     doc_processor = None
-
-# Gemini for question generation
-try:
-    import google.generativeai as genai
-    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-    if GEMINI_API_KEY:
-        genai.configure(api_key=GEMINI_API_KEY)
-        MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        GEMINI_AVAILABLE = True
-    else:
-        MODEL = None
-        GEMINI_AVAILABLE = False
-except ImportError:
-    MODEL = None
-    GEMINI_AVAILABLE = False
-
 
 router = APIRouter()
 
@@ -161,7 +145,7 @@ async def generate_questions_from_curriculum(request: GenerateFromCurriculumRequ
     Takes topic, concepts, objectives, and optionally materials context.
     Returns generated questions plus any extracted questions from materials.
     """
-    if not GEMINI_AVAILABLE or not MODEL:
+    if not GEMINI_AVAILABLE:
         raise HTTPException(status_code=500, detail="Gemini API not available")
     
     # Build prompt based on format
@@ -372,10 +356,13 @@ Return JSON array:
 ]"""
 
     try:
-        response = MODEL.generate_content(
+        response = await call_gemini_with_timeout(
             prompt,
-            generation_config={"response_mime_type": "application/json"}
+            generation_config={"response_mime_type": "application/json"},
+            context={"agent": "curriculum_routes", "operation": "generate_questions"},
         )
+        if response is None:
+            raise HTTPException(status_code=503, detail="Gemini did not return a response")
         text = response.text.strip()
         
         # Parse JSON - handle potential issues

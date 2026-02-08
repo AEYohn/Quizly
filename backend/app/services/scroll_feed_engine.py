@@ -17,7 +17,6 @@ The algorithm works like a recommendation engine:
 - Fatigue detection switches topics for variety
 """
 
-import os
 import json
 import uuid
 import random
@@ -28,7 +27,7 @@ from dataclasses import dataclass, field, asdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE, gemini_client, GEMINI_MODEL_NAME
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
@@ -45,21 +44,7 @@ from ..services.concept_selector import ConceptSelector
 from ..services.knowledge_graph import KnowledgeGraph
 from ..ai_agents.question_generator import QuestionBankGenerator
 
-try:
-    import google.generativeai as genai
-
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-
 logger = get_logger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    FEED_MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
-else:
-    FEED_MODEL = None
 
 
 def utc_now() -> datetime:
@@ -976,7 +961,7 @@ class ScrollFeedEngine:
         self, session_id: str, message: str, card_context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Socratic tutoring for 'I don't know' — guides without revealing."""
-        if not FEED_MODEL:
+        if not GEMINI_AVAILABLE:
             return {"message": "AI tutoring is not available right now.", "phase": "unavailable", "ready_to_try": False}
 
         session = await self._get_session(session_id)
@@ -1022,9 +1007,23 @@ class ScrollFeedEngine:
                 gemini_history.append({"role": "model", "parts": [msg["content"]]})
 
         try:
-            chat = FEED_MODEL.start_chat(history=gemini_history[:-1])
-            response = chat.send_message(gemini_history[-1]["parts"][0])
-            ai_text = response.text.strip()
+            # Build full conversation as a single prompt for the new SDK
+            full_prompt = ""
+            if system_text:
+                full_prompt = system_text + "\n\n"
+            for msg in state.help_history:
+                if msg["role"] == "user":
+                    full_prompt += f"Student: {msg['content']}\n\n"
+                elif msg["role"] == "assistant":
+                    full_prompt += f"Tutor: {msg['content']}\n\n"
+            full_prompt += "Tutor:"
+
+            response = await call_gemini_with_timeout(
+                full_prompt,
+                generation_config={"temperature": 0.7, "max_output_tokens": 300},
+                context={"agent": "scroll_feed_engine", "operation": "help_chat"},
+            )
+            ai_text = response.text.strip() if response else "I'm having trouble thinking right now. Try rephrasing your thought?"
         except Exception as e:
             ai_text = "I'm having trouble thinking right now. Try rephrasing your thought?"
             capture_exception(e, context={"service": "scroll_feed_engine", "operation": "help_chat_gemini"})
@@ -1171,10 +1170,10 @@ class ScrollFeedEngine:
         except Exception:
             pass  # Cache unavailable — fall through to Gemini
 
-        if not notes and not FEED_MODEL:
+        if not notes and not GEMINI_AVAILABLE:
             return [topic]
 
-        if FEED_MODEL:
+        if GEMINI_AVAILABLE:
             prompt_text = f"""Extract 4-8 key concepts from this topic/notes for a quiz session.
 
 TOPIC: {topic}
@@ -1185,7 +1184,7 @@ Return JSON array of concept names (short, specific):
 
             try:
                 response = await call_gemini_with_timeout(
-                    FEED_MODEL, prompt_text,
+                    prompt_text,
                     generation_config={"response_mime_type": "application/json"},
                     context={"agent": "scroll_feed_engine", "operation": "extract_concepts"},
                 )
