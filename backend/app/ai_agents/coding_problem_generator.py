@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional, List
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 try:
     import google.generativeai as genai
@@ -79,7 +79,7 @@ class CodingProblemGenerator:
             api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
             if api_key:
                 genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel("gemini-2.0-flash")
+                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
     
     async def generate_problem(
         self,

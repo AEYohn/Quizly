@@ -15,6 +15,8 @@ from sqlalchemy import and_, func, select
 
 import google.generativeai as genai
 
+from ..utils.llm_utils import GEMINI_MODEL_NAME
+
 from ..db_models import (
     ConceptMastery,
     LearningSession,
@@ -345,7 +347,7 @@ Return ONLY a JSON object (no markdown fences) with this structure:
 Keep it concise, encouraging, and specific. Max 3 recommendations, 2 overconfidence alerts, 2 pattern insights."""
 
         try:
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            model = genai.GenerativeModel(GEMINI_MODEL_NAME)
             response = await model.generate_content_async(prompt)
             text = response.text.strip()
 

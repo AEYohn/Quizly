@@ -19,7 +19,7 @@ from sqlalchemy import select, and_
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 from ..db_models import (
     LearningSession,
@@ -43,7 +43,7 @@ logger = get_logger(__name__)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    PLANNER_MODEL = genai.GenerativeModel("gemini-2.0-flash")
+    PLANNER_MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
 else:
     PLANNER_MODEL = None
 

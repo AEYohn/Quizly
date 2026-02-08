@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from ..rate_limiter import limiter, AI_RATE_LIMIT
+from ..utils.llm_utils import GEMINI_MODEL_NAME
 
 
 def utc_now() -> datetime:
@@ -74,7 +75,7 @@ try:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     if GEMINI_API_KEY:
         genai.configure(api_key=GEMINI_API_KEY)
-        MODEL = genai.GenerativeModel("gemini-2.0-flash")
+        MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
         GEMINI_AVAILABLE = True
     else:
         MODEL = None

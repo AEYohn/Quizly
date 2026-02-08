@@ -8,7 +8,7 @@ import os
 import json
 from typing import Optional, Dict, Any
 
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
@@ -25,7 +25,7 @@ except ImportError:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    SYLLABUS_MODEL = genai.GenerativeModel("gemini-2.0-flash")
+    SYLLABUS_MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
 else:
     SYLLABUS_MODEL = None
 

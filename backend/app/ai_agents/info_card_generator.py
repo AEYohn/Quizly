@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 try:
     import google.generativeai as genai
@@ -44,7 +44,7 @@ class InfoCardGenerator:
         if GEMINI_AVAILABLE and self.api_key:
             try:
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel("gemini-2.0-flash")
+                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
             except Exception as e:
                 capture_exception(e, context={"service": "info_card_generator", "operation": "initialize_gemini"})
                 log_error(logger, "initialize_gemini failed", error=str(e))

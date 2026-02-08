@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from ..database import get_db
 from ..db_models import CodingProblem, TestCase, CodeSubmission, User
 from ..auth_clerk import get_current_user_clerk as get_current_user, get_current_user_clerk_optional as get_current_user_optional
+from ..utils.llm_utils import GEMINI_MODEL_NAME
 
 
 router = APIRouter()
@@ -263,7 +264,7 @@ async def generate_coding_problem(
         raise HTTPException(status_code=503, detail="Gemini API key not configured")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel(GEMINI_MODEL_NAME)
 
     # Build the prompt
     topic = data.topic or data.concept or "a coding problem"

@@ -14,7 +14,7 @@ import json
 import os
 from typing import Dict, Any, Optional, List
 
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 try:
     import google.generativeai as genai
@@ -41,7 +41,7 @@ class ExitTicketAgent:
         if GEMINI_AVAILABLE and self.api_key:
             try:
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel("gemini-2.0-flash")
+                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
             except Exception:
                 pass
 

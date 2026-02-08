@@ -15,7 +15,7 @@ from enum import Enum
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 try:
     import google.generativeai as genai
@@ -103,7 +103,7 @@ class MisconceptionTagger:
         
         if GEMINI_AVAILABLE and self.api_key:
             genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel("gemini-2.0-flash")
+            self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         
         self.misconception_history: List[MisconceptionResult] = []
     

@@ -8,6 +8,7 @@ import os
 from typing import Any, Dict
 
 from ..db_models_learning import PeerDiscussionSession
+from ..utils.llm_utils import GEMINI_MODEL_NAME
 
 
 async def generate_discussion_summary(
@@ -30,7 +31,7 @@ async def generate_discussion_summary(
             return fallback_summary(session)
 
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
 
         # Build transcript text
         transcript_text = "\n".join([

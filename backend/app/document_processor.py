@@ -18,13 +18,15 @@ from typing import Dict, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 
+from .utils.llm_utils import GEMINI_MODEL_NAME
+
 # Gemini setup
 try:
     import google.generativeai as genai
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
     if GEMINI_API_KEY:
         genai.configure(api_key=GEMINI_API_KEY)
-        MODEL = genai.GenerativeModel('gemini-2.0-flash')
+        MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
         GEMINI_AVAILABLE = True
     else:
         GEMINI_AVAILABLE = False

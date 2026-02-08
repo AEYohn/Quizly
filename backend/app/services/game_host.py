@@ -16,6 +16,8 @@ from enum import Enum
 
 import google.generativeai as genai
 
+from ..utils.llm_utils import GEMINI_MODEL_NAME
+
 # Configure Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
@@ -86,7 +88,7 @@ class GameHost:
 
     def __init__(self):
         self.model = genai.GenerativeModel(
-            "gemini-2.0-flash",
+            GEMINI_MODEL_NAME,
             system_instruction=HOST_SYSTEM_PROMPT
         )
         # Track streaks per player

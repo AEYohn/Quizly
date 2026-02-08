@@ -28,7 +28,7 @@ from dataclasses import dataclass, field, asdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
@@ -57,7 +57,7 @@ logger = get_logger(__name__)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    FEED_MODEL = genai.GenerativeModel("gemini-2.0-flash")
+    FEED_MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
 else:
     FEED_MODEL = None
 

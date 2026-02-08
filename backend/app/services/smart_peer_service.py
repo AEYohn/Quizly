@@ -30,7 +30,7 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 try:
     import fitz  # PyMuPDF for PDF handling
@@ -42,7 +42,7 @@ except ImportError:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    MODEL = genai.GenerativeModel("gemini-2.0-flash")
+    MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
 else:
     MODEL = None
 

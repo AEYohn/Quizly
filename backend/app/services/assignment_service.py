@@ -10,6 +10,8 @@ from typing import Dict, List, Any
 
 import google.generativeai as genai
 
+from ..utils.llm_utils import GEMINI_MODEL_NAME
+
 # Configure Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
@@ -20,7 +22,7 @@ class AssignmentService:
     """Generate practice assignments based on student misconceptions."""
 
     def __init__(self):
-        self.model = genai.GenerativeModel("gemini-2.0-flash")
+        self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
 
     async def generate_practice_questions(
         self,

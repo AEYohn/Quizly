@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import os
 
+from ..utils.llm_utils import GEMINI_MODEL_NAME
+
 # Code execution engine: "piston" (default/free), "judge0", or "local"
 CODE_RUNNER = os.getenv("CODE_RUNNER", "piston").lower().strip()
 
@@ -438,7 +440,7 @@ async def generate_test_cases(data: dict):
             raise HTTPException(status_code=500, detail="Gemini API key not configured")
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         
         problem = data.get("problem", "")
         function_signature = data.get("function_signature", "def solution()")

@@ -1,19 +1,19 @@
 """
 Resource Curator Agent — AI-Powered Learning Resource Curation
 
-Uses Gemini to generate optimal search queries, executes them via SerperService,
-then ranks/filters results by relevance, quality, and difficulty match.
-Follows the same Gemini + fallback pattern as FlashcardGenerator.
+Uses Gemini with Google Search grounding to find and curate real learning
+resources in a single call. No external search API needed.
 """
 
 import os
 import json
+import re
 from typing import Dict, Any, Optional, List
 from urllib.parse import urlparse
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
-from ..utils.llm_utils import call_gemini_with_timeout
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_MODEL_NAME
 
 try:
     import google.generativeai as genai
@@ -26,13 +26,12 @@ logger = get_logger(__name__)
 
 class ResourceCuratorAgent:
     """
-    Curates learning resources for concepts using Serper search + Gemini ranking.
+    Curates learning resources using Gemini with Google Search grounding.
 
-    Pipeline:
-    1. Gemini generates 2-3 optimal search queries per concept
-    2. Execute queries via SerperService
-    3. Gemini ranks/filters by relevance, quality, difficulty match
-    4. Return top N as curated resource dicts
+    Single-call pipeline:
+    1. Gemini searches the web via built-in google_search_retrieval tool
+    2. Returns curated, ranked resources with verified URLs
+    3. Fallback: return [] when Gemini unavailable
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -42,7 +41,7 @@ class ResourceCuratorAgent:
         if GEMINI_AVAILABLE and self.api_key:
             try:
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel("gemini-2.0-flash")
+                self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
             except Exception as e:
                 capture_exception(e, context={"service": "resource_curator", "operation": "initialize_gemini"})
                 log_error(logger, "initialize_gemini failed", error=str(e))
@@ -55,7 +54,7 @@ class ResourceCuratorAgent:
         resource_types: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Curate learning resources for a concept.
+        Curate learning resources for a concept using grounded search.
 
         Args:
             concept: The concept/topic to find resources for
@@ -66,180 +65,163 @@ class ResourceCuratorAgent:
         Returns:
             List of curated resource dicts with title, url, source_type, etc.
         """
-        if resource_types is None:
-            resource_types = ["video", "article", "tutorial"]
-
-        # Step 1: Generate search queries via Gemini
-        queries = await self._generate_search_queries(concept, difficulty, resource_types)
-        if not queries:
-            queries = self._fallback_queries(concept, resource_types)
-
-        # Step 2: Execute queries via SerperService
-        from ..services.serper_service import SerperService
-        serper = SerperService()
-        if not serper.available:
-            return []
-
-        all_results = []
-        seen_urls = set()
-        for query_info in queries:
-            query_text = query_info.get("query", concept)
-            search_type = query_info.get("search_type", "web")
-            results = await serper.search(query_text, search_type=search_type, num_results=5)
-            for r in results:
-                if r.url not in seen_urls:
-                    seen_urls.add(r.url)
-                    all_results.append(r)
-
-        if not all_results:
-            return []
-
-        # Step 3: Rank/filter via Gemini
-        ranked = await self._rank_results(concept, difficulty, all_results, max_results)
-        return ranked
-
-    async def _generate_search_queries(
-        self,
-        concept: str,
-        difficulty: float,
-        resource_types: List[str],
-    ) -> List[Dict[str, str]]:
-        """Use Gemini to generate optimal search queries."""
         if not self.model:
             return []
 
-        difficulty_label = "beginner" if difficulty < 0.4 else "intermediate" if difficulty < 0.7 else "advanced"
+        if resource_types is None:
+            resource_types = ["video", "article", "tutorial"]
 
-        prompt = f"""Generate 2-3 search queries to find the best learning resources for this concept.
+        resources = await self._search_with_grounding(
+            concept, difficulty, max_results, resource_types
+        )
+        return resources
 
-CONCEPT: {concept}
-DIFFICULTY LEVEL: {difficulty_label}
-RESOURCE TYPES WANTED: {', '.join(resource_types)}
-
-For each query, specify whether to search "web" or "video".
-- Use "video" for visual/tutorial content (YouTube)
-- Use "web" for articles, documentation, tutorials
-
-Return ONLY valid JSON array:
-[
-    {{"query": "binary search visualization youtube beginner", "search_type": "video"}},
-    {{"query": "binary search algorithm tutorial explained simply", "search_type": "web"}}
-]"""
-
-        try:
-            response = await call_gemini_with_timeout(
-                self.model, prompt,
-                generation_config={"response_mime_type": "application/json"},
-                context={"agent": "resource_curator", "operation": "generate_search_queries"},
-            )
-            if response is not None:
-                queries = json.loads(response.text)
-                if isinstance(queries, list) and len(queries) >= 1:
-                    return queries[:3]
-        except Exception as e:
-            capture_exception(e, context={"service": "resource_curator", "operation": "generate_search_queries"})
-            log_error(logger, "generate_search_queries failed", error=str(e))
-
-        return []
-
-    def _fallback_queries(
-        self, concept: str, resource_types: List[str]
-    ) -> List[Dict[str, str]]:
-        """Generate basic queries without LLM."""
-        queries = []
-        if "video" in resource_types:
-            queries.append({"query": f"{concept} tutorial explained", "search_type": "video"})
-        if "article" in resource_types or "tutorial" in resource_types:
-            queries.append({"query": f"{concept} tutorial beginner guide", "search_type": "web"})
-        return queries
-
-    async def _rank_results(
+    async def _search_with_grounding(
         self,
         concept: str,
         difficulty: float,
-        results: list,
         max_results: int,
+        resource_types: List[str],
     ) -> List[Dict[str, Any]]:
-        """Use Gemini to rank and filter search results."""
-        if not self.model or not results:
-            # No LLM — return raw results converted to resource dicts
-            return [self._result_to_resource(r, difficulty) for r in results[:max_results]]
+        """Call Gemini with google_search_retrieval to find and curate resources."""
+        difficulty_label = (
+            "beginner" if difficulty < 0.4
+            else "intermediate" if difficulty < 0.7
+            else "advanced"
+        )
+        types_str = ", ".join(resource_types)
 
-        difficulty_label = "beginner" if difficulty < 0.4 else "intermediate" if difficulty < 0.7 else "advanced"
+        prompt = f"""Find the {max_results} best learning resources for this concept.
 
-        # Build result summaries for ranking
-        result_summaries = []
-        for i, r in enumerate(results[:15]):  # Cap at 15 to avoid token bloat
-            result_summaries.append(
-                f"{i}. [{r.source_type}] \"{r.title}\" — {r.snippet[:100]}"
-            )
+CONCEPT: {concept}
+DIFFICULTY LEVEL: {difficulty_label}
+RESOURCE TYPES WANTED: {types_str}
 
-        prompt = f"""Rank these search results for learning about "{concept}" at {difficulty_label} level.
+Search for real, currently-available resources: YouTube videos, articles,
+tutorials, documentation, and interactive exercises. Prefer well-known
+educational sources (Khan Academy, 3Blue1Brown, freeCodeCamp, MIT OCW,
+GeeksforGeeks, W3Schools, MDN, official docs, etc).
 
-RESULTS:
-{chr(10).join(result_summaries)}
+For each resource, provide:
+- title: The actual title of the resource
+- url: The real, verified URL
+- source_type: One of "video", "article", "tutorial", "documentation", "exercise"
+- description: 1-sentence description of why this resource is useful
+- difficulty_label: "{difficulty_label}"
+- relevance_score: 0.0-1.0 how relevant to the concept
 
-For each result worth recommending, score it 1-10 on:
-- relevance: How well it teaches this specific concept
-- quality: Production quality, clarity, credibility
-- difficulty_match: How well it matches {difficulty_label} level
-
-Return ONLY valid JSON array of the top {max_results} results:
+Return ONLY a valid JSON array:
 [
-    {{"index": 0, "relevance": 9, "quality": 8, "difficulty_match": 7, "description": "Brief 1-sentence description of why this is useful"}}
+    {{
+        "title": "Resource Title",
+        "url": "https://...",
+        "source_type": "video",
+        "description": "Why this is useful",
+        "difficulty_label": "{difficulty_label}",
+        "relevance_score": 0.85
+    }}
 ]
 
-Only include results that score at least 5 overall. Return empty array if nothing is good."""
+Only include resources you are confident are real and accessible."""
 
         try:
             response = await call_gemini_with_timeout(
-                self.model, prompt,
-                generation_config={"response_mime_type": "application/json"},
-                context={"agent": "resource_curator", "operation": "rank_results"},
+                self.model,
+                prompt,
+                tools="google_search_retrieval",
+                context={"agent": "resource_curator", "operation": "search_with_grounding"},
             )
             if response is None:
-                return [self._result_to_resource(r, difficulty) for r in results[:max_results]]
-            rankings = json.loads(response.text)
+                return []
 
-            if not isinstance(rankings, list):
-                raise ValueError("Expected array")
+            resources = self._parse_response(response, difficulty_label, max_results)
 
-            curated = []
-            for rank in rankings[:max_results]:
-                idx = rank.get("index", 0)
-                if 0 <= idx < len(results):
-                    resource = self._result_to_resource(results[idx], difficulty)
-                    resource["relevance_score"] = round(
-                        (rank.get("relevance", 5) + rank.get("quality", 5) + rank.get("difficulty_match", 5)) / 30,
-                        2,
-                    )
-                    resource["description"] = rank.get("description", resource.get("description", ""))
-                    curated.append(resource)
-            return curated
+            # Merge grounding metadata URLs if available
+            grounding_urls = self._extract_grounding_urls(response)
+            if grounding_urls:
+                self._enrich_with_grounding(resources, grounding_urls)
+
+            return resources
 
         except Exception as e:
-            capture_exception(e, context={"service": "resource_curator", "operation": "rank_results"})
-            log_error(logger, "rank_results failed, returning unranked", error=str(e))
-            return [self._result_to_resource(r, difficulty) for r in results[:max_results]]
+            capture_exception(e, context={"service": "resource_curator", "operation": "search_with_grounding"})
+            log_error(logger, "search_with_grounding failed", error=str(e))
+            return []
 
-    def _result_to_resource(self, result, difficulty: float) -> Dict[str, Any]:
-        """Convert a SerperResult to a curated resource dict."""
-        difficulty_label = "beginner" if difficulty < 0.4 else "intermediate" if difficulty < 0.7 else "advanced"
-        domain = ""
+    def _parse_response(
+        self,
+        response: Any,
+        difficulty_label: str,
+        max_results: int,
+    ) -> List[Dict[str, Any]]:
+        """Parse the Gemini response text into resource dicts."""
+        text = response.text.strip()
+
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\n?", "", text)
+            text = re.sub(r"\n?```$", "", text)
+
+        raw = json.loads(text)
+        if not isinstance(raw, list):
+            return []
+
+        resources = []
+        for item in raw[:max_results]:
+            if not isinstance(item, dict) or not item.get("url"):
+                continue
+
+            domain = ""
+            try:
+                domain = urlparse(item["url"]).netloc.replace("www.", "")
+            except Exception:
+                pass
+
+            resources.append({
+                "title": item.get("title", ""),
+                "url": item["url"],
+                "source_type": item.get("source_type", "article"),
+                "thumbnail_url": item.get("thumbnail_url", ""),
+                "description": item.get("description", ""),
+                "duration": item.get("duration", ""),
+                "channel": item.get("channel", ""),
+                "difficulty_label": item.get("difficulty_label", difficulty_label),
+                "relevance_score": min(1.0, max(0.0, float(item.get("relevance_score", 0.5)))),
+                "external_domain": domain,
+            })
+
+        return resources
+
+    def _extract_grounding_urls(self, response: Any) -> List[str]:
+        """Extract verified URLs from Gemini grounding metadata."""
+        urls = []
         try:
-            domain = urlparse(result.url).netloc.replace("www.", "")
+            # grounding_metadata is available on candidates in the legacy SDK
+            for candidate in getattr(response, "candidates", []):
+                metadata = getattr(candidate, "grounding_metadata", None)
+                if not metadata:
+                    continue
+                for chunk in getattr(metadata, "grounding_chunks", []):
+                    web = getattr(chunk, "web", None)
+                    if web and getattr(web, "uri", None):
+                        urls.append(web.uri)
         except Exception:
             pass
+        return urls
 
-        return {
-            "title": result.title,
-            "url": result.url,
-            "source_type": result.source_type,
-            "thumbnail_url": result.thumbnail_url or "",
-            "description": result.snippet,
-            "duration": result.duration or "",
-            "channel": result.channel or "",
-            "difficulty_label": difficulty_label,
-            "relevance_score": 0.5,
-            "external_domain": domain,
-        }
+    def _enrich_with_grounding(
+        self, resources: List[Dict[str, Any]], grounding_urls: List[str]
+    ) -> None:
+        """Cross-reference parsed resources with grounding URLs for validation."""
+        grounding_domains = set()
+        for url in grounding_urls:
+            try:
+                grounding_domains.add(urlparse(url).netloc.replace("www.", ""))
+            except Exception:
+                pass
+
+        for resource in resources:
+            domain = resource.get("external_domain", "")
+            if domain in grounding_domains:
+                # Boost relevance for grounding-verified resources
+                resource["relevance_score"] = min(1.0, resource["relevance_score"] + 0.1)

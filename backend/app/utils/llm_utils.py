@@ -11,6 +11,9 @@ from ..logging_config import get_logger, log_error, log_warning
 
 logger = get_logger(__name__)
 
+# Centralised model name — change here to upgrade everywhere
+GEMINI_MODEL_NAME = "gemini-3-flash-preview"
+
 # Default timeout for LLM calls (seconds)
 DEFAULT_TIMEOUT = 30
 # Default number of retries
@@ -28,6 +31,7 @@ async def call_gemini_with_timeout(
     timeout: int = DEFAULT_TIMEOUT,
     retries: int = DEFAULT_RETRIES,
     generation_config: Optional[Any] = None,
+    tools: Optional[Any] = None,
     context: Optional[dict] = None,
 ) -> Optional[Any]:
     """
@@ -52,6 +56,8 @@ async def call_gemini_with_timeout(
             kwargs = {}
             if generation_config is not None:
                 kwargs["generation_config"] = generation_config
+            if tools is not None:
+                kwargs["tools"] = tools
 
             async with _gemini_semaphore:
                 response = await asyncio.wait_for(

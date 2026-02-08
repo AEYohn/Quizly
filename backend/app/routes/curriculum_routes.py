@@ -16,6 +16,7 @@ from ..schemas import (
     ExtractedQuestion,
     GenerateFromCurriculumRequest,
 )
+from ..utils.llm_utils import GEMINI_MODEL_NAME
 
 # Import document processor
 try:
@@ -33,7 +34,7 @@ try:
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
     if GEMINI_API_KEY:
         genai.configure(api_key=GEMINI_API_KEY)
-        MODEL = genai.GenerativeModel('gemini-2.0-flash')
+        MODEL = genai.GenerativeModel(GEMINI_MODEL_NAME)
         GEMINI_AVAILABLE = True
     else:
         MODEL = None

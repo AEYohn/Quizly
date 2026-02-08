@@ -17,6 +17,8 @@ from collections import Counter
 
 import google.generativeai as genai
 
+from ..utils.llm_utils import GEMINI_MODEL_NAME
+
 # Add experimentation folder to path
 EXPERIMENTATION_PATH = Path(__file__).parent.parent.parent.parent / "experimentation"
 if str(EXPERIMENTATION_PATH) not in sys.path:
@@ -43,7 +45,7 @@ class InsightsService:
     """Generate comprehensive game insights using AI and analytics."""
 
     def __init__(self):
-        self.model = genai.GenerativeModel("gemini-2.0-flash")
+        self.model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         if ANALYTICS_AVAILABLE:
             self.confidence_analyzer = ConfidenceAnalyzer()
             self.misconception_clusterer = MisconceptionClusterer()
