@@ -215,9 +215,9 @@ export function useHomeScreen() {
     [store, auth.nickname],
   );
 
-  // Fetch learning history on mount
+  // Fetch learning history on mount and when returning from a session
   useEffect(() => {
-    if (store.sessionId || store.syllabus) return;
+    if (store.sessionId) return; // skip while actively in a feed session
     const studentName = auth.nickname || "Student";
     if (!store.history || store.history.length === 0) {
       store.setHistoryLoading(true);
@@ -233,7 +233,7 @@ export function useHomeScreen() {
       })
       .finally(() => store.setHistoryLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.sessionId, store.syllabus]);
+  }, [store.sessionId]);
 
   return {
     loadingMessage,

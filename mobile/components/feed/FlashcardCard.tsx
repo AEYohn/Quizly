@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -150,6 +150,14 @@ export function FlashcardCard({
               </Pressable>
             ))}
           </View>
+        </View>
+      )}
+
+      {/* Loading state between rating and XP response */}
+      {hasRated && xpEarned === null && (
+        <View className="items-center py-4">
+          <ActivityIndicator size="small" color="#6366F1" />
+          <Text className="text-xs text-gray-400 mt-2">Saving...</Text>
         </View>
       )}
 

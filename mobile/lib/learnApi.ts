@@ -78,9 +78,12 @@ async function fetchApi<T>(
     attempt <= (shouldRetry ? cfg.maxRetries : 0);
     attempt++
   ) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
     try {
       const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...options?.headers,
@@ -118,11 +121,17 @@ async function fetchApi<T>(
       const data = await response.json();
       return { success: true, data };
     } catch (error) {
-      lastError = error instanceof Error ? error.message : "Network error";
-      if (error instanceof TypeError && attempt < cfg.maxRetries) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        lastError = "Request timed out";
+      } else {
+        lastError = error instanceof Error ? error.message : "Network error";
+      }
+      if ((error instanceof TypeError || (error instanceof DOMException && error.name === "AbortError")) && attempt < cfg.maxRetries) {
         await sleep(backoff(attempt, cfg));
         continue;
       }
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -155,6 +164,8 @@ async function fetchFormDataAuth<T>(
   formData: FormData,
   method = "POST",
 ): Promise<ApiResult<T>> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60_000);
   try {
     let authHeaders: Record<string, string> = {};
     const token = await getAuthToken();
@@ -163,6 +174,7 @@ async function fetchFormDataAuth<T>(
     }
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method,
+      signal: controller.signal,
       headers: authHeaders,
       body: formData,
     });
@@ -179,10 +191,15 @@ async function fetchFormDataAuth<T>(
     const data = await response.json();
     return { success: true, data };
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return { success: false, error: "Upload timed out" };
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Network error",
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

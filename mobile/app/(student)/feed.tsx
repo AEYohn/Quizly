@@ -1,4 +1,4 @@
-import { View, Text, Pressable, FlatList, Dimensions } from "react-native";
+import { View, Text, Pressable, FlatList, Dimensions, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Sparkles } from "lucide-react-native";
@@ -7,6 +7,7 @@ import { useScrollSessionStore } from "@/stores/scrollSessionStore";
 import { useHomeScreen } from "@/hooks/feed/useHomeScreen";
 import { useActiveFeed } from "@/hooks/feed/useActiveFeed";
 import { useHaptics } from "@/hooks/useHaptics";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { FeedHeader } from "@/components/feed/FeedHeader";
 import { CardRenderer } from "@/components/feed/CardRenderer";
 import { SocraticHelpSheet } from "@/components/feed/SocraticHelpSheet";
@@ -30,6 +31,7 @@ export default function FeedScreen() {
   } = useActiveFeed(answerStartTime);
 
   const flatListRef = useRef<FlatList>(null);
+  const [skipping, runSkip] = useAsyncAction();
 
   const currentCard = store.cards[store.currentIdx];
 
@@ -148,8 +150,15 @@ export default function FeedScreen() {
           <Text className="text-xs text-gray-400">
             Card {store.currentIdx + 1} of {store.cards.length}
           </Text>
-          <Pressable onPress={handleSkip}>
-            <Text className="text-xs text-gray-400 font-medium">Skip</Text>
+          <Pressable
+            disabled={skipping}
+            onPress={() => runSkip(() => handleSkip())}
+          >
+            {skipping ? (
+              <ActivityIndicator size="small" color="#9CA3AF" />
+            ) : (
+              <Text className="text-xs text-gray-400 font-medium">Skip</Text>
+            )}
           </Pressable>
         </View>
       </View>

@@ -1,31 +1,47 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Search, BookOpen, ChevronRight, Trash2 } from "lucide-react-native";
 import { useScrollSessionStore } from "@/stores/scrollSessionStore";
 import { useHomeScreen } from "@/hooks/feed/useHomeScreen";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 
 export default function SubjectSelectScreen() {
   const router = useRouter();
   const store = useScrollSessionStore();
   const { handleSubjectSelect, handleDeleteSubject, timeAgo } = useHomeScreen();
   const [search, setSearch] = useState("");
+  const [busy, run] = useAsyncAction();
+  const [tappedSubject, setTappedSubject] = useState<string | null>(null);
 
   const filtered = store.history.filter((h) =>
     h.subject.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const handleSelect = async (subject: string) => {
-    await handleSubjectSelect(subject);
-    router.push("/(student)/skill-tree");
-  };
+  const handleSelect = (subject: string) =>
+    run(async () => {
+      setTappedSubject(subject);
+      try {
+        await handleSubjectSelect(subject);
+        router.push("/(student)/skill-tree");
+      } finally {
+        setTappedSubject(null);
+      }
+    });
 
-  const handleNew = async () => {
+  const handleNew = () => {
     const topic = search.trim();
     if (!topic) return;
-    await handleSubjectSelect(topic);
-    router.push("/(student)/skill-tree");
+    return run(async () => {
+      setTappedSubject(topic);
+      try {
+        await handleSubjectSelect(topic);
+        router.push("/(student)/skill-tree");
+      } finally {
+        setTappedSubject(null);
+      }
+    });
   };
 
   return (
@@ -63,13 +79,18 @@ export default function SubjectSelectScreen() {
           ) && (
             <Pressable
               onPress={handleNew}
-              className="flex-row items-center gap-2 mt-2 bg-indigo-50 border border-indigo-200 rounded-xl p-3 active:bg-indigo-100"
+              disabled={busy}
+              className={`flex-row items-center gap-2 mt-2 bg-indigo-50 border border-indigo-200 rounded-xl p-3 active:bg-indigo-100 ${busy ? "opacity-50" : ""}`}
             >
               <BookOpen size={16} color="#6366F1" />
               <Text className="text-sm text-indigo-700 font-medium flex-1">
                 Start learning "{search.trim()}"
               </Text>
-              <ChevronRight size={16} color="#6366F1" />
+              {tappedSubject === search.trim() ? (
+                <ActivityIndicator size="small" color="#6366F1" />
+              ) : (
+                <ChevronRight size={16} color="#6366F1" />
+              )}
             </Pressable>
           )}
       </View>
@@ -90,7 +111,8 @@ export default function SubjectSelectScreen() {
                 <Pressable
                   key={idx}
                   onPress={() => handleSelect(s)}
-                  className="bg-gray-50 border border-gray-200 rounded-full px-4 py-2 active:bg-gray-100"
+                  disabled={busy}
+                  className={`bg-gray-50 border border-gray-200 rounded-full px-4 py-2 active:bg-gray-100 ${busy ? "opacity-50" : ""}`}
                 >
                   <Text className="text-sm text-gray-700">{s}</Text>
                 </Pressable>
@@ -110,7 +132,8 @@ export default function SubjectSelectScreen() {
                 <Pressable
                   key={subject.subject}
                   onPress={() => handleSelect(subject.subject)}
-                  className="flex-row items-center bg-white border border-gray-200 rounded-xl p-4 active:bg-gray-50"
+                  disabled={busy}
+                  className={`flex-row items-center bg-white border border-gray-200 rounded-xl p-4 active:bg-gray-50 ${busy ? "opacity-50" : ""}`}
                 >
                   <View className="flex-1">
                     <Text className="text-base font-medium text-gray-900">
@@ -132,13 +155,18 @@ export default function SubjectSelectScreen() {
                   </View>
                   <View className="flex-row items-center gap-2">
                     <Pressable
-                      onPress={() => handleDeleteSubject(subject.subject)}
+                      onPress={() => run(() => handleDeleteSubject(subject.subject))}
+                      disabled={busy}
                       className="p-2"
                       hitSlop={8}
                     >
                       <Trash2 size={16} color="#EF4444" />
                     </Pressable>
-                    <ChevronRight size={16} color="#9CA3AF" />
+                    {tappedSubject === subject.subject ? (
+                      <ActivityIndicator size="small" color="#6366F1" />
+                    ) : (
+                      <ChevronRight size={16} color="#9CA3AF" />
+                    )}
                   </View>
                 </Pressable>
               ))}

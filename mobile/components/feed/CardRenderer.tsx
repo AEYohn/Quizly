@@ -31,6 +31,7 @@ export function CardRenderer({
     case "flashcard":
       return (
         <FlashcardCard
+          key={card.content_item_id}
           card={card}
           xpEarned={flashcardXp}
           onRate={onFlashcardRate}
@@ -41,6 +42,7 @@ export function CardRenderer({
     case "info":
       return (
         <InfoCard
+          key={card.content_item_id}
           card={card}
           acknowledged={infoAcknowledged}
           onGotIt={onInfoGotIt}
@@ -49,11 +51,12 @@ export function CardRenderer({
       );
     case "resource_card":
     case "resource":
-      return <ResourceCard card={card} onNext={onNext} />;
+      return <ResourceCard key={card.content_item_id} card={card} onNext={onNext} />;
     default:
       // MCQ / question
       return (
         <MCQCard
+          key={card.content_item_id}
           card={card}
           result={result}
           onAnswer={onAnswer}

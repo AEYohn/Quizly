@@ -13,6 +13,7 @@ import {
   Sparkles,
   Play,
 } from "lucide-react-native";
+import { useState } from "react";
 import { useScrollSessionStore } from "@/stores/scrollSessionStore";
 import { useHomeScreen } from "@/hooks/feed/useHomeScreen";
 import { useSkillTree } from "@/hooks/feed/useSkillTree";
@@ -73,12 +74,20 @@ export default function SkillTreeScreen() {
     topicResources,
   } = useSkillTree(handleQuickStart);
 
+  const [tappedNodeId, setTappedNodeId] = useState<string | null>(null);
+
   // Navigate to feed when session starts
   const handleNodePress = async (topic: any) => {
+    if (tappedNodeId || store.isLoading) return;
     haptics.medium();
-    await handleNodeTap(topic);
-    if (useScrollSessionStore.getState().sessionId) {
-      router.push("/(student)/feed");
+    setTappedNodeId(topic.id);
+    try {
+      await handleNodeTap(topic);
+      if (useScrollSessionStore.getState().sessionId) {
+        router.push("/(student)/feed");
+      }
+    } finally {
+      setTappedNodeId(null);
     }
   };
 
@@ -160,7 +169,8 @@ export default function SkillTreeScreen() {
       {showRegenBanner && (
         <Pressable
           onPress={handleRegenerateSyllabus}
-          className="mx-4 mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex-row items-center gap-2"
+          disabled={isRegenerating}
+          className={`mx-4 mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex-row items-center gap-2 ${isRegenerating ? "opacity-50" : ""}`}
         >
           <RefreshCw size={16} color="#D97706" />
           <Text className="text-sm text-amber-700 flex-1">
@@ -204,14 +214,17 @@ export default function SkillTreeScreen() {
                         ? "border-indigo-200 bg-indigo-50"
                         : "border-gray-200 bg-white";
 
+                const isTapped = tappedNodeId === topic.id;
+                const anyNodeLoading = !!tappedNodeId;
+
                 return (
                   <Pressable
                     key={topic.id}
                     onPress={() => handleNodePress(topic)}
-                    disabled={isLocked || store.isLoading}
+                    disabled={isLocked || store.isLoading || anyNodeLoading}
                     className={`border rounded-xl p-3 active:scale-[0.98] ${statusColor} ${
                       isRecommended ? "border-2 border-indigo-400" : ""
-                    }`}
+                    } ${anyNodeLoading && !isTapped ? "opacity-60" : ""}`}
                   >
                     <View className="flex-row items-center">
                       <MasteryRing mastery={mastery} size={36} />
@@ -246,7 +259,11 @@ export default function SkillTreeScreen() {
                           )}
                         </View>
                       </View>
-                      <Play size={16} color="#6366F1" />
+                      {isTapped ? (
+                        <ActivityIndicator size="small" color="#6366F1" />
+                      ) : (
+                        <Play size={16} color="#6366F1" />
+                      )}
                     </View>
                   </Pressable>
                 );

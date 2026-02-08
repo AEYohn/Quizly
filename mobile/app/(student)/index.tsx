@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView, RefreshControl, TextInput } from "react-native";
+import { View, Text, Pressable, ScrollView, RefreshControl, TextInput, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
@@ -15,6 +15,7 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useHomeScreen } from "@/hooks/feed/useHomeScreen";
 import { useScrollSessionStore } from "@/stores/scrollSessionStore";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { StreakBadge } from "@/components/progression";
 
 export default function HomeScreen() {
@@ -32,6 +33,7 @@ export default function HomeScreen() {
 
   const [quickInput, setQuickInput] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [busy, run] = useAsyncAction();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -41,25 +43,28 @@ export default function HomeScreen() {
     }, 1000);
   }, [store]);
 
-  const handleQuickStartSubmit = async () => {
-    const topic = quickInput.trim();
-    if (!topic) return;
-    await handleSubjectSelect(topic);
-    router.push("/(student)/skill-tree");
-  };
+  const handleQuickStartSubmit = () =>
+    run(async () => {
+      const topic = quickInput.trim();
+      if (!topic) return;
+      await handleSubjectSelect(topic);
+      router.push("/(student)/skill-tree");
+    });
 
-  const handleSubjectTap = async (subject: string) => {
-    await handleSubjectSelect(subject);
-    router.push("/(student)/skill-tree");
-  };
+  const handleSubjectTap = (subject: string) =>
+    run(async () => {
+      await handleSubjectSelect(subject);
+      router.push("/(student)/skill-tree");
+    });
 
-  const handleResumeTap = async () => {
-    if (!store.activeSession) return;
-    await handleQuickStart(store.activeSession.topic);
-    if (store.sessionId) {
-      router.push("/(student)/feed");
-    }
-  };
+  const handleResumeTap = () =>
+    run(async () => {
+      if (!store.activeSession) return;
+      await handleQuickStart(store.activeSession.topic);
+      if (store.sessionId) {
+        router.push("/(student)/feed");
+      }
+    });
 
   // Loading overlay when feed is starting
   if (store.isLoading) {
@@ -102,7 +107,8 @@ export default function HomeScreen() {
         {store.activeSession && (
           <Pressable
             onPress={handleResumeTap}
-            className="mx-5 mt-3 bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex-row items-center active:bg-indigo-100"
+            disabled={busy}
+            className={`mx-5 mt-3 bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex-row items-center active:bg-indigo-100 ${busy ? "opacity-50" : ""}`}
           >
             <View className="flex-1">
               <Text className="text-xs font-medium text-indigo-500 uppercase tracking-wide mb-0.5">
@@ -117,7 +123,11 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View className="bg-indigo-600 rounded-full p-2.5">
-              <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
+              {busy ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
+              )}
             </View>
           </Pressable>
         )}
@@ -142,18 +152,22 @@ export default function HomeScreen() {
             </View>
             <Pressable
               onPress={handleQuickStartSubmit}
-              disabled={!quickInput.trim()}
+              disabled={!quickInput.trim() || busy}
               className={`rounded-xl px-4 items-center justify-center ${
-                quickInput.trim() ? "bg-indigo-600 active:bg-indigo-700" : "bg-gray-200"
+                quickInput.trim() && !busy ? "bg-indigo-600 active:bg-indigo-700" : "bg-gray-200"
               }`}
             >
-              <Text
-                className={`font-semibold text-sm ${
-                  quickInput.trim() ? "text-white" : "text-gray-400"
-                }`}
-              >
-                Go
-              </Text>
+              {busy ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text
+                  className={`font-semibold text-sm ${
+                    quickInput.trim() ? "text-white" : "text-gray-400"
+                  }`}
+                >
+                  Go
+                </Text>
+              )}
             </Pressable>
           </View>
 
@@ -183,13 +197,9 @@ export default function HomeScreen() {
               {store.suggestions.map((s, idx) => (
                 <Pressable
                   key={idx}
-                  onPress={() => {
-                    setQuickInput(s);
-                    handleSubjectSelect(s).then(() =>
-                      router.push("/(student)/skill-tree"),
-                    );
-                  }}
-                  className="bg-gray-50 border border-gray-200 rounded-full px-4 py-2 active:bg-gray-100"
+                  disabled={busy}
+                  onPress={() => handleSubjectTap(s)}
+                  className={`bg-gray-50 border border-gray-200 rounded-full px-4 py-2 active:bg-gray-100 ${busy ? "opacity-50" : ""}`}
                 >
                   <Text className="text-sm text-gray-700">{s}</Text>
                 </Pressable>
@@ -234,7 +244,8 @@ export default function HomeScreen() {
                 <Pressable
                   key={subject.subject}
                   onPress={() => handleSubjectTap(subject.subject)}
-                  className="bg-white border border-gray-200 rounded-xl p-4 active:bg-gray-50"
+                  disabled={busy}
+                  className={`bg-white border border-gray-200 rounded-xl p-4 active:bg-gray-50 ${busy ? "opacity-50" : ""}`}
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1 mr-3">

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { CheckCircle2, XCircle, HelpCircle, Zap } from "lucide-react-native";
 import { useHaptics } from "@/hooks/useHaptics";
@@ -13,36 +14,15 @@ interface MCQCardProps {
 
 export function MCQCard({ card, result, onAnswer, onNext, onHelp }: MCQCardProps) {
   const haptics = useHaptics();
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   const handleOptionPress = (option: string) => {
-    if (result) return;
+    if (result || selectedOption) return;
     haptics.light();
     // Extract the letter from the option (e.g., "A) Answer text" → "A")
     const letter = option.match(/^([A-D])[.)]\s*/)?.[1] ?? option;
+    setSelectedOption(letter);
     onAnswer(letter);
-  };
-
-  const getOptionStyle = (option: string) => {
-    if (!result) return "bg-white border-gray-200";
-    const letter = option.match(/^([A-D])[.)]\s*/)?.[1] ?? option;
-    const isCorrectOption =
-      letter.toUpperCase() === card.correct_answer.trim().toUpperCase();
-
-    if (isCorrectOption) return "bg-emerald-50 border-emerald-400";
-    const isSelected =
-      letter.toUpperCase() === card.correct_answer.trim().toUpperCase() === false;
-    // Show wrong selection in red only if this was the picked one and it's wrong
-    return "bg-white border-gray-200 opacity-60";
-  };
-
-  const getOptionIcon = (option: string) => {
-    if (!result) return null;
-    const letter = option.match(/^([A-D])[.)]\s*/)?.[1] ?? option;
-    const isCorrectOption =
-      letter.toUpperCase() === card.correct_answer.trim().toUpperCase();
-    if (isCorrectOption)
-      return <CheckCircle2 size={18} color="#10B981" />;
-    return null;
   };
 
   return (
@@ -73,7 +53,8 @@ export function MCQCard({ card, result, onAnswer, onNext, onHelp }: MCQCardProps
             const letter = option.match(/^([A-D])[.)]\s*/)?.[1] ?? String.fromCharCode(65 + idx);
             const text = option.replace(/^[A-D][.)]\s*/, "");
             const isCorrectOption = result && letter.toUpperCase() === card.correct_answer.trim().toUpperCase();
-            const isWrongSelected = result && !result.isCorrect && !isCorrectOption;
+            const isSelected = selectedOption === letter;
+            const isWrongSelected = result && isSelected && !isCorrectOption;
 
             let borderColor = "border-gray-200";
             let bgColor = "bg-white";
@@ -81,23 +62,29 @@ export function MCQCard({ card, result, onAnswer, onNext, onHelp }: MCQCardProps
               if (isCorrectOption) {
                 borderColor = "border-emerald-400";
                 bgColor = "bg-emerald-50";
+              } else if (isWrongSelected) {
+                borderColor = "border-red-300";
+                bgColor = "bg-red-50";
               } else {
                 bgColor = "bg-gray-50";
               }
+            } else if (isSelected) {
+              borderColor = "border-indigo-300";
+              bgColor = "bg-indigo-50";
             }
 
             return (
               <Pressable
                 key={idx}
                 onPress={() => handleOptionPress(option)}
-                disabled={!!result}
+                disabled={!!result || !!selectedOption}
                 className={`flex-row items-center border rounded-xl p-4 ${borderColor} ${bgColor} active:bg-indigo-50 active:border-indigo-300`}
               >
                 <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
-                  isCorrectOption ? "bg-emerald-100" : "bg-gray-100"
+                  isCorrectOption ? "bg-emerald-100" : isWrongSelected ? "bg-red-100" : "bg-gray-100"
                 }`}>
                   <Text className={`text-sm font-semibold ${
-                    isCorrectOption ? "text-emerald-600" : "text-gray-500"
+                    isCorrectOption ? "text-emerald-600" : isWrongSelected ? "text-red-600" : "text-gray-500"
                   }`}>
                     {letter}
                   </Text>
@@ -109,6 +96,9 @@ export function MCQCard({ card, result, onAnswer, onNext, onHelp }: MCQCardProps
                 </Text>
                 {result && isCorrectOption && (
                   <CheckCircle2 size={20} color="#10B981" />
+                )}
+                {isWrongSelected && (
+                  <XCircle size={20} color="#EF4444" />
                 )}
               </Pressable>
             );
