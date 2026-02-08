@@ -647,6 +647,30 @@ Return JSON:
         if assessment["is_correct"]:
             session.questions_correct += 1
 
+        # Record question history
+        try:
+            from ..db_models_question_history import QuestionHistory
+            current_q = state.current_question or {}
+            qh = QuestionHistory(
+                session_id=session.id,
+                student_name=session.student_name,
+                student_id=str(session.student_id) if session.student_id else None,
+                prompt=current_q.get("prompt", ""),
+                options=current_q.get("options", []),
+                correct_answer=assessment["correct_answer"],
+                explanation=assessment.get("explanation"),
+                student_answer=answer,
+                is_correct=assessment["is_correct"],
+                confidence=confidence,
+                concept=assessment.get("concept", ""),
+                difficulty=state.difficulty,
+                topic=session.topic,
+                mode="learn",
+            )
+            self.db.add(qh)
+        except Exception:
+            pass  # Don't break answer flow for history recording
+
         # REFINE
         refine_result = self._refine(state, assessment)
 

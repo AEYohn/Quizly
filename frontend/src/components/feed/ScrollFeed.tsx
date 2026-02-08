@@ -859,7 +859,7 @@ export function ScrollFeed() {
             });
 
             try {
-                const res = await scrollApi.submitAnswer(store.sessionId, answer, timeMs, currentCard.content_item_id, currentCard.correct_answer, confidence);
+                const res = await scrollApi.submitAnswer(store.sessionId, answer, timeMs, currentCard.content_item_id, currentCard.correct_answer, confidence, { prompt: currentCard.prompt, options: currentCard.options, explanation: currentCard.explanation, concept: currentCard.concept });
                 if (res.success) {
                     store.setStats(res.data.stats);
                     if (res.data.next_cards.length > 0) {

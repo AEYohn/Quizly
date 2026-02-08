@@ -704,4 +704,5 @@ class CodebaseAnalysis(Base):
 from . import db_models_learning  # noqa
 from . import db_models_content_pool  # noqa
 from . import db_models_assessment  # noqa
+from . import db_models_question_history  # noqa
 

@@ -18,6 +18,7 @@ import {
     BookOpen,
     LayoutDashboard,
     Zap,
+    History,
 } from "lucide-react";
 import { ProfileModal } from "~/components/ProfileModal";
 
@@ -31,6 +32,7 @@ const studentNavigation = [
     { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
     { name: "My Library", href: "/student/library", icon: BookOpen },
     { name: "Learn", href: "/feed", icon: Zap },
+    { name: "History", href: "/student/history", icon: History },
 ];
 
 const EXPANDED_WIDTH = 256;

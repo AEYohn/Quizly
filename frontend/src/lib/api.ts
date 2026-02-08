@@ -1267,6 +1267,38 @@ export interface LeaderboardResponse {
     pagination?: PaginationMeta;
 }
 
+// ============================================
+// Question History Types
+// ============================================
+
+export interface QuestionHistoryItem {
+    id: string;
+    session_id: string;
+    prompt: string;
+    options: string[];
+    correct_answer: string;
+    student_answer: string;
+    is_correct: boolean;
+    confidence: number;
+    explanation: string | null;
+    concept: string;
+    difficulty: number;
+    topic: string;
+    mode: string;
+    answered_at: string;
+}
+
+export interface QuestionHistorySessionSummary {
+    session_id: string;
+    topic: string;
+    mode: string;
+    questions_answered: number;
+    questions_correct: number;
+    accuracy: number;
+    started_at: string | null;
+    ended_at: string | null;
+}
+
 export const learnApi = {
     getLeaderboard: (period: "weekly" | "alltime", studentName: string, pagination?: PaginationParams) => {
         const params = new URLSearchParams({ period, student_name: studentName });
@@ -1324,6 +1356,27 @@ export const learnApi = {
         fetchApiAuth<CalibrationResponse>(
             `/learn/scroll/calibration/${encodeURIComponent(studentName)}${subject ? `?subject=${encodeURIComponent(subject)}` : ''}`,
         ),
+
+    getQuestionHistory: (studentName: string, filters?: { topic?: string; concept?: string; is_correct?: boolean; mode?: string }, pagination?: PaginationParams) => {
+        const params = new URLSearchParams({ student_name: studentName });
+        if (filters?.topic) params.set('topic', filters.topic);
+        if (filters?.concept) params.set('concept', filters.concept);
+        if (filters?.is_correct !== undefined) params.set('is_correct', String(filters.is_correct));
+        if (filters?.mode) params.set('mode', filters.mode);
+        if (pagination?.limit !== undefined) params.set('limit', String(pagination.limit));
+        if (pagination?.offset !== undefined) params.set('offset', String(pagination.offset));
+        return fetchApiAuth<{ items: QuestionHistoryItem[]; pagination: PaginationMeta }>(`/learn/question-history?${params.toString()}`);
+    },
+
+    getQuestionHistorySessions: (studentName: string, pagination?: PaginationParams) => {
+        const params = new URLSearchParams({ student_name: studentName });
+        if (pagination?.limit !== undefined) params.set('limit', String(pagination.limit));
+        if (pagination?.offset !== undefined) params.set('offset', String(pagination.offset));
+        return fetchApiAuth<{ sessions: QuestionHistorySessionSummary[]; pagination: PaginationMeta }>(`/learn/question-history/sessions?${params.toString()}`);
+    },
+
+    getSessionQuestions: (sessionId: string) =>
+        fetchApiAuth<{ session_id: string; items: QuestionHistoryItem[] }>(`/learn/question-history/session/${sessionId}`),
 };
 
 export interface SubjectHistory {
@@ -1646,7 +1699,7 @@ export const scrollApi = {
             body: JSON.stringify({ topic, student_name: studentName, student_id: studentId, notes, preferences }),
         }),
 
-    submitAnswer: (sessionId: string, answer: string, timeMs: number, contentItemId?: string, correctAnswer?: string, confidence?: number) =>
+    submitAnswer: (sessionId: string, answer: string, timeMs: number, contentItemId?: string, correctAnswer?: string, confidence?: number, cardData?: { prompt?: string; options?: string[]; explanation?: string; concept?: string }) =>
         fetchApiAuth<{
             session_id: string;
             is_correct: boolean;
@@ -1661,7 +1714,7 @@ export const scrollApi = {
             stats: ScrollStats;
         }>(`/learn/scroll/${sessionId}/answer`, {
             method: 'POST',
-            body: JSON.stringify({ answer, time_ms: timeMs, content_item_id: contentItemId, correct_answer: correctAnswer, confidence }),
+            body: JSON.stringify({ answer, time_ms: timeMs, content_item_id: contentItemId, correct_answer: correctAnswer, confidence, ...cardData }),
         }),
 
     getNextCards: (sessionId: string, count = 3) =>

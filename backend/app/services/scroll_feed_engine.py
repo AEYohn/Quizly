@@ -272,6 +272,10 @@ class ScrollFeedEngine:
         time_ms: int = 0,
         correct_answer: Optional[str] = None,
         confidence: Optional[int] = None,
+        prompt: Optional[str] = None,
+        options: Optional[list] = None,
+        explanation: Optional[str] = None,
+        concept_hint: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Process an answer. This is where the algorithm runs.
@@ -386,6 +390,30 @@ class ScrollFeedEngine:
         session.questions_answered += 1
         if is_correct:
             session.questions_correct += 1
+
+        # Record question history
+        try:
+            from ..db_models_question_history import QuestionHistory
+            qh = QuestionHistory(
+                session_id=session.id,
+                student_name=session.student_name,
+                student_id=str(session.student_id) if session.student_id else None,
+                prompt=prompt or "",
+                options=options or [],
+                correct_answer=correct_answer or "",
+                explanation=explanation,
+                student_answer=answer,
+                is_correct=is_correct,
+                confidence=conf,
+                concept=concept_hint or concept,
+                difficulty=state.current_difficulty,
+                topic=session.topic,
+                mode="scroll",
+            )
+            self.db.add(qh)
+        except Exception:
+            pass  # Don't break answer flow for history recording
+
         session.state_json = state.to_dict()
         await self.db.commit()
 

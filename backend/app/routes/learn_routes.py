@@ -140,6 +140,10 @@ class ScrollAnswerRequest(BaseModel):
     content_item_id: Optional[str] = None  # Pool item ID for interaction tracking
     correct_answer: Optional[str] = None  # Expected answer for grading
     confidence: Optional[int] = Field(default=None, ge=0, le=100)  # Self-rated confidence
+    prompt: Optional[str] = None  # Question prompt for history
+    options: Optional[list[str]] = None  # Answer options for history
+    explanation: Optional[str] = None  # Explanation for history
+    concept: Optional[str] = None  # Concept for history
 
 
 class ScrollSkipRequest(BaseModel):
@@ -419,6 +423,216 @@ async def get_progress(
             "limit": limit,
             "total": total_mastery,
         },
+    }
+
+
+# ============================================
+# Question History
+# ============================================
+
+
+@router.get("/question-history")
+async def get_question_history(
+    student_name: str,
+    topic: Optional[str] = Query(None),
+    concept: Optional[str] = Query(None),
+    is_correct: Optional[bool] = Query(None),
+    mode: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
+):
+    """Get paginated question history for a student."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+
+    from ..db_models_question_history import QuestionHistory
+
+    conditions = [QuestionHistory.student_name == student_name]
+    if topic:
+        conditions.append(QuestionHistory.topic == topic)
+    if concept:
+        conditions.append(QuestionHistory.concept == concept)
+    if is_correct is not None:
+        conditions.append(QuestionHistory.is_correct == is_correct)
+    if mode:
+        conditions.append(QuestionHistory.mode == mode)
+
+    count_query = select(func.count()).select_from(QuestionHistory).where(and_(*conditions))
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    query = (
+        select(QuestionHistory)
+        .where(and_(*conditions))
+        .order_by(QuestionHistory.answered_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    return {
+        "items": [
+            {
+                "id": str(item.id),
+                "session_id": str(item.session_id),
+                "prompt": item.prompt,
+                "options": item.options,
+                "correct_answer": item.correct_answer,
+                "student_answer": item.student_answer,
+                "is_correct": item.is_correct,
+                "confidence": item.confidence,
+                "explanation": item.explanation,
+                "concept": item.concept,
+                "difficulty": item.difficulty,
+                "topic": item.topic,
+                "mode": item.mode,
+                "answered_at": ensure_utc_iso(item.answered_at),
+            }
+            for item in items
+        ],
+        "pagination": {
+            "offset": offset,
+            "limit": limit,
+            "total": total,
+        },
+    }
+
+
+@router.get("/question-history/sessions")
+async def get_question_history_sessions(
+    student_name: str,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
+):
+    """Get session summaries with question counts from history."""
+    if current_user and current_user.name != student_name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+
+    from ..db_models_question_history import QuestionHistory
+
+    # Aggregate question history by session
+    agg_query = (
+        select(
+            QuestionHistory.session_id,
+            func.count().label("questions_answered"),
+            func.sum(case((QuestionHistory.is_correct == True, 1), else_=0)).label("questions_correct"),
+            func.min(QuestionHistory.answered_at).label("started_at"),
+            func.max(QuestionHistory.answered_at).label("ended_at"),
+        )
+        .where(QuestionHistory.student_name == student_name)
+        .group_by(QuestionHistory.session_id)
+        .order_by(func.max(QuestionHistory.answered_at).desc())
+    )
+
+    # Get total count of sessions
+    count_query = select(func.count()).select_from(
+        agg_query.subquery()
+    )
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    agg_query = agg_query.offset(offset).limit(limit)
+    result = await db.execute(agg_query)
+    rows = result.all()
+
+    # Fetch session metadata (topic, mode) for each session
+    session_ids = [row.session_id for row in rows]
+    sessions_meta = {}
+    if session_ids:
+        meta_query = select(
+            LearningSession.id,
+            LearningSession.topic,
+            LearningSession.plan_json,
+            LearningSession.started_at,
+            LearningSession.ended_at,
+        ).where(LearningSession.id.in_(session_ids))
+        meta_result = await db.execute(meta_query)
+        for m in meta_result.all():
+            plan = m.plan_json or {}
+            sessions_meta[m.id] = {
+                "topic": m.topic,
+                "mode": plan.get("mode", "learn"),
+                "session_started_at": m.started_at,
+                "session_ended_at": m.ended_at,
+            }
+
+    items = []
+    for row in rows:
+        meta = sessions_meta.get(row.session_id, {})
+        answered = row.questions_answered or 0
+        correct = row.questions_correct or 0
+        accuracy = round(correct / max(1, answered) * 100)
+        items.append({
+            "session_id": str(row.session_id),
+            "topic": meta.get("topic", "Unknown"),
+            "mode": meta.get("mode", "learn"),
+            "questions_answered": answered,
+            "questions_correct": correct,
+            "accuracy": accuracy,
+            "started_at": ensure_utc_iso(meta.get("session_started_at") or row.started_at),
+            "ended_at": ensure_utc_iso(meta.get("session_ended_at") or row.ended_at),
+        })
+
+    return {
+        "sessions": items,
+        "pagination": {
+            "offset": offset,
+            "limit": limit,
+            "total": total,
+        },
+    }
+
+
+@router.get("/question-history/session/{session_id}")
+async def get_session_question_history(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_clerk_optional),
+):
+    """Get all questions for a specific session."""
+    from ..db_models_question_history import QuestionHistory
+    import uuid as _uuid
+
+    query = (
+        select(QuestionHistory)
+        .where(QuestionHistory.session_id == _uuid.UUID(session_id))
+        .order_by(QuestionHistory.answered_at.asc())
+    )
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    if not items:
+        return {"session_id": session_id, "items": []}
+
+    # Auth check: ensure current user owns this data
+    if current_user and items[0].student_name != current_user.name:
+        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+
+    return {
+        "session_id": session_id,
+        "items": [
+            {
+                "id": str(item.id),
+                "prompt": item.prompt,
+                "options": item.options,
+                "correct_answer": item.correct_answer,
+                "student_answer": item.student_answer,
+                "is_correct": item.is_correct,
+                "confidence": item.confidence,
+                "explanation": item.explanation,
+                "concept": item.concept,
+                "difficulty": item.difficulty,
+                "topic": item.topic,
+                "mode": item.mode,
+                "answered_at": ensure_utc_iso(item.answered_at),
+            }
+            for item in items
+        ],
     }
 
 
@@ -809,6 +1023,10 @@ async def scroll_answer(
         time_ms=request.time_ms,
         correct_answer=request.correct_answer,
         confidence=request.confidence,
+        prompt=request.prompt,
+        options=request.options,
+        explanation=request.explanation,
+        concept_hint=request.concept,
     )
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
