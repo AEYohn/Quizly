@@ -124,11 +124,14 @@ Return ONLY a valid JSON array:
 
 Only include resources you are confident are real and accessible."""
 
+        # Note: google_search grounding requires the new google-genai SDK.
+        # With the legacy SDK, we call Gemini without grounding tools and rely
+        # on its training knowledge to recommend well-known resources.
         try:
             response = await call_gemini_with_timeout(
                 self.model,
                 prompt,
-                tools="google_search_retrieval",
+                generation_config={"response_mime_type": "application/json"},
                 context={"agent": "resource_curator", "operation": "search_with_grounding"},
             )
             if response is None:
