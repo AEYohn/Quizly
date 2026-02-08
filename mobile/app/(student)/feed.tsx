@@ -36,7 +36,7 @@ export default function FeedScreen() {
   // Go back to home / skill tree
   const handleBack = () => {
     store.reset();
-    router.back();
+    router.navigate("/(student)");
   };
 
   // Handle help
@@ -57,7 +57,7 @@ export default function FeedScreen() {
       <SafeAreaView className="flex-1 bg-white items-center justify-center">
         <Text className="text-gray-500 mb-4">No active session</Text>
         <Pressable
-          onPress={() => router.replace("/(student)/")}
+          onPress={() => router.replace("/(student)")}
           className="bg-indigo-600 rounded-xl px-6 py-3"
         >
           <Text className="text-white font-semibold">Go Home</Text>

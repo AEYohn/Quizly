@@ -122,7 +122,7 @@ export default function AssessmentScreen() {
         {error ? (
           <View className="items-center gap-4 px-6">
             <Text className="text-red-600 text-center">{error}</Text>
-            <Pressable onPress={() => router.back()} className="bg-indigo-600 rounded-xl px-6 py-3">
+            <Pressable onPress={() => router.navigate("/(student)/skill-tree")} className="bg-indigo-600 rounded-xl px-6 py-3">
               <Text className="text-white font-semibold">Go Back</Text>
             </Pressable>
           </View>
@@ -144,7 +144,7 @@ export default function AssessmentScreen() {
           Your mastery map has been updated based on your responses.
         </Text>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.navigate("/(student)/skill-tree")}
           className="bg-indigo-600 rounded-xl px-8 py-3 mt-6 active:bg-indigo-700"
         >
           <Text className="text-white font-semibold">Back to Skill Tree</Text>
@@ -161,7 +161,7 @@ export default function AssessmentScreen() {
     return (
       <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
         <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
-          <Pressable onPress={() => router.back()} className="p-2 mr-2">
+          <Pressable onPress={() => router.navigate("/(student)/skill-tree")} className="p-2 mr-2">
             <ArrowLeft size={22} color="#374151" />
           </Pressable>
           <View>
@@ -223,7 +223,7 @@ export default function AssessmentScreen() {
     return (
       <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
         <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
-          <Pressable onPress={() => router.back()} className="p-2 mr-2">
+          <Pressable onPress={() => router.navigate("/(student)/skill-tree")} className="p-2 mr-2">
             <ArrowLeft size={22} color="#374151" />
           </Pressable>
           <View>

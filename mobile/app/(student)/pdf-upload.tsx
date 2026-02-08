@@ -83,7 +83,7 @@ export default function PdfUploadScreen() {
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       {/* Header */}
       <View className="flex-row items-center px-4 py-3 border-b border-gray-100">
-        <Pressable onPress={() => router.back()} className="p-2 mr-2">
+        <Pressable onPress={() => router.navigate("/(student)")} className="p-2 mr-2">
           <ArrowLeft size={22} color="#374151" />
         </Pressable>
         <Text className="text-lg font-semibold text-gray-900">

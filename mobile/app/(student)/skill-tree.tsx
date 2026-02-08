@@ -89,6 +89,15 @@ export default function SkillTreeScreen() {
         <Text className="text-sm text-gray-500 mt-3">
           Generating skill tree...
         </Text>
+        <Pressable
+          onPress={() => {
+            store.setSyllabusLoading(false);
+            router.navigate("/(student)");
+          }}
+          className="mt-6 px-5 py-2.5 rounded-xl border border-gray-200 active:bg-gray-50"
+        >
+          <Text className="text-sm text-gray-600 font-medium">Cancel</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -100,7 +109,7 @@ export default function SkillTreeScreen() {
           No syllabus loaded. Go back and select a subject.
         </Text>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.navigate("/(student)")}
           className="mt-4 bg-indigo-600 rounded-xl px-6 py-3"
         >
           <Text className="text-white font-semibold">Go Back</Text>
@@ -114,7 +123,7 @@ export default function SkillTreeScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
         <View className="flex-row items-center">
-          <Pressable onPress={() => router.back()} className="p-2 mr-2">
+          <Pressable onPress={() => router.navigate("/(student)")} className="p-2 mr-2">
             <ArrowLeft size={22} color="#374151" />
           </Pressable>
           <View>
