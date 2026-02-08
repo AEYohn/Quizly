@@ -142,6 +142,13 @@ class FeedState:
     confidence_records: List[Dict[str, Any]] = field(default_factory=list)
     # [{"concept": "x", "confidence": 75, "is_correct": true, "timestamp": "..."}]
 
+    # Teach-before-test: concepts that have had an intro info_card shown
+    concepts_introduced: List[str] = field(default_factory=list)
+
+    # Milestone tracking
+    concepts_mastered: List[str] = field(default_factory=list)
+    pending_milestone: Optional[Dict[str, Any]] = field(default=None)
+
     # Socratic help chat history
     help_history: List[Dict[str, str]] = field(default_factory=list)
 
@@ -161,6 +168,10 @@ class FeedState:
             self.reintroduction_queue = self.reintroduction_queue[-20:]
         if len(self.help_history) > 50:
             self.help_history = self.help_history[-30:]
+        if len(self.concepts_introduced) > 100:
+            self.concepts_introduced = self.concepts_introduced[-100:]
+        if len(self.concepts_mastered) > 100:
+            self.concepts_mastered = self.concepts_mastered[-100:]
 
     def to_dict(self) -> Dict[str, Any]:
         self._cap_lists()
@@ -345,6 +356,22 @@ class ScrollFeedEngine:
         # Thompson Sampling reward signal
         learning_gain = new_p_learned - old_p_learned
         await self.concept_selector.update_reward(session.student_name, concept, learning_gain)
+
+        # ---- MILESTONE DETECTION ----
+        if new_p_learned >= 0.8 and concept not in state.concepts_mastered:
+            state.concepts_mastered.append(concept)
+            state.pending_milestone = {
+                "milestone_type": "concept_mastered",
+                "concept": concept,
+                "concepts_mastered": len(state.concepts_mastered),
+                "total_concepts": len(state.concepts),
+            }
+        elif state.cards_shown > 0 and state.cards_shown % 10 == 0:
+            state.pending_milestone = {
+                "milestone_type": "streak_check",
+                "cards_answered": state.cards_shown,
+                "accuracy": round(session.questions_correct / max(1, session.questions_answered) * 100),
+            }
 
         # ---- THE ALGORITHM ----
 
@@ -765,6 +792,46 @@ class ScrollFeedEngine:
         student_name: Optional[str] = None,
     ) -> List[ScrollCard]:
         """Pool-first card generation. Falls back to inline if pool is empty."""
+        prepend_cards: List[ScrollCard] = []
+
+        # --- Milestone injection ---
+        if state.pending_milestone:
+            milestone_card = ScrollCard(
+                id=str(uuid.uuid4()),
+                question=state.pending_milestone,
+                concept=state.pending_milestone.get("concept", ""),
+                difficulty=0.0,
+                card_type="milestone",
+                xp_value=0,
+            )
+            state.pending_milestone = None
+            prepend_cards.append(milestone_card)
+            count = max(0, count - 1)
+
+        # --- Teach-before-test: inject intro card for new concepts ---
+        if state.concepts and count > 0:
+            concept_idx = state.current_concept_idx % max(1, len(state.concepts))
+            current_concept = state.concepts[concept_idx]
+            if current_concept not in state.concepts_introduced:
+                try:
+                    intro_card = await self.pool_service.get_intro_card(
+                        topic=topic,
+                        concept=current_concept,
+                        exclude_ids=state.served_content_ids,
+                    )
+                    if intro_card:
+                        state.concepts_introduced.append(current_concept)
+                        if intro_card.content_item_id:
+                            state.served_content_ids.append(intro_card.content_item_id)
+                        state.content_type_counts["info_card"] = state.content_type_counts.get("info_card", 0) + 1
+                        prepend_cards.append(intro_card)
+                        count = max(0, count - 1)
+                except Exception as e:
+                    log_error(logger, "teach_before_test intro card fetch failed", error=str(e))
+
+        if count <= 0:
+            return prepend_cards
+
         # Load BKT states for concept selection
         bkt_states = {}
         if student_name:
@@ -792,7 +859,7 @@ class ScrollFeedEngine:
                     state.content_type_counts[ctype] = state.content_type_counts.get(ctype, 0) + 1
                     if c.question.get("prompt"):
                         state.previous_prompts.append(c.question["prompt"])
-                return pool_cards
+                return prepend_cards + pool_cards
         except Exception as e:
             capture_exception(e, context={"service": "scroll_feed_engine", "operation": "pool_card_selection"})
             log_error(logger, "pool_card_selection failed, falling back to inline", error=str(e))
@@ -804,7 +871,8 @@ class ScrollFeedEngine:
                 state.notes_context = resource_ctx
 
         # Fallback to inline generation with BKT-aware concept selection
-        return await self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
+        inline_cards = await self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
+        return prepend_cards + inline_cards
 
     def _card_to_dict(self, card: ScrollCard) -> Dict[str, Any]:
         """Convert card to API response dict."""
@@ -842,6 +910,16 @@ class ScrollFeedEngine:
             d["resource_duration"] = card.question.get("resource_duration", "")
             d["resource_channel"] = card.question.get("resource_channel", "")
             d["resource_domain"] = card.question.get("resource_domain", "")
+        # Milestone card fields
+        if card.card_type == "milestone":
+            d["milestone_type"] = card.question.get("milestone_type", "")
+            d["milestone_concept"] = card.question.get("concept", "")
+            d["milestone_stats"] = {
+                "concepts_mastered": card.question.get("concepts_mastered", 0),
+                "total_concepts": card.question.get("total_concepts", 0),
+                "cards_answered": card.question.get("cards_answered", 0),
+                "accuracy": card.question.get("accuracy", 0),
+            }
         return d
 
     def _get_stats(self, state: FeedState) -> Dict[str, Any]:
@@ -852,6 +930,10 @@ class ScrollFeedEngine:
             "total_xp": state.total_xp,
             "difficulty": round(state.current_difficulty, 2),
             "cards_shown": state.cards_shown,
+            # Progress visibility
+            "current_concept": state.concepts[state.current_concept_idx % max(1, len(state.concepts))] if state.concepts else "",
+            "concepts_mastered": len(getattr(state, "concepts_mastered", [])),
+            "total_concepts": len(state.concepts),
         }
 
     def _build_card_analytics(

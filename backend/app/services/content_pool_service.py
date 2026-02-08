@@ -68,6 +68,32 @@ class ContentPoolService:
 
         return cards
 
+    async def get_intro_card(
+        self,
+        topic: str,
+        concept: str,
+        exclude_ids: Optional[List[str]] = None,
+    ) -> Optional[ScrollCard]:
+        """Fetch one info_card for a specific concept (teach-before-test)."""
+        exclude_uuids = []
+        for eid in (exclude_ids or []):
+            try:
+                exclude_uuids.append(uuid.UUID(eid))
+            except ValueError:
+                pass
+
+        items = await self.get_pool_items(
+            topic=topic,
+            concepts=[concept],
+            content_type="info_card",
+            difficulty_range=(0.0, 1.0),
+            exclude_ids=exclude_uuids,
+            limit=1,
+        )
+        if items and not self._is_placeholder(items[0]):
+            return self._content_item_to_scroll_card(items[0])
+        return None
+
     async def get_pool_items(
         self,
         topic: str,

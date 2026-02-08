@@ -3,6 +3,7 @@ import { MCQCard } from "./MCQCard";
 import { FlashcardCard } from "./FlashcardCard";
 import { InfoCard } from "./InfoCard";
 import { ResourceCard } from "./ResourceCard";
+import { MilestoneCard } from "./MilestoneCard";
 
 interface CardRendererProps {
   card: ScrollCard;
@@ -28,6 +29,8 @@ export function CardRenderer({
   onInfoGotIt,
 }: CardRendererProps) {
   switch (card.card_type) {
+    case "milestone":
+      return <MilestoneCard key={card.id} card={card} onNext={onNext} />;
     case "flashcard":
       return (
         <FlashcardCard

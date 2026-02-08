@@ -45,6 +45,7 @@ import dynamic from "next/dynamic";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import { SkillTreeAnalysis } from "~/components/feed/SkillTreeAnalysis";
 import { RichText, Explanation } from "~/components/shared/RichText";
+import { MilestoneCard } from "~/components/feed/MilestoneCard";
 
 // Lazy-load heavy sub-components behind modals / bottom sheets
 const SkillTreePath = dynamic(
@@ -1673,7 +1674,9 @@ export function ScrollFeed() {
                     </button>
                 )}
 
-                {currentCard.card_type === "flashcard" ? (
+                {currentCard.card_type === "milestone" ? (
+                    <MilestoneCard card={currentCard} onNext={handleNext} />
+                ) : currentCard.card_type === "flashcard" ? (
                     <FlashcardCard
                         card={currentCard}
                         onRate={handleFlashcardRate}
@@ -1704,6 +1707,14 @@ export function ScrollFeed() {
             {/* Bottom bar */}
             <div className="flex items-center justify-center px-4 py-2 border-t border-gray-800/40 bg-gray-950 shrink-0">
                 <span className="text-[11px] text-gray-600">
+                    {store.stats?.current_concept && (
+                        <>
+                            <span className="text-gray-500">{store.stats.current_concept}</span>
+                            <span className="text-gray-700 mx-1.5">&#183;</span>
+                            <span className="text-emerald-600">{store.stats.concepts_mastered ?? 0}/{store.stats.total_concepts ?? 0}</span>
+                            <span className="text-gray-700 mx-1.5">&#183;</span>
+                        </>
+                    )}
                     Card {store.currentIdx + 1}
                     <span className="text-gray-700 mx-1.5">/</span>
                     {store.cards.length}+

@@ -31,6 +31,15 @@ export interface ScrollCard {
   resource_duration?: string;
   resource_channel?: string;
   resource_domain?: string;
+  // Milestone card-specific
+  milestone_type?: string;
+  milestone_concept?: string;
+  milestone_stats?: {
+    concepts_mastered: number;
+    total_concepts: number;
+    cards_answered: number;
+    accuracy: number;
+  };
 }
 
 export interface ScrollStats {
@@ -39,6 +48,9 @@ export interface ScrollStats {
   total_xp: number;
   difficulty: number;
   cards_shown: number;
+  current_concept?: string;
+  concepts_mastered?: number;
+  total_concepts?: number;
 }
 
 export interface CalibrationNudge {
