@@ -20,6 +20,7 @@ vi.mock("~/lib/auth", () => ({
         user: { name: "TestStudent", email: "test@test.com" },
         logout: mockLogout,
     }),
+    getStudentName: (user: Record<string, unknown> | null) => user?.name ?? "Student",
 }));
 
 const mockGetProgress = vi.fn();
