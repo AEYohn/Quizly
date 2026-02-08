@@ -1,4 +1,4 @@
-import type { ScrollCard, ScrollStats, ScrollAnalytics, ScrollSessionAnalytics, LeaderboardEntry, LearnProgressResponse } from "~/lib/api";
+import type { ScrollCard, ScrollStats, ScrollAnalytics, ScrollSessionAnalytics, LeaderboardEntry, LearnProgressResponse, QuestionHistoryItem, QuestionHistorySessionSummary, CalibrationResponse, PaginationMeta } from "~/lib/api";
 import type { SyllabusTopic, SyllabusTree } from "~/stores/scrollSessionStore";
 
 // Home screen props
@@ -110,6 +110,17 @@ export interface LeaderboardProps {
     onPeriodChange: (period: "weekly" | "alltime") => void;
 }
 
+// Profile tab types
+export type ProfileTab = "overview" | "history" | "weakAreas";
+export type HistoryFilter = "all" | "correct" | "incorrect";
+
+export interface WeakConcept {
+    concept: string;
+    score: number;
+    attempts: number;
+    correct: number;
+}
+
 // Profile props
 export interface ProfileProps {
     studentName: string;
@@ -122,6 +133,25 @@ export interface ProfileProps {
     accuracy: number;
     level: number;
     onLogout: () => void;
+    // Tab state
+    activeProfileTab: ProfileTab;
+    onProfileTabChange: (tab: ProfileTab) => void;
+    // History tab
+    questionSessions: QuestionHistorySessionSummary[];
+    historyFilter: HistoryFilter;
+    onHistoryFilterChange: (filter: HistoryFilter) => void;
+    isLoadingHistory: boolean;
+    historyPagination: PaginationMeta | null;
+    onLoadMoreHistory: () => void;
+    expandedSessionId: string | null;
+    expandedSessionQuestions: QuestionHistoryItem[];
+    onToggleSession: (sessionId: string) => void;
+    // Calibration & weak areas
+    calibration: CalibrationResponse | null;
+    isLoadingCalibration: boolean;
+    weakConcepts: WeakConcept[];
+    wrongAnswerPatterns: QuestionHistoryItem[];
+    isLoadingWrongAnswers: boolean;
 }
 
 // Variant component set

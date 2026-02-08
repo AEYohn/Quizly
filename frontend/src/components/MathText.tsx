@@ -47,10 +47,21 @@ export default function MathText({ text, className = "" }: MathTextProps) {
 
         // Detect code-like patterns (common programming syntax) and wrap in code style
         // Pattern: word followed by () like function calls - area(), Rectangle.area(), r->area(), etc.
-        // Also handles -> (arrow operator) and . (dot operator) for method chains
+        // Requires code signals in the identifier (dots, arrows, underscores) OR
+        // the identifier must look like code (camelCase, all lowercase short name, empty args)
         result = result.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*(?:(?:->|\.)[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\(\s*([^)]*)\s*\)/g, (match, func, args) => {
             // Don't double-wrap if already in a code tag
             if (match.includes('class="')) return match;
+            const hasCodeSignals = /[._]|->/.test(func);
+            const isCamelCase = /^[a-z][a-zA-Z0-9]*[A-Z]/.test(func);
+            const isEmptyCall = args.trim().length === 0;
+            const argsHaveSpaces = args.trim().includes(' ');
+            // Treat as code if: has code signals (obj.method, obj->method, snake_case),
+            // or is camelCase (e.g. getArea), or is empty-args call like foo()
+            // Skip if: plain word with English-looking parenthetical content (has spaces in args)
+            if (!hasCodeSignals && !isCamelCase && !isEmptyCall) return match;
+            if (!hasCodeSignals && !isCamelCase && isEmptyCall && /^[A-Z]/.test(func)) return match;
+            if (argsHaveSpaces && !hasCodeSignals) return match;
             // Escape the -> to HTML entity to prevent arrow conversion
             const escapedFunc = escapeHtml(func).replace(/-&gt;/g, '-&gt;');
             return `<code class="rounded bg-gray-700 px-1.5 py-0.5 font-mono text-sm text-cyan-300">${escapedFunc}(${escapeHtml(args)})</code>`;
