@@ -1,6 +1,15 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
-import { Sparkles, Zap } from "lucide-react-native";
+import { useState, useEffect } from "react";
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import {
+  Sparkles,
+  Zap,
+  BookOpen,
+  Calculator,
+  Lightbulb,
+  ArrowLeftRight,
+} from "lucide-react-native";
 import { useHaptics } from "@/hooks/useHaptics";
+import { MathText } from "@/components/common/MathText";
 import type { ScrollCard } from "@/types/learn";
 
 interface InfoCardProps {
@@ -12,6 +21,17 @@ interface InfoCardProps {
 
 export function InfoCard({ card, acknowledged, onGotIt, onNext }: InfoCardProps) {
   const haptics = useHaptics();
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Clear isSaving when acknowledged changes
+  useEffect(() => {
+    if (acknowledged) setIsSaving(false);
+  }, [acknowledged]);
+
+  const handleGotIt = () => {
+    setIsSaving(true);
+    onGotIt();
+  };
 
   return (
     <View className="flex-1 bg-white px-5 pt-4 pb-6">
@@ -22,24 +42,45 @@ export function InfoCard({ card, acknowledged, onGotIt, onNext }: InfoCardProps)
             {card.concept}
           </Text>
         </View>
-        <View className="bg-gray-100 px-2 py-1 rounded-full">
-          <Text className="text-xs text-gray-500">Learn</Text>
+        <View className="bg-gray-100 px-2 py-1 rounded-full flex-row items-center gap-1">
+          {card.info_style === "summary" ? (
+            <BookOpen size={10} color="#6B7280" />
+          ) : card.info_style === "key_formula" ? (
+            <Calculator size={10} color="#6B7280" />
+          ) : card.info_style === "example" ? (
+            <Lightbulb size={10} color="#6B7280" />
+          ) : card.info_style === "comparison" ? (
+            <ArrowLeftRight size={10} color="#6B7280" />
+          ) : null}
+          <Text className="text-xs text-gray-500">
+            {card.info_style === "summary"
+              ? "Summary"
+              : card.info_style === "key_formula"
+                ? "Key Formula"
+                : card.info_style === "example"
+                  ? "Worked Example"
+                  : card.info_style === "comparison"
+                    ? "Comparison"
+                    : "Learn"}
+          </Text>
         </View>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Title */}
         {card.info_title && (
-          <Text className="text-xl font-semibold text-gray-900 mb-3">
-            {card.info_title}
-          </Text>
+          <MathText
+            text={card.info_title}
+            style={{ fontSize: 20, fontWeight: "600", color: "#111827", marginBottom: 12 }}
+          />
         )}
 
         {/* Body */}
         <View className="bg-gray-50 rounded-xl p-4 mb-4">
-          <Text className="text-base text-gray-700 leading-6">
-            {card.info_body || card.prompt}
-          </Text>
+          <MathText
+            text={card.info_body || card.prompt}
+            style={{ fontSize: 16, color: "#374151", lineHeight: 24 }}
+          />
         </View>
 
         {/* Takeaway */}
@@ -51,9 +92,10 @@ export function InfoCard({ card, acknowledged, onGotIt, onNext }: InfoCardProps)
                 Key Takeaway
               </Text>
             </View>
-            <Text className="text-sm text-amber-800 leading-5">
-              {card.info_takeaway}
-            </Text>
+            <MathText
+              text={card.info_takeaway}
+              style={{ fontSize: 14, color: "#92400E", lineHeight: 20 }}
+            />
           </View>
         )}
       </ScrollView>
@@ -63,11 +105,21 @@ export function InfoCard({ card, acknowledged, onGotIt, onNext }: InfoCardProps)
         <Pressable
           onPress={() => {
             haptics.light();
-            onGotIt();
+            handleGotIt();
           }}
-          className="bg-indigo-600 rounded-xl py-3 items-center active:bg-indigo-700"
+          disabled={isSaving}
+          className={`rounded-xl py-3 items-center flex-row justify-center gap-2 ${
+            isSaving ? "bg-indigo-400" : "bg-indigo-600 active:bg-indigo-700"
+          }`}
         >
-          <Text className="text-white font-semibold">Got it</Text>
+          {isSaving ? (
+            <>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text className="text-white font-semibold">Saving...</Text>
+            </>
+          ) : (
+            <Text className="text-white font-semibold">Got it</Text>
+          )}
         </Pressable>
       ) : (
         <View>

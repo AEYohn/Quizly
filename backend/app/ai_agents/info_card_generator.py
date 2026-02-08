@@ -16,7 +16,7 @@ from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 logger = get_logger(__name__)
 
-INFO_CARD_STYLES = ["key_insight", "comparison", "example", "history"]
+INFO_CARD_STYLES = ["key_insight", "comparison", "example", "history", "summary", "key_formula"]
 
 
 class InfoCardGenerator:
@@ -28,6 +28,8 @@ class InfoCardGenerator:
     - comparison: X vs Y breakdown
     - example: Concrete worked example
     - history: Brief origin/context story
+    - summary: Structured key points with bullets
+    - key_formula: Prominent formula/definition with explanation
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -59,8 +61,10 @@ class InfoCardGenerator:
         style_guidance = {
             "key_insight": "Explain the single most important insight about this concept. Make it memorable.",
             "comparison": "Compare this concept with a related/contrasting concept. Use a clear X vs Y structure.",
-            "example": "Give a concrete, worked example that makes the concept click. Numbers, scenarios, real-world.",
+            "example": "Walk through a specific problem step by step. Number the steps. Show math in LaTeX. End with 'Key pattern to notice'.",
             "history": "Tell the brief origin story — who discovered it, when, why it matters. Keep it interesting.",
+            "summary": "Create a structured summary with bullet points for key facts. Bold important terms with **term**. Include a 'Remember' section.",
+            "key_formula": "Present the most important formula/definition in LaTeX display math ($$...$$). Include a brief 'What it means' paragraph and 'When to use it'.",
         }.get(style, "Explain the concept clearly.")
 
         context_line = f"\nCONTEXT: {context[:500]}" if context else ""

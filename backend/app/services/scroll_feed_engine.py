@@ -814,6 +814,26 @@ class ScrollFeedEngine:
                 except Exception as e:
                     log_error(logger, "teach_before_test intro card fetch failed", error=str(e))
 
+        # --- Remediation injection: wrong_streak >= 2 → inject teaching card ---
+        if count > 0:
+            for concept in state.concepts:
+                stats = state.concept_stats.get(concept, {})
+                if stats.get("wrong_streak", 0) >= 2:
+                    try:
+                        remediation_card = await self.pool_service.get_intro_card(
+                            topic=topic,
+                            concept=concept,
+                            exclude_ids=state.served_content_ids,
+                        )
+                        if remediation_card:
+                            if remediation_card.content_item_id:
+                                state.served_content_ids.append(remediation_card.content_item_id)
+                            prepend_cards.append(remediation_card)
+                            count = max(0, count - 1)
+                            break  # one remediation per batch
+                    except Exception as e:
+                        log_error(logger, "remediation card fetch failed", error=str(e))
+
         if count <= 0:
             return prepend_cards
 
@@ -885,6 +905,7 @@ class ScrollFeedEngine:
             d["info_title"] = card.question.get("info_title", "")
             d["info_body"] = card.question.get("info_body", "")
             d["info_takeaway"] = card.question.get("info_takeaway", "")
+            d["info_style"] = card.question.get("info_style", "key_insight")
         # Resource card fields
         if card.card_type == "resource_card":
             d["resource_title"] = card.question.get("resource_title", "")

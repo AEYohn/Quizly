@@ -175,24 +175,32 @@ class ContentGenerationOrchestrator:
                 if stored:
                     counts["flashcard"] += 1
 
-                # Info card via InfoCardGenerator (only 1 per concept, pick style by index)
+                # Info cards: generate 2 per concept with varied styles
                 if i == 0:
-                    ic = await self.info_card_gen.generate_info_card(concept_dict, context=notes)
-                    stored = await self._store_content_item(
-                        content_type="info_card",
-                        topic=topic,
-                        concept=concept_name,
-                        difficulty=0.3,  # info cards are always easy-medium
-                        content_json={
-                            "title": ic.get("title", ""),
-                            "body_markdown": ic.get("body_markdown", ""),
-                            "key_takeaway": ic.get("key_takeaway", ""),
-                        },
-                        tags=_topic_to_tags(topic, concept_name),
-                        agent="InfoCardGenerator",
-                    )
-                    if stored:
-                        counts["info_card"] += 1
+                    intro_styles = ["key_insight", "summary", "example"]
+                    for style_idx, info_style in enumerate(intro_styles[:2]):
+                        ic = await self.info_card_gen.generate_info_card(
+                            concept_dict, style=info_style, context=notes
+                        )
+                        if ic.get("llm_required"):
+                            continue
+                        info_difficulty = 0.2 if style_idx == 0 else 0.5
+                        stored = await self._store_content_item(
+                            content_type="info_card",
+                            topic=topic,
+                            concept=concept_name,
+                            difficulty=info_difficulty,
+                            content_json={
+                                "title": ic.get("title", ""),
+                                "body_markdown": ic.get("body_markdown", ""),
+                                "key_takeaway": ic.get("key_takeaway", ""),
+                                "style": ic.get("style", info_style),
+                            },
+                            tags=_topic_to_tags(topic, concept_name),
+                            agent="InfoCardGenerator",
+                        )
+                        if stored:
+                            counts["info_card"] += 1
 
             # Resource curation — 1-2 resources per concept (once, not per difficulty)
             try:

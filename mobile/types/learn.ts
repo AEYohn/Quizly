@@ -22,6 +22,7 @@ export interface ScrollCard {
   info_title?: string;
   info_body?: string;
   info_takeaway?: string;
+  info_style?: string;
   // Resource card-specific
   resource_title?: string;
   resource_url?: string;
@@ -403,6 +404,48 @@ export interface CalibrationResponse {
     total_responses: number;
   };
   dk_concepts: DKConcept[];
+}
+
+// ============================================
+// Question History Types
+// ============================================
+
+export interface QuestionHistorySession {
+  session_id: string;
+  topic: string;
+  mode: string;
+  questions_answered: number;
+  questions_correct: number;
+  accuracy: number;
+  started_at: string | null;
+  ended_at: string | null;
+}
+
+export interface QuestionHistoryItem {
+  id: string;
+  session_id: string;
+  prompt: string;
+  options: string[] | null;
+  correct_answer: string;
+  student_answer: string;
+  is_correct: boolean;
+  confidence: number | null;
+  explanation: string | null;
+  concept: string;
+  difficulty: number | null;
+  topic: string;
+  mode: string;
+  answered_at: string;
+}
+
+export interface QuestionHistorySessionsResponse {
+  sessions: QuestionHistorySession[];
+  pagination: { offset: number; limit: number; total: number };
+}
+
+export interface QuestionHistoryResponse {
+  items: QuestionHistoryItem[];
+  pagination: { offset: number; limit: number; total: number };
 }
 
 // ============================================

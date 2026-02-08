@@ -19,7 +19,7 @@ class ContentPoolService:
     """Queries shared pool for scroll feed. Tracks interactions."""
 
     # Target content distribution
-    TYPE_WEIGHTS = {"mcq": 0.5, "flashcard": 0.2, "info_card": 0.15, "resource_card": 0.15}
+    TYPE_WEIGHTS = {"mcq": 0.4, "flashcard": 0.25, "info_card": 0.25, "resource_card": 0.10}
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -246,6 +246,7 @@ class ContentPoolService:
                 "info_title": cj.get("title", ""),
                 "info_body": cj.get("body_markdown", ""),
                 "info_takeaway": cj.get("key_takeaway", ""),
+                "info_style": cj.get("style", "key_insight"),
             }
 
         xp_value = int(10 * (1 + item.difficulty)) if item.content_type == "mcq" else 5
