@@ -32,6 +32,7 @@ from ..utils.llm_utils import call_gemini_with_timeout
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
+from ..cache import CacheService
 
 from ..db_models import (
     LearningSession,

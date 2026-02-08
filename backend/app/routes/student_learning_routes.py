@@ -9,9 +9,9 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from ..exceptions import (
-    QuizlyException, ErrorCodes, SessionNotFound, ResourceNotFound,
+    SessionNotFound, ResourceNotFound,
     InvalidInput, AIServiceUnavailable,
 )
 from pydantic import BaseModel
@@ -24,6 +24,7 @@ from ..db_models import User
 from ..db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLearningState, DebateSession, PeerDiscussionSession
 from ..models.game import Player, GameSession
 from ..auth_clerk import get_current_user_clerk
+from ..services.discussion_service import generate_discussion_summary
 
 # Import AI agents from backend package
 from ..ai_agents import ExitTicketAgent
@@ -44,9 +45,6 @@ try:
 except ImportError as e:
     print(f"Warning: AI agents not available: {e}")
     AI_AGENTS_AVAILABLE = False
-
-
-from ..services.discussion_service import generate_discussion_summary
 
 router = APIRouter()
 

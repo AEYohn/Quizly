@@ -3,15 +3,15 @@ Learn API Routes
 Conversational adaptive learning endpoints.
 """
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
 from ..exceptions import (
     QuizlyException, ErrorCodes, SessionNotFound, ResourceNotFound,
-    Forbidden, InvalidInput, AIServiceUnavailable,
+    Forbidden, InvalidInput,
 )
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import case, delete, func, or_, select, and_
+from sqlalchemy import case, delete, func, select, and_
 from datetime import datetime, timezone, timedelta
 import math
 import os
@@ -28,7 +28,7 @@ from ..services.scroll_feed_engine import ScrollFeedEngine
 from ..services.content_pool_service import ContentPoolService
 from ..services.syllabus_service import SyllabusService
 from ..services.knowledge_graph import KnowledgeGraph
-from ..services.progress_service import aggregate_xp_by_subject, ensure_utc_iso, get_learning_history as _get_learning_history
+from ..services.progress_service import ensure_utc_iso, get_learning_history as _get_learning_history
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -1692,7 +1692,7 @@ async def assessment_diagnostic(
         answers=request.answers,
     )
     if "error" in result:
-        raise SessionNotFound(session_id)
+        raise SessionNotFound(request.assessment_id)
     return result
 
 

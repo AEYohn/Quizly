@@ -506,9 +506,9 @@ Return ONLY valid JSON:
                 "prompt": f"Which of the following best describes {target_concept}?",
                 "options": [
                     f"A) A core principle of {target_concept}",
-                    f"B) An unrelated concept",
+                    "B) An unrelated concept",
                     f"C) A common misconception about {target_concept}",
-                    f"D) None of the above",
+                    "D) None of the above",
                 ],
                 "correct_answer": "A",
                 "hint": f"Think about the fundamental definition of {target_concept}.",
