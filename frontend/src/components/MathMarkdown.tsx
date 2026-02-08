@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -84,8 +85,8 @@ export function MathMarkdown({ children, className = "" }: MathMarkdownProps) {
     });
 
     // Restore math placeholders in rendered text nodes
-    function restoreMath(text: string): (string | JSX.Element)[] {
-        const parts: (string | JSX.Element)[] = [];
+    function restoreMath(text: string): (string | React.ReactElement)[] {
+        const parts: (string | React.ReactElement)[] = [];
         let remaining = text;
         for (const block of mathBlocks) {
             const idx = remaining.indexOf(block.id);

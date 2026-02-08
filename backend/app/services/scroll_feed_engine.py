@@ -27,7 +27,7 @@ from dataclasses import dataclass, field, asdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE, gemini_client, GEMINI_MODEL_NAME
+from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
