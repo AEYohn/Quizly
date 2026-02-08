@@ -7,7 +7,6 @@ Follows the same Gemini + fallback pattern as QuestionBankGenerator.
 
 import os
 import json
-import time
 from typing import Dict, Any, Optional
 
 from ..sentry_config import capture_exception

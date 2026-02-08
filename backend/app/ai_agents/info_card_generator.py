@@ -8,7 +8,6 @@ Follows the same Gemini + fallback pattern as QuestionBankGenerator.
 
 import os
 import json
-import time
 import random
 from typing import Dict, Any, Optional
 

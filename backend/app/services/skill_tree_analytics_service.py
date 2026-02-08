@@ -7,8 +7,8 @@ to produce a comprehensive analysis of a student's skill tree progress.
 
 import os
 import json
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, func, select

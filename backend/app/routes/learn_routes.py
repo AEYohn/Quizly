@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import case, delete, func, or_, select, and_
-from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone, timedelta
 import math
 import os
@@ -520,7 +519,7 @@ async def get_question_history_sessions(
         select(
             QuestionHistory.session_id,
             func.count().label("questions_answered"),
-            func.sum(case((QuestionHistory.is_correct == True, 1), else_=0)).label("questions_correct"),
+            func.sum(case((QuestionHistory.is_correct.is_(True), 1), else_=0)).label("questions_correct"),
             func.min(QuestionHistory.answered_at).label("started_at"),
             func.max(QuestionHistory.answered_at).label("ended_at"),
         )

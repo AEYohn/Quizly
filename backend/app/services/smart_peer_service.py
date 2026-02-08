@@ -20,7 +20,6 @@ Adaptive Socratic System:
 import os
 import json
 import base64
-import asyncio
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional, List
 
