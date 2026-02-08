@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
+from ..exceptions import (
+    QuizlyException, ErrorCodes, SessionNotFound, ResourceNotFound,
+    InvalidInput, AIServiceUnavailable,
+)
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -21,26 +25,28 @@ from ..db_models_learning import ExitTicket, DetailedMisconception, AdaptiveLear
 from ..models.game import Player, GameSession
 from ..auth_clerk import get_current_user_clerk
 
-# Add experimentation folder to path for AI agents
+# Import AI agents from backend package
+from ..ai_agents import ExitTicketAgent
+
+EXIT_TICKET_AGENT = ExitTicketAgent()
+
+# Add experimentation folder to path for remaining agents not yet consolidated
 EXPERIMENTATION_PATH = Path(__file__).parent.parent.parent.parent / "experimentation" / "ai_agents"
 if str(EXPERIMENTATION_PATH) not in sys.path:
     sys.path.insert(0, str(EXPERIMENTATION_PATH))
 
-# Import AI agents
 try:
-    from exit_ticket_agent import ExitTicketAgent
     from misconception_tagger import MisconceptionTagger, MisconceptionResult  # noqa: F401
     from adaptive_engine import AdaptiveDifficultyEngine
-    from debate_judge import DebateJudge
-    EXIT_TICKET_AGENT = ExitTicketAgent()
     MISCONCEPTION_TAGGER = MisconceptionTagger()
     ADAPTIVE_ENGINE = AdaptiveDifficultyEngine()
-    DEBATE_JUDGE = DebateJudge()
     AI_AGENTS_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: AI agents not available: {e}")
     AI_AGENTS_AVAILABLE = False
 
+
+from ..services.discussion_service import generate_discussion_summary
 
 router = APIRouter()
 
@@ -226,13 +232,13 @@ async def generate_exit_ticket(
             lowest_accuracy = acc
             target_concept = concept
 
-    # Try Gemini for personalized exit ticket generation
-    ticket_data = await _generate_exit_ticket_with_gemini(
+    # Generate personalized exit ticket via the agent
+    ticket_data = await EXIT_TICKET_AGENT.generate_exit_ticket(
         student_name=request.student_name,
         target_concept=target_concept,
         session_accuracy=session_accuracy,
         responses=request.responses,
-        concepts=request.concepts
+        concepts=request.concepts,
     )
 
     # Store in database
@@ -328,7 +334,7 @@ async def answer_exit_ticket(
     ticket = result.scalar_one_or_none()
 
     if not ticket:
-        raise HTTPException(status_code=404, detail="Exit ticket not found")
+        raise ResourceNotFound("Exit ticket")
 
     # Check if answer is correct
     is_correct = request.student_answer.upper().strip() == ticket.correct_answer.upper().strip()
@@ -573,7 +579,7 @@ async def resolve_misconception(
     misconception = result.scalar_one_or_none()
 
     if not misconception:
-        raise HTTPException(status_code=404, detail="Misconception not found")
+        raise ResourceNotFound("Misconception")
 
     misconception.is_resolved = True
     misconception.resolved_at = datetime.now(timezone.utc)
@@ -633,7 +639,7 @@ async def update_adaptive_state(
 ):
     """Update adaptive learning state after a question is answered."""
     if not AI_AGENTS_AVAILABLE:
-        raise HTTPException(status_code=503, detail="AI agents not available")
+        raise AIServiceUnavailable("AI agents not available")
 
     # Get or create adaptive state for student
     result = await db.execute(
@@ -681,6 +687,8 @@ async def update_adaptive_state(
         "accuracy": class_accuracy,
         "reason": adjustment.reason,
     })
+    if len(history) > 200:
+        history = history[-100:]
     state.difficulty_history = history
 
     await db.commit()
@@ -790,10 +798,10 @@ async def debate_turn(
     debate = result.scalar_one_or_none()
 
     if not debate:
-        raise HTTPException(status_code=404, detail="Debate session not found")
+        raise SessionNotFound("Debate session not found")
 
     if debate.status != "ongoing":
-        raise HTTPException(status_code=400, detail="Debate is not ongoing")
+        raise InvalidInput("Debate is not ongoing")
 
     # Add student's argument to transcript
     transcript = debate.transcript or []
@@ -828,7 +836,7 @@ async def evaluate_debate(
 ):
     """End and evaluate a debate session."""
     if not AI_AGENTS_AVAILABLE:
-        raise HTTPException(status_code=503, detail="AI agents not available")
+        raise AIServiceUnavailable("AI agents not available")
 
     result = await db.execute(
         select(DebateSession).where(DebateSession.id == uuid.UUID(request.debate_id))
@@ -836,7 +844,7 @@ async def evaluate_debate(
     debate = result.scalar_one_or_none()
 
     if not debate:
-        raise HTTPException(status_code=404, detail="Debate session not found")
+        raise SessionNotFound("Debate session not found")
 
     # Use AI to evaluate the debate
     # Note: This is simplified - full implementation would retrieve the question and use DebateJudge
@@ -860,328 +868,6 @@ async def evaluate_debate(
         "logical_soundness": debate.logical_soundness,
         "learning_recommendation": debate.learning_recommendation,
     }
-
-
-async def _generate_exit_ticket_with_gemini(
-    student_name: str,
-    target_concept: str,
-    session_accuracy: float,
-    responses: List[Dict[str, Any]],
-    concepts: List[str],
-    peer_discussion_data: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    Generate a comprehensive, rigorous exit ticket using Gemini AI.
-
-    Uses proven prompt engineering techniques:
-    1. Chain-of-thought reasoning - analyze patterns before generating content
-    2. Few-shot examples - show expected output format
-    3. Structured data - provide ALL available context
-    4. Role prompting - position AI as expert learning scientist
-    5. Output constraints - specific JSON schema with validation
-    """
-    import os
-    import json
-
-    import google.generativeai as genai
-
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="GEMINI_API_KEY not configured")
-
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
-
-    # =========================================================================
-    # STEP 1: Build comprehensive context from ALL student responses
-    # =========================================================================
-
-    response_context = ""
-    total_time_ms = 0
-    questions_with_reasoning = 0
-    questions_with_peer_discussion = 0
-
-    for i, r in enumerate(responses, 1):
-        status = "✓ CORRECT" if r.get("is_correct", False) else "✗ INCORRECT"
-        conf = r.get("confidence", 50)
-        conf_label = "very confident" if conf >= 80 else "somewhat confident" if conf >= 50 else "uncertain"
-
-        # Build detailed question analysis
-        response_context += f"\n\n--- QUESTION {i} ---"
-        response_context += f"\nSTATUS: {status}"
-        response_context += f"\nCONFIDENCE: {conf}% ({conf_label})"
-        response_context += f"\nQUESTION: {r.get('question_text', 'N/A')}"
-
-        # Include all options if available
-        if r.get('options'):
-            response_context += "\nOPTIONS:"
-            for opt_key, opt_val in r.get('options', {}).items():
-                marker = "→" if opt_key == r.get('student_answer', '')[:1] else " "
-                response_context += f"\n  {marker} {opt_key}: {opt_val}"
-
-        response_context += f"\nSTUDENT CHOSE: {r.get('student_answer', 'N/A')}"
-
-        if not r.get("is_correct", False):
-            response_context += f"\nCORRECT ANSWER: {r.get('correct_answer', 'N/A')}"
-
-        # Time analysis
-        time_ms = r.get('time_taken_ms', 0)
-        if time_ms:
-            total_time_ms += time_ms
-            time_label = "very quick" if time_ms < 5000 else "thoughtful" if time_ms < 20000 else "struggled"
-            response_context += f"\nTIME TAKEN: {time_ms/1000:.1f}s ({time_label})"
-
-        # Reasoning - critical for understanding misconceptions
-        if r.get('reasoning'):
-            questions_with_reasoning += 1
-            response_context += f"\nSTUDENT'S REASONING: \"{r.get('reasoning')}\""
-
-        # Peer discussion indicator
-        if r.get('had_peer_discussion'):
-            questions_with_peer_discussion += 1
-            response_context += "\n[Had peer discussion on this question]"
-
-    # =========================================================================
-    # STEP 2: Calculate detailed analytics
-    # =========================================================================
-
-    wrong_answers = [r for r in responses if not r.get("is_correct", False)]
-    high_confidence_wrong = [r for r in wrong_answers if r.get("confidence", 50) >= 70]
-    low_confidence_correct = [r for r in responses if r.get("is_correct", False) and r.get("confidence", 50) < 40]
-
-    # Pattern detection
-    patterns = []
-    if high_confidence_wrong:
-        patterns.append(f"HIGH-CONFIDENCE ERRORS: {len(high_confidence_wrong)} questions where student was confident but wrong")
-    if low_confidence_correct:
-        patterns.append(f"UNDERCONFIDENCE: {len(low_confidence_correct)} questions where student was unsure but correct")
-    if questions_with_reasoning < len(wrong_answers) / 2:
-        patterns.append("LIMITED REASONING: Student provided little explanation for their answers")
-
-    avg_time = (total_time_ms / len(responses) / 1000) if responses else 0
-    if avg_time < 5:
-        patterns.append(f"RUSHED: Average {avg_time:.1f}s per question - may be rushing through")
-    elif avg_time > 30:
-        patterns.append(f"STRUGGLING: Average {avg_time:.1f}s per question - finding material difficult")
-
-    patterns_text = "\n".join(f"- {p}" for p in patterns) if patterns else "No specific patterns detected"
-
-    # =========================================================================
-    # STEP 3: Include peer discussion context if available
-    # =========================================================================
-
-    discussion_context = ""
-    if peer_discussion_data:
-        discussion_context = f"""
-
-══════════════════════════════════════════════════════════
-PEER DISCUSSION INSIGHTS (Student discussed with AI tutor)
-══════════════════════════════════════════════════════════
-Summary: {peer_discussion_data.get('summary', 'N/A')}
-Key Insights: {', '.join(peer_discussion_data.get('key_insights', [])) or 'None recorded'}
-Misconceptions Identified: {', '.join(peer_discussion_data.get('misconceptions_identified', [])) or 'None identified'}
-Understanding Improved: {peer_discussion_data.get('understanding_improved', 'Unknown')}
-"""
-
-    # =========================================================================
-    # STEP 4: Determine exit ticket complexity based on performance
-    # =========================================================================
-
-    # Generate substantial homework - more questions for struggling students
-    if session_accuracy >= 0.8:
-        num_practice = 5  # Challenge with harder questions
-        difficulty = "challenging extension"
-    elif session_accuracy >= 0.5:
-        num_practice = 6  # Reinforce with varied practice
-        difficulty = "reinforcement and slight challenge"
-    else:
-        num_practice = 8  # Intensive practice on fundamentals
-        difficulty = "foundational practice building up"
-
-    num_flashcards = 3 if session_accuracy >= 0.7 else 4 if session_accuracy >= 0.4 else 5
-
-    # =========================================================================
-    # STEP 5: Build comprehensive prompt using best practices
-    # =========================================================================
-
-    prompt = f"""You are an expert learning scientist creating a COMPREHENSIVE personalized study packet for a student. This is NOT a quick check - it's their homework and study guide based on their quiz performance.
-
-══════════════════════════════════════════════════════════
-STUDENT PROFILE
-══════════════════════════════════════════════════════════
-Name: {student_name}
-Topic Area: {target_concept}
-Session Accuracy: {session_accuracy * 100:.0f}% ({sum(1 for r in responses if r.get('is_correct', False))}/{len(responses)} correct)
-Questions with reasoning provided: {questions_with_reasoning}/{len(responses)}
-Questions with peer discussion: {questions_with_peer_discussion}/{len(responses)}
-Average response time: {avg_time:.1f}s per question
-
-══════════════════════════════════════════════════════════
-DETECTED LEARNING PATTERNS
-══════════════════════════════════════════════════════════
-{patterns_text}
-
-══════════════════════════════════════════════════════════
-DETAILED PERFORMANCE LOG (MOST IMPORTANT - Analyze carefully!)
-══════════════════════════════════════════════════════════
-{response_context}
-{discussion_context}
-
-══════════════════════════════════════════════════════════
-YOUR TASK: Create a COMPREHENSIVE Study Packet
-══════════════════════════════════════════════════════════
-
-This student needs {difficulty} questions. Generate:
-
-1. PERSONALIZED STUDY NOTES (study_notes object)
-   Create detailed, structured notes covering:
-   - Key concepts they need to master (based on their errors)
-   - Common pitfalls to avoid (from their specific mistakes)
-   - Step-by-step strategies for this topic
-   - Memory tricks or mnemonics where helpful
-
-2. QUICK REVIEW (micro_lesson - 4-6 sentences)
-   - Directly address their SPECIFIC errors
-   - Reference their actual wrong answers
-   - Explain the correct approach
-
-3. HOMEWORK QUESTIONS ({num_practice} practice questions)
-   This is their homework - generate EXACTLY {num_practice} varied questions:
-   - Questions 1-2: Foundation (easier versions of what they missed)
-   - Questions 3-4: Core practice (similar difficulty to quiz)
-   - Questions 5+: Extension (slightly harder applications)
-
-   Each question MUST have 4 options and target their specific gaps.
-
-4. FLASHCARDS ({num_flashcards} cards)
-   Key terms and concepts for memorization
-
-5. MISCONCEPTION ANALYSIS
-   Identify and correct their specific misunderstandings
-
-CRITICAL: Generate EXACTLY {num_practice} practice questions. This is homework, not just a check.
-
-Return ONLY valid JSON:
-{{
-    "target_concept": "Specific concept to master",
-    "study_notes": {{
-        "key_concepts": [
-            "First key concept they need to understand...",
-            "Second key concept...",
-            "Third key concept..."
-        ],
-        "common_mistakes": [
-            "Mistake 1: Description and how to avoid it",
-            "Mistake 2: Description and how to avoid it"
-        ],
-        "strategies": [
-            "Strategy 1: Step-by-step approach for this topic",
-            "Strategy 2: Another helpful technique"
-        ],
-        "memory_tips": [
-            "Tip 1: Mnemonic or memory aid",
-            "Tip 2: Another helpful trick"
-        ]
-    }},
-    "micro_lesson": "4-6 sentence personalized explanation addressing THEIR specific errors...",
-    "encouragement": "Brief encouraging message...",
-    "practice_questions": [
-        {{
-            "prompt": "Question 1 (Foundation level)?",
-            "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-            "correct_answer": "A",
-            "hint": "Guiding hint",
-            "explanation": "Why correct and connection to their mistake",
-            "difficulty": "foundation"
-        }},
-        {{
-            "prompt": "Question 2 (Foundation level)?",
-            "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-            "correct_answer": "B",
-            "hint": "Guiding hint",
-            "explanation": "Explanation",
-            "difficulty": "foundation"
-        }},
-        {{
-            "prompt": "Question 3 (Core practice)?",
-            "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-            "correct_answer": "C",
-            "hint": "Guiding hint",
-            "explanation": "Explanation",
-            "difficulty": "core"
-        }},
-        {{
-            "prompt": "Question 4 (Core practice)?",
-            "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-            "correct_answer": "D",
-            "hint": "Guiding hint",
-            "explanation": "Explanation",
-            "difficulty": "core"
-        }},
-        {{
-            "prompt": "Question 5+ (Extension)?",
-            "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-            "correct_answer": "A",
-            "hint": "Guiding hint",
-            "explanation": "Explanation",
-            "difficulty": "extension"
-        }}
-    ],
-    "flashcards": [
-        {{"front": "Term/concept?", "back": "Clear explanation"}}
-    ],
-    "misconceptions": [
-        {{
-            "type": "Misconception name",
-            "description": "What student incorrectly believes",
-            "correction": "Correct understanding"
-        }}
-    ]
-}}"""
-
-    try:
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "response_mime_type": "application/json",
-                "temperature": 0.7,  # Balanced creativity and accuracy
-                "max_output_tokens": 4096,  # More for comprehensive homework packet
-            }
-        )
-        response_text = response.text.strip()
-        result = json.loads(response_text)
-
-        # Handle array response (Gemini sometimes returns array)
-        if isinstance(result, list):
-            result = result[0] if result else {}
-
-        # Extract first question for backwards compatibility
-        practice_questions = result.get("practice_questions", [])
-        first_question = practice_questions[0] if practice_questions else {
-            "prompt": result.get("question", {}).get("prompt", ""),
-            "options": result.get("question", {}).get("options", []),
-            "correct_answer": result.get("question", {}).get("correct_answer", "A"),
-            "hint": result.get("question", {}).get("hint", "")
-        }
-
-        # Structure for backwards compatibility + new fields
-        return {
-            "target_concept": result.get("target_concept", target_concept),
-            "study_notes": result.get("study_notes", {}),
-            "micro_lesson": result.get("micro_lesson", ""),
-            "encouragement": result.get("encouragement", ""),
-            "question": first_question,
-            "practice_questions": practice_questions,
-            "flashcards": result.get("flashcards", []),
-            "misconceptions": result.get("misconceptions", [])
-        }
-    except json.JSONDecodeError as e:
-        print(f"JSON parse error in exit ticket: {e}")
-        print(f"Raw response: {response_text[:500] if 'response_text' in dir() else 'N/A'}")
-        raise HTTPException(status_code=500, detail="Failed to parse AI response")
-    except Exception as e:
-        print(f"Gemini exit ticket generation error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate exit ticket: {str(e)}")
 
 
 def _generate_ai_peer_response(question: Dict, student_answer: str, transcript: List) -> str:
@@ -1268,10 +954,10 @@ async def add_peer_discussion_message(
     session = result.scalar_one_or_none()
 
     if not session:
-        raise HTTPException(status_code=404, detail="Peer discussion session not found")
+        raise SessionNotFound("Peer discussion session not found")
 
     if session.status != "ongoing":
-        raise HTTPException(status_code=400, detail="Discussion is not ongoing")
+        raise InvalidInput("Discussion is not ongoing")
 
     # Add message to transcript
     transcript = session.transcript or []
@@ -1306,10 +992,10 @@ async def complete_peer_discussion(
     session = result.scalar_one_or_none()
 
     if not session:
-        raise HTTPException(status_code=404, detail="Peer discussion session not found")
+        raise SessionNotFound("Peer discussion session not found")
 
     # Generate AI summary using Gemini
-    summary_data = await _generate_discussion_summary(session)
+    summary_data = await generate_discussion_summary(session)
 
     # Update session
     session.status = "completed"
@@ -1341,92 +1027,6 @@ async def complete_peer_discussion(
         "duration_seconds": session.duration_seconds
     }
 
-
-async def _generate_discussion_summary(session: PeerDiscussionSession) -> Dict[str, Any]:
-    """Generate an AI summary of the peer discussion using Gemini."""
-    import os
-
-    try:
-        import google.generativeai as genai
-
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            return _fallback_summary(session)
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
-
-        # Build transcript text
-        transcript_text = "\n".join([
-            f"{msg.get('sender', 'Unknown')}: {msg.get('content', '')}"
-            for msg in (session.transcript or [])
-        ])
-
-        prompt = f"""Analyze this peer discussion about a quiz question and provide a detailed summary.
-
-Question: {session.question_text}
-Options: {session.question_options}
-Correct Answer: {session.correct_answer}
-Student's Answer: {session.student_answer} ({"Correct" if session.was_correct else "Incorrect"})
-Student's Confidence: {session.student_confidence}%
-
-Discussion Transcript:
-{transcript_text}
-
-Provide a JSON response with:
-1. "summary": A 2-3 sentence summary of what was discussed and learned
-2. "key_insights": Array of 2-3 specific learning insights from the discussion
-3. "misconceptions": Array of any misconceptions revealed (empty if none)
-4. "learning_moments": Array of moments where understanding improved
-5. "understanding_improved": true/false - did the student's understanding improve?
-6. "quality": "excellent", "good", "fair", or "poor" - quality of the discussion
-
-Return ONLY valid JSON, no markdown."""
-
-        response = model.generate_content(prompt)
-        response_text = response.text.strip()
-
-        # Parse JSON response
-        if response_text.startswith("```"):
-            response_text = response_text.split("```")[1]
-            if response_text.startswith("json"):
-                response_text = response_text[4:]
-
-        import json
-        return json.loads(response_text)
-
-    except Exception as e:
-        print(f"Gemini summary generation error: {e}")
-        return _fallback_summary(session)
-
-
-def _fallback_summary(session: PeerDiscussionSession) -> Dict[str, Any]:
-    """Fallback summary when AI is not available."""
-    message_count = len(session.transcript or [])
-    student_messages = [m for m in (session.transcript or []) if m.get("sender") == "student"]
-
-    quality = "fair"
-    if message_count >= 6 and len(student_messages) >= 3:
-        quality = "good"
-    if message_count >= 8 and len(student_messages) >= 4:
-        quality = "excellent"
-
-    return {
-        "summary": f"Student discussed the question with {session.peer_name}. "
-                   f"The conversation had {message_count} messages exploring the concept.",
-        "key_insights": [
-            f"Discussed why '{session.student_answer}' was chosen",
-            f"The correct answer is '{session.correct_answer}'"
-        ] if not session.was_correct else [
-            "Reinforced understanding of the correct answer",
-            "Explored reasoning behind the solution"
-        ],
-        "misconceptions": [f"Chose '{session.student_answer}' instead of '{session.correct_answer}'"]
-            if not session.was_correct else [],
-        "learning_moments": ["Engaged in peer discussion about the concept"],
-        "understanding_improved": message_count >= 4,
-        "quality": quality
-    }
 
 
 @router.get("/peer-discussions", response_model=List[PeerDiscussionResponse])

@@ -17,6 +17,8 @@ DEFAULT_TIMEOUT = 30
 DEFAULT_RETRIES = 2
 # Base delay for exponential backoff (seconds)
 BASE_DELAY = 1.0
+# Semaphore to limit concurrent Gemini API calls
+_gemini_semaphore = asyncio.Semaphore(5)
 
 
 async def call_gemini_with_timeout(
@@ -51,10 +53,11 @@ async def call_gemini_with_timeout(
             if generation_config is not None:
                 kwargs["generation_config"] = generation_config
 
-            response = await asyncio.wait_for(
-                asyncio.to_thread(model.generate_content, prompt, **kwargs),
-                timeout=timeout,
-            )
+            async with _gemini_semaphore:
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(model.generate_content, prompt, **kwargs),
+                    timeout=timeout,
+                )
 
             # Track token usage
             try:

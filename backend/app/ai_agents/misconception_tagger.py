@@ -223,6 +223,8 @@ Return JSON:
                 )
                 
                 self.misconception_history.append(misconception)
+                if len(self.misconception_history) > 1000:
+                    self.misconception_history = self.misconception_history[-500:]
                 return misconception
                 
         except Exception as e:

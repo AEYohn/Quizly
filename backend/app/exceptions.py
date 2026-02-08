@@ -64,6 +64,13 @@ class ErrorCodes:
     # Rate limiting
     RATE_LIMITED = "RATE_LIMITED"
 
+    # Learning / Session errors
+    SESSION_NOT_FOUND = "SESSION_NOT_FOUND"
+    RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"
+    INVALID_INPUT = "INVALID_INPUT"
+    FORBIDDEN = "FORBIDDEN"
+    AI_SERVICE_UNAVAILABLE = "AI_SERVICE_UNAVAILABLE"
+
     # Server errors
     INTERNAL_ERROR = "INTERNAL_ERROR"
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
@@ -133,6 +140,33 @@ class RateLimited(QuizlyException):
             429,
             headers=headers,
         )
+
+
+class SessionNotFound(QuizlyException):
+    def __init__(self, session_id: str = ""):
+        msg = f"Session {session_id} not found" if session_id else "Session not found"
+        super().__init__(ErrorCodes.SESSION_NOT_FOUND, msg, 404)
+
+
+class ResourceNotFound(QuizlyException):
+    def __init__(self, resource: str = "Resource"):
+        msg = f"{resource} not found"
+        super().__init__(ErrorCodes.RESOURCE_NOT_FOUND, msg, 404)
+
+
+class Forbidden(QuizlyException):
+    def __init__(self, message: str = "Cannot access another user's data"):
+        super().__init__(ErrorCodes.FORBIDDEN, message, 403)
+
+
+class InvalidInput(QuizlyException):
+    def __init__(self, message: str = "Invalid input"):
+        super().__init__(ErrorCodes.INVALID_INPUT, message, 400)
+
+
+class AIServiceUnavailable(QuizlyException):
+    def __init__(self, message: str = "AI service is currently unavailable"):
+        super().__init__(ErrorCodes.AI_SERVICE_UNAVAILABLE, message, 503)
 
 
 async def quizly_exception_handler(request: Request, exc: QuizlyException) -> JSONResponse:

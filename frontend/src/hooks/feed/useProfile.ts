@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useReducer, useEffect, useCallback, useMemo } from "react";
 import { learnApi } from "~/lib/api";
 import type {
     LearnProgressResponse,
@@ -14,34 +14,177 @@ import type { ProfileTab, HistoryFilter, WeakConcept } from "~/variants/contract
 
 const HISTORY_BATCH = 20;
 
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+interface ProfileState {
+    progress: LearnProgressResponse | null;
+    isLoading: boolean;
+
+    activeProfileTab: ProfileTab;
+
+    calibration: CalibrationResponse | null;
+    isLoadingCalibration: boolean;
+    calibrationLoaded: boolean;
+
+    questionSessions: QuestionHistorySessionSummary[];
+    historyFilter: HistoryFilter;
+    isLoadingHistory: boolean;
+    historyPagination: PaginationMeta | null;
+    historyLoaded: boolean;
+
+    expandedSessionId: string | null;
+    expandedSessionQuestions: QuestionHistoryItem[];
+
+    wrongAnswerPatterns: QuestionHistoryItem[];
+    isLoadingWrongAnswers: boolean;
+    wrongAnswersLoaded: boolean;
+}
+
+const initialState: ProfileState = {
+    progress: null,
+    isLoading: true,
+
+    activeProfileTab: "overview",
+
+    calibration: null,
+    isLoadingCalibration: false,
+    calibrationLoaded: false,
+
+    questionSessions: [],
+    historyFilter: "all",
+    isLoadingHistory: false,
+    historyPagination: null,
+    historyLoaded: false,
+
+    expandedSessionId: null,
+    expandedSessionQuestions: [],
+
+    wrongAnswerPatterns: [],
+    isLoadingWrongAnswers: false,
+    wrongAnswersLoaded: false,
+};
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+type ProfileAction =
+    | { type: "SET_LOADING"; payload: boolean }
+    | { type: "SET_PROGRESS"; payload: LearnProgressResponse | null }
+    | { type: "SET_CALIBRATION"; payload: CalibrationResponse | null }
+    | { type: "SET_ACTIVE_TAB"; payload: ProfileTab }
+    | { type: "HISTORY_LOADING" }
+    | { type: "HISTORY_LOADED"; payload: { sessions: QuestionHistorySessionSummary[]; pagination: PaginationMeta } }
+    | { type: "HISTORY_APPEND"; payload: { sessions: QuestionHistorySessionSummary[]; pagination: PaginationMeta } }
+    | { type: "HISTORY_DONE_LOADING" }
+    | { type: "SET_HISTORY_FILTER"; payload: HistoryFilter }
+    | { type: "EXPAND_SESSION"; payload: { sessionId: string } }
+    | { type: "COLLAPSE_SESSION" }
+    | { type: "SET_SESSION_QUESTIONS"; payload: QuestionHistoryItem[] }
+    | { type: "WRONG_ANSWERS_LOADING" }
+    | { type: "WRONG_ANSWERS_LOADED"; payload: QuestionHistoryItem[] }
+    | { type: "WRONG_ANSWERS_DONE_LOADING" }
+    | { type: "INITIAL_LOADED"; payload: { progress: LearnProgressResponse | null; calibration: CalibrationResponse | null } };
+
+// ---------------------------------------------------------------------------
+// Reducer
+// ---------------------------------------------------------------------------
+
+function profileReducer(state: ProfileState, action: ProfileAction): ProfileState {
+    switch (action.type) {
+        case "SET_LOADING":
+            return { ...state, isLoading: action.payload };
+
+        case "SET_PROGRESS":
+            return { ...state, progress: action.payload };
+
+        case "SET_CALIBRATION":
+            return { ...state, calibration: action.payload, calibrationLoaded: true };
+
+        case "SET_ACTIVE_TAB":
+            return { ...state, activeProfileTab: action.payload };
+
+        case "HISTORY_LOADING":
+            return { ...state, isLoadingHistory: true };
+
+        case "HISTORY_LOADED":
+            return {
+                ...state,
+                questionSessions: action.payload.sessions,
+                historyPagination: action.payload.pagination,
+                historyLoaded: true,
+                isLoadingHistory: false,
+            };
+
+        case "HISTORY_APPEND":
+            return {
+                ...state,
+                questionSessions: [...state.questionSessions, ...action.payload.sessions],
+                historyPagination: action.payload.pagination,
+                isLoadingHistory: false,
+            };
+
+        case "HISTORY_DONE_LOADING":
+            return { ...state, isLoadingHistory: false };
+
+        case "SET_HISTORY_FILTER":
+            return { ...state, historyFilter: action.payload };
+
+        case "EXPAND_SESSION":
+            return {
+                ...state,
+                expandedSessionId: action.payload.sessionId,
+                expandedSessionQuestions: [],
+            };
+
+        case "COLLAPSE_SESSION":
+            return {
+                ...state,
+                expandedSessionId: null,
+                expandedSessionQuestions: [],
+            };
+
+        case "SET_SESSION_QUESTIONS":
+            return { ...state, expandedSessionQuestions: action.payload };
+
+        case "WRONG_ANSWERS_LOADING":
+            return { ...state, isLoadingWrongAnswers: true };
+
+        case "WRONG_ANSWERS_LOADED":
+            return {
+                ...state,
+                wrongAnswerPatterns: action.payload,
+                wrongAnswersLoaded: true,
+                isLoadingWrongAnswers: false,
+            };
+
+        case "WRONG_ANSWERS_DONE_LOADING":
+            return { ...state, isLoadingWrongAnswers: false };
+
+        case "INITIAL_LOADED": {
+            const next: Partial<ProfileState> = { isLoading: false };
+            if (action.payload.progress) next.progress = action.payload.progress;
+            if (action.payload.calibration) {
+                next.calibration = action.payload.calibration;
+                next.calibrationLoaded = true;
+            }
+            return { ...state, ...next };
+        }
+
+        default:
+            return state;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
 export function useProfile() {
     const auth = useAuth();
-    const [progress, setProgress] = useState<LearnProgressResponse | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    // Tab state
-    const [activeProfileTab, setActiveProfileTab] = useState<ProfileTab>("overview");
-
-    // Calibration
-    const [calibration, setCalibration] = useState<CalibrationResponse | null>(null);
-    const [isLoadingCalibration, setIsLoadingCalibration] = useState(false);
-    const [calibrationLoaded, setCalibrationLoaded] = useState(false);
-
-    // History tab
-    const [questionSessions, setQuestionSessions] = useState<QuestionHistorySessionSummary[]>([]);
-    const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
-    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-    const [historyPagination, setHistoryPagination] = useState<PaginationMeta | null>(null);
-    const [historyLoaded, setHistoryLoaded] = useState(false);
-
-    // Session expansion
-    const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
-    const [expandedSessionQuestions, setExpandedSessionQuestions] = useState<QuestionHistoryItem[]>([]);
-
-    // Wrong answers (for weak areas tab)
-    const [wrongAnswerPatterns, setWrongAnswerPatterns] = useState<QuestionHistoryItem[]>([]);
-    const [isLoadingWrongAnswers, setIsLoadingWrongAnswers] = useState(false);
-    const [wrongAnswersLoaded, setWrongAnswersLoaded] = useState(false);
+    const [state, dispatch] = useReducer(profileReducer, initialState);
 
     const studentName = auth.user?.name || "Student";
     const initial = studentName.charAt(0).toUpperCase();
@@ -49,125 +192,137 @@ export function useProfile() {
     // Initial load: progress + calibration
     useEffect(() => {
         async function load() {
-            setIsLoading(true);
+            dispatch({ type: "SET_LOADING", payload: true });
             try {
                 const [progressRes, calibrationRes] = await Promise.all([
                     learnApi.getProgress(studentName),
                     learnApi.getCalibration(studentName),
                 ]);
-                if (progressRes.success) setProgress(progressRes.data);
-                if (calibrationRes.success) {
-                    setCalibration(calibrationRes.data);
-                    setCalibrationLoaded(true);
-                }
+                dispatch({
+                    type: "INITIAL_LOADED",
+                    payload: {
+                        progress: progressRes.success ? progressRes.data : null,
+                        calibration: calibrationRes.success ? calibrationRes.data : null,
+                    },
+                });
             } catch (err) {
                 console.warn("Failed to fetch profile:", err);
+                dispatch({ type: "SET_LOADING", payload: false });
             }
-            setIsLoading(false);
         }
         load();
     }, [studentName]);
 
     // Lazy-load history when History tab activated
     useEffect(() => {
-        if (activeProfileTab !== "history" || historyLoaded) return;
+        if (state.activeProfileTab !== "history" || state.historyLoaded) return;
 
         async function loadHistory() {
-            setIsLoadingHistory(true);
+            dispatch({ type: "HISTORY_LOADING" });
             try {
                 const res = await learnApi.getQuestionHistorySessions(studentName, {
                     limit: HISTORY_BATCH,
                     offset: 0,
                 });
                 if (res.success) {
-                    setQuestionSessions(res.data.sessions);
-                    setHistoryPagination(res.data.pagination);
-                    setHistoryLoaded(true);
+                    dispatch({
+                        type: "HISTORY_LOADED",
+                        payload: { sessions: res.data.sessions, pagination: res.data.pagination },
+                    });
+                } else {
+                    dispatch({ type: "HISTORY_DONE_LOADING" });
                 }
             } catch (err) {
                 console.warn("Failed to load history:", err);
+                dispatch({ type: "HISTORY_DONE_LOADING" });
             }
-            setIsLoadingHistory(false);
         }
         loadHistory();
-    }, [activeProfileTab, historyLoaded, studentName]);
+    }, [state.activeProfileTab, state.historyLoaded, studentName]);
 
     // Lazy-load wrong answers when Weak Areas tab activated
     useEffect(() => {
-        if (activeProfileTab !== "weakAreas" || wrongAnswersLoaded) return;
+        if (state.activeProfileTab !== "weakAreas" || state.wrongAnswersLoaded) return;
 
         async function loadWrongAnswers() {
-            setIsLoadingWrongAnswers(true);
+            dispatch({ type: "WRONG_ANSWERS_LOADING" });
             try {
                 const res = await learnApi.getQuestionHistory(studentName, { is_correct: false }, {
                     limit: 20,
                     offset: 0,
                 });
                 if (res.success) {
-                    setWrongAnswerPatterns(res.data.items);
-                    setWrongAnswersLoaded(true);
+                    dispatch({ type: "WRONG_ANSWERS_LOADED", payload: res.data.items });
+                } else {
+                    dispatch({ type: "WRONG_ANSWERS_DONE_LOADING" });
                 }
             } catch (err) {
                 console.warn("Failed to load wrong answers:", err);
+                dispatch({ type: "WRONG_ANSWERS_DONE_LOADING" });
             }
-            setIsLoadingWrongAnswers(false);
         }
         loadWrongAnswers();
-    }, [activeProfileTab, wrongAnswersLoaded, studentName]);
+    }, [state.activeProfileTab, state.wrongAnswersLoaded, studentName]);
 
     // Load more sessions
     const onLoadMoreHistory = useCallback(async () => {
-        if (!historyPagination || isLoadingHistory) return;
-        const nextOffset = historyPagination.offset + historyPagination.limit;
-        if (nextOffset >= historyPagination.total) return;
+        if (!state.historyPagination || state.isLoadingHistory) return;
+        const nextOffset = state.historyPagination.offset + state.historyPagination.limit;
+        if (nextOffset >= state.historyPagination.total) return;
 
-        setIsLoadingHistory(true);
+        dispatch({ type: "HISTORY_LOADING" });
         try {
             const res = await learnApi.getQuestionHistorySessions(studentName, {
                 limit: HISTORY_BATCH,
                 offset: nextOffset,
             });
             if (res.success) {
-                setQuestionSessions((prev) => [...prev, ...res.data.sessions]);
-                setHistoryPagination(res.data.pagination);
+                dispatch({
+                    type: "HISTORY_APPEND",
+                    payload: { sessions: res.data.sessions, pagination: res.data.pagination },
+                });
+            } else {
+                dispatch({ type: "HISTORY_DONE_LOADING" });
             }
         } catch (err) {
             console.warn("Failed to load more sessions:", err);
+            dispatch({ type: "HISTORY_DONE_LOADING" });
         }
-        setIsLoadingHistory(false);
-    }, [historyPagination, isLoadingHistory, studentName]);
+    }, [state.historyPagination, state.isLoadingHistory, studentName]);
 
     // Toggle session expansion
     const onToggleSession = useCallback(async (sessionId: string) => {
-        if (expandedSessionId === sessionId) {
-            setExpandedSessionId(null);
-            setExpandedSessionQuestions([]);
+        if (state.expandedSessionId === sessionId) {
+            dispatch({ type: "COLLAPSE_SESSION" });
             return;
         }
 
-        setExpandedSessionId(sessionId);
-        setExpandedSessionQuestions([]);
+        dispatch({ type: "EXPAND_SESSION", payload: { sessionId } });
 
         try {
             const res = await learnApi.getSessionQuestions(sessionId);
             if (res.success) {
-                setExpandedSessionQuestions(res.data.items);
+                dispatch({ type: "SET_SESSION_QUESTIONS", payload: res.data.items });
             }
         } catch (err) {
             console.warn("Failed to load session questions:", err);
         }
-    }, [expandedSessionId]);
+    }, [state.expandedSessionId]);
 
-    // History filter change — currently filters are visual only on session view
-    // We don't re-fetch sessions, the filter is used for the expanded question display
+    // History filter change
     const onHistoryFilterChange = useCallback((filter: HistoryFilter) => {
-        setHistoryFilter(filter);
+        dispatch({ type: "SET_HISTORY_FILTER", payload: filter });
+    }, []);
+
+    // Tab change
+    const onProfileTabChange = useCallback((tab: ProfileTab) => {
+        dispatch({ type: "SET_ACTIVE_TAB", payload: tab });
     }, []);
 
     // Derived: weak concepts (mastery < 50, sorted ascending)
     const weakConcepts: WeakConcept[] = useMemo(() => {
-        if (!progress?.mastery) return [];
-        return progress.mastery
+        if (!state.progress?.mastery) return [];
+        return state.progress.mastery
             .filter((c) => c.score < 50)
             .sort((a, b) => a.score - b.score)
             .map((c) => ({
@@ -176,13 +331,13 @@ export function useProfile() {
                 attempts: c.attempts,
                 correct: c.correct,
             }));
-    }, [progress?.mastery]);
+    }, [state.progress?.mastery]);
 
     // Compute stats from progress data
-    const totalXp = progress?.recent_sessions.reduce((sum, s) => sum + (s.questions_correct * 10), 0) ?? 0;
-    const totalSessions = progress?.recent_sessions.length ?? 0;
-    const totalAnswered = progress?.recent_sessions.reduce((sum, s) => sum + s.questions_answered, 0) ?? 0;
-    const totalCorrect = progress?.recent_sessions.reduce((sum, s) => sum + s.questions_correct, 0) ?? 0;
+    const totalXp = state.progress?.recent_sessions.reduce((sum, s) => sum + (s.questions_correct * 10), 0) ?? 0;
+    const totalSessions = state.progress?.recent_sessions.length ?? 0;
+    const totalAnswered = state.progress?.recent_sessions.reduce((sum, s) => sum + s.questions_answered, 0) ?? 0;
+    const totalCorrect = state.progress?.recent_sessions.reduce((sum, s) => sum + s.questions_correct, 0) ?? 0;
     const accuracy = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
     const level = Math.max(1, Math.floor(Math.sqrt(totalXp / 100)));
 
@@ -190,8 +345,8 @@ export function useProfile() {
         studentName,
         initial,
         email: auth.user?.email || "Student",
-        progress,
-        isLoading,
+        progress: state.progress,
+        isLoading: state.isLoading,
         totalXp,
         totalSessions,
         accuracy,
@@ -199,23 +354,23 @@ export function useProfile() {
         logout: auth.logout,
         onLogout: auth.logout,
         // Tab state
-        activeProfileTab,
-        onProfileTabChange: setActiveProfileTab,
+        activeProfileTab: state.activeProfileTab,
+        onProfileTabChange,
         // History
-        questionSessions,
-        historyFilter,
+        questionSessions: state.questionSessions,
+        historyFilter: state.historyFilter,
         onHistoryFilterChange,
-        isLoadingHistory,
-        historyPagination,
+        isLoadingHistory: state.isLoadingHistory,
+        historyPagination: state.historyPagination,
         onLoadMoreHistory,
-        expandedSessionId,
-        expandedSessionQuestions,
+        expandedSessionId: state.expandedSessionId,
+        expandedSessionQuestions: state.expandedSessionQuestions,
         onToggleSession,
         // Calibration & weak areas
-        calibration,
-        isLoadingCalibration,
+        calibration: state.calibration,
+        isLoadingCalibration: state.isLoadingCalibration,
         weakConcepts,
-        wrongAnswerPatterns,
-        isLoadingWrongAnswers,
+        wrongAnswerPatterns: state.wrongAnswerPatterns,
+        isLoadingWrongAnswers: state.isLoadingWrongAnswers,
     };
 }

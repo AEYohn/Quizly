@@ -83,9 +83,15 @@ class ScrollCard:
     content_item_id: Optional[str] = None  # link to shared pool item
 
 
+FEED_STATE_VERSION = 2
+
+
 @dataclass
 class FeedState:
     """Full state of the scroll feed — stored as JSON in LearningSession."""
+
+    # Schema version — bump when adding/removing/renaming fields
+    version: int = FEED_STATE_VERSION
 
     # Topic and concepts
     concepts: List[str] = field(default_factory=list)
@@ -138,14 +144,34 @@ class FeedState:
     # Socratic help chat history
     help_history: List[Dict[str, str]] = field(default_factory=list)
 
+    def _cap_lists(self) -> None:
+        """Enforce size caps on all unbounded lists before serialization."""
+        if len(self.previous_prompts) > 100:
+            self.previous_prompts = self.previous_prompts[-50:]
+        if len(self.served_content_ids) > 500:
+            self.served_content_ids = self.served_content_ids[-300:]
+        if len(self.skipped_content_ids) > 200:
+            self.skipped_content_ids = self.skipped_content_ids[-100:]
+        if len(self.not_interested_topics) > 50:
+            self.not_interested_topics = self.not_interested_topics[-25:]
+        if len(self.confidence_records) > 200:
+            self.confidence_records = self.confidence_records[-200:]
+        if len(self.reintroduction_queue) > 30:
+            self.reintroduction_queue = self.reintroduction_queue[-20:]
+        if len(self.help_history) > 50:
+            self.help_history = self.help_history[-30:]
+
     def to_dict(self) -> Dict[str, Any]:
+        self._cap_lists()
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "FeedState":
         if not data:
             return cls()
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        # Defensive: ignore unknown keys from future versions, use defaults for missing keys
+        known = cls.__dataclass_fields__
+        return cls(**{k: data[k] for k in known if k in data})
 
 
 # ---------------------------------------------------------------------------
@@ -307,9 +333,7 @@ class ScrollFeedEngine:
             "is_correct": is_correct,
             "timestamp": utc_now().isoformat(),
         })
-        # Cap at 200 records
-        if len(state.confidence_records) > 200:
-            state.confidence_records = state.confidence_records[-200:]
+        # List caps enforced in FeedState._cap_lists() on save
 
         # ---- BKT UPDATE (replaces simple mastery) ----
         old_mastery = (await self.bkt.get_all_masteries(session.student_name)).get(concept)
@@ -354,6 +378,7 @@ class ScrollFeedEngine:
                 "cooldown": random.randint(2, 4),  # Show again after 2-4 more cards
                 "difficulty": max(0.2, state.current_difficulty - 0.15),  # Easier next time
             })
+            # List caps enforced in FeedState._cap_lists() on save
 
         # 4. Adjust difficulty via ZPD (replaces momentum heuristic)
         self._adjust_difficulty_zpd(state, bkt_state, is_correct, time_ms)
@@ -925,6 +950,8 @@ class ScrollFeedEngine:
         # Append AI response
         state.help_history.append({"role": "assistant", "content": ai_text})
 
+        # List caps enforced in FeedState._cap_lists() on save
+
         # Determine phase based on exchange count (exclude system message)
         exchanges = sum(1 for m in state.help_history if m["role"] == "user")
         if exchanges <= 2:
@@ -1052,6 +1079,15 @@ class ScrollFeedEngine:
         if stored_concepts and len(stored_concepts) >= 2:
             return stored_concepts
 
+        # Check cache for previously extracted concepts
+        cache_key = f"concepts:{topic.strip().lower()}"
+        try:
+            cached = await CacheService.get(cache_key)
+            if isinstance(cached, list) and len(cached) >= 2:
+                return cached
+        except Exception:
+            pass  # Cache unavailable — fall through to Gemini
+
         if not notes and not FEED_MODEL:
             return [topic]
 
@@ -1073,7 +1109,13 @@ Return JSON array of concept names (short, specific):
                 if response is not None:
                     concepts = json.loads(response.text)
                     if isinstance(concepts, list) and len(concepts) >= 2:
-                        return concepts[:8]
+                        concepts = concepts[:8]
+                        # Cache the extracted concepts (1 hour TTL)
+                        try:
+                            await CacheService.set(cache_key, concepts, ttl=3600)
+                        except Exception:
+                            pass  # Cache unavailable — continue without caching
+                        return concepts
             except Exception as e:
                 capture_exception(e, context={"service": "scroll_feed_engine", "operation": "extract_concepts"})
                 log_error(logger, "extract_concepts failed", error=str(e))

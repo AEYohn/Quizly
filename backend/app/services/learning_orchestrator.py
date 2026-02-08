@@ -60,6 +60,9 @@ def utc_now() -> datetime:
 class SessionState:
     """Full state of an active learning session."""
 
+    # Schema version
+    version: int = 1
+
     # Plan
     concepts: List[str] = field(default_factory=list)
     concept_order: List[str] = field(default_factory=list)
@@ -85,7 +88,15 @@ class SessionState:
     strategy: str = "adaptive"  # adaptive, teach_first, drill
     teaching_approach: str = "socratic"  # socratic, direct, example
 
+    def _cap_lists(self) -> None:
+        """Enforce size caps on unbounded lists before serialization."""
+        if len(self.previous_prompts) > 50:
+            self.previous_prompts = self.previous_prompts[-25:]
+        if len(self.discussion_history) > 100:
+            self.discussion_history = self.discussion_history[-50:]
+
     def to_dict(self) -> Dict[str, Any]:
+        self._cap_lists()
         return asdict(self)
 
     @classmethod

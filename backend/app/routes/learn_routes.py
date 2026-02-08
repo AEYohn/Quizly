@@ -4,6 +4,10 @@ Conversational adaptive learning endpoints.
 """
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from ..exceptions import (
+    QuizlyException, ErrorCodes, SessionNotFound, ResourceNotFound,
+    Forbidden, InvalidInput, AIServiceUnavailable,
+)
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,23 +22,17 @@ from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
 from ..db_models import LearningSession, ConceptMastery, SpacedRepetitionItem, SyllabusCache, SubjectResource, User
 from ..auth_clerk import get_current_user_clerk_optional, require_teacher_clerk
+from ..cache import CacheService, _get_redis
 from ..services.learning_orchestrator import LearningOrchestrator
 from ..services.scroll_feed_engine import ScrollFeedEngine
 from ..services.content_pool_service import ContentPoolService
 from ..services.syllabus_service import SyllabusService
 from ..services.knowledge_graph import KnowledgeGraph
+from ..services.progress_service import aggregate_xp_by_subject, ensure_utc_iso, get_learning_history as _get_learning_history
 
 router = APIRouter()
 logger = get_logger(__name__)
 
-
-def ensure_utc_iso(dt: Optional[datetime]) -> Optional[str]:
-    """Convert a datetime to UTC ISO string, handling naive datetimes from SQLite."""
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.isoformat()
 
 # File upload validation
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
@@ -51,9 +49,8 @@ async def validate_upload_file(upload_file: UploadFile) -> bytes:
     filename = upload_file.filename or "file"
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        raise InvalidInput(
+            f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
 
     # Check content type
@@ -68,10 +65,7 @@ async def validate_upload_file(upload_file: UploadFile) -> bytes:
         "application/octet-stream",  # Fallback for unknown types
     }
     if content_type and content_type not in allowed_content_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Content type '{content_type}' not allowed"
-        )
+        raise InvalidInput(f"Content type '{content_type}' not allowed")
 
     # Read in chunks to enforce size limit without loading entire file
     chunks = []
@@ -82,16 +76,14 @@ async def validate_upload_file(upload_file: UploadFile) -> bytes:
             break
         total_size += len(chunk)
         if total_size > MAX_UPLOAD_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File '{filename}' exceeds maximum size of {MAX_UPLOAD_SIZE // (1024 * 1024)}MB"
+            raise QuizlyException(
+                ErrorCodes.INVALID_INPUT,
+                f"File '{filename}' exceeds maximum size of {MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
+                413,
             )
         chunks.append(chunk)
 
     return b"".join(chunks)
-
-# In-memory presence tracking: { "subject:node_id": { "students": { name: timestamp } } }
-_presence_store: Dict[str, Dict[str, Any]] = {}
 
 
 # ============================================
@@ -223,7 +215,7 @@ async def start_session(
 ):
     """Start a new learning session. Runs Retrieve → Plan, returns first question."""
     if current_user and current_user.name != request.student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     orchestrator = LearningOrchestrator(db)
     result = await orchestrator.start_session(
         student_name=request.student_name,
@@ -248,7 +240,7 @@ async def submit_answer(
         confidence=request.confidence,
     )
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
     return result
 
 
@@ -266,7 +258,7 @@ async def send_message(
         message=request.message,
     )
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
     return result
 
 
@@ -280,7 +272,7 @@ async def end_session(
     orchestrator = LearningOrchestrator(db)
     result = await orchestrator.end_session(session_id=session_id)
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
     return result
 
 
@@ -292,7 +284,7 @@ async def get_review_queue(
 ):
     """Get spaced repetition items due for review."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     now = datetime.now(timezone.utc)
     query = select(SpacedRepetitionItem).where(
         and_(
@@ -331,7 +323,7 @@ async def get_progress(
 ):
     """Get mastery data across all concepts for a student."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
 
     # Count total mastery items for pagination metadata
     count_query = select(func.count()).select_from(ConceptMastery).where(
@@ -444,7 +436,7 @@ async def get_question_history(
 ):
     """Get paginated question history for a student."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
 
     from ..db_models_question_history import QuestionHistory
 
@@ -510,7 +502,7 @@ async def get_question_history_sessions(
 ):
     """Get session summaries with question counts from history."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
 
     from ..db_models_question_history import QuestionHistory
 
@@ -610,7 +602,7 @@ async def get_session_question_history(
 
     # Auth check: ensure current user owns this data
     if current_user and items[0].student_name != current_user.name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
 
     return {
         "session_id": session_id,
@@ -649,269 +641,8 @@ async def get_learning_history(
 ):
     """Get aggregated learning history per subject for personalized home screen."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
-
-    # --- Optimized: run session aggregation, syllabus, mastery count, and
-    # active-session queries together instead of 4 separate full-table scans ---
-
-    # 1. SQL-level aggregation of sessions by topic (replaces Python loop over all sessions)
-    session_agg_query = (
-        select(
-            LearningSession.topic,
-            func.count().label("total_sessions"),
-            func.sum(LearningSession.questions_answered).label("total_questions"),
-            func.sum(LearningSession.questions_correct).label("total_correct"),
-            func.max(func.coalesce(LearningSession.started_at, LearningSession.created_at)).label("last_studied_at"),
-            func.min(func.coalesce(LearningSession.started_at, LearningSession.created_at)).label("first_studied_at"),
-        )
-        .where(
-            and_(
-                LearningSession.student_name == student_name,
-                LearningSession.questions_answered > 0,
-            )
-        )
-        .group_by(LearningSession.topic)
-    )
-    session_agg_result = await db.execute(session_agg_query)
-    session_agg_rows = session_agg_result.all()
-
-    # We still need per-session state_json for XP (stored as JSON, not aggregatable in SQL).
-    # But only fetch the columns we need, not the full ORM objects with large messages_json.
-    xp_query = (
-        select(LearningSession.topic, LearningSession.state_json)
-        .where(
-            and_(
-                LearningSession.student_name == student_name,
-                LearningSession.questions_answered > 0,
-            )
-        )
-    )
-    xp_result = await db.execute(xp_query)
-    xp_rows = xp_result.all()
-
-    # Aggregate XP per topic from state_json
-    topic_xp: dict[str, int] = {}
-    for row in xp_rows:
-        state = row.state_json or {}
-        xp = state.get("total_xp", 0)
-        if xp:
-            topic_xp[row.topic] = topic_xp.get(row.topic, 0) + xp
-
-    # Merge "Subject: Subtopic" XP entries into parent subject
-    xp_base_topics = sorted(topic_xp.keys(), key=len)
-    xp_to_merge = []
-    for xp_key in list(topic_xp.keys()):
-        for base in xp_base_topics:
-            if xp_key != base and xp_key.startswith(base + ": "):
-                xp_to_merge.append((xp_key, base))
-                break
-    for child, parent in xp_to_merge:
-        topic_xp[parent] = topic_xp.get(parent, 0) + topic_xp.pop(child)
-
-    # 2. All cached syllabi (to know which subjects have skill trees)
-    if student_id:
-        syllabus_query = select(SyllabusCache).where(
-            or_(SyllabusCache.student_id == student_id, SyllabusCache.student_id.is_(None))
-        )
-    else:
-        syllabus_query = select(SyllabusCache)
-    syllabus_result = await db.execute(syllabus_query)
-    syllabi = syllabus_result.scalars().all()
-    syllabus_subjects = {s.subject.lower(): s for s in syllabi}
-
-    # Build subject_stats from SQL aggregation results
-    subject_stats: dict[str, dict] = {}
-    for row in session_agg_rows:
-        topic = row.topic
-        subject_stats[topic] = {
-            "subject": topic,
-            "total_sessions": row.total_sessions,
-            "total_questions": row.total_questions or 0,
-            "total_correct": row.total_correct or 0,
-            "total_xp": topic_xp.get(topic, 0),
-            "last_studied_at": row.last_studied_at,
-            "first_studied_at": row.first_studied_at,
-            "has_syllabus": topic.lower() in syllabus_subjects,
-        }
-
-    # Also add subjects that have cached syllabi but no answered questions yet
-    # (e.g., user generated a skill tree but hasn't studied yet)
-    for subj_lower, cache_entry in syllabus_subjects.items():
-        # Skip very long subject names (raw pasted text, not a real subject name)
-        clean_name = cache_entry.tree_json.get("subject", cache_entry.subject) if isinstance(cache_entry.tree_json, dict) else cache_entry.subject
-        if len(clean_name) > 80:
-            continue
-        if clean_name not in subject_stats and clean_name.lower() not in {s.lower() for s in subject_stats}:
-            subject_stats[clean_name] = {
-                "subject": clean_name,
-                "total_sessions": 0,
-                "total_questions": 0,
-                "total_correct": 0,
-                "total_xp": 0,
-                "last_studied_at": cache_entry.created_at,
-                "first_studied_at": cache_entry.created_at,
-                "has_syllabus": True,
-            }
-
-    # Merge "Subject: Subtopic" entries into parent subject (covers both sessions and syllabus-only)
-    base_topics = sorted(subject_stats.keys(), key=len)
-    to_merge = []
-    for topic_key in list(subject_stats.keys()):
-        for base in base_topics:
-            if topic_key != base and topic_key.startswith(base + ": "):
-                to_merge.append((topic_key, base))
-                break
-    for child, parent in to_merge:
-        if parent not in subject_stats:
-            continue
-        child_stats = subject_stats.pop(child)
-        p = subject_stats[parent]
-        p["total_sessions"] += child_stats["total_sessions"]
-        p["total_questions"] += child_stats["total_questions"]
-        p["total_correct"] += child_stats["total_correct"]
-        p["total_xp"] += child_stats["total_xp"]
-        if child_stats["last_studied_at"] and (not p["last_studied_at"] or child_stats["last_studied_at"] > p["last_studied_at"]):
-            p["last_studied_at"] = child_stats["last_studied_at"]
-        p["has_syllabus"] = p["has_syllabus"] or child_stats.get("has_syllabus", False)
-
-    # Compute accuracy and format
-    subjects = []
-    for stats in subject_stats.values():
-        accuracy = round(
-            stats["total_correct"] / max(1, stats["total_questions"]) * 100
-        )
-        subjects.append({
-            "subject": stats["subject"],
-            "total_sessions": stats["total_sessions"],
-            "total_questions": stats["total_questions"],
-            "accuracy": accuracy,
-            "total_xp": stats["total_xp"],
-            "last_studied_at": ensure_utc_iso(stats["last_studied_at"]),
-            "has_syllabus": stats.get("has_syllabus", False),
-        })
-
-    # Sort by most recently studied
-    subjects.sort(
-        key=lambda x: x["last_studied_at"] or "",
-        reverse=True,
-    )
-
-    # 3. Optimized: Use SQL COUNT aggregate instead of loading all ConceptMastery rows.
-    # Only concepts_mastered (score >= 80) is used from this data.
-    mastery_count_query = select(
-        func.count()
-    ).select_from(ConceptMastery).where(
-        and_(
-            ConceptMastery.student_name == student_name,
-            ConceptMastery.mastery_score >= 80,
-        )
-    )
-    mastery_count_result = await db.execute(mastery_count_query)
-    concepts_mastered_count = mastery_count_result.scalar() or 0
-
-    # 4. Find active session for resume banner (not ended, has progress, scroll mode)
-    active_query = (
-        select(LearningSession)
-        .where(
-            and_(
-                LearningSession.student_name == student_name,
-                LearningSession.ended_at.is_(None),
-                LearningSession.questions_answered > 0,
-            )
-        )
-        .order_by(LearningSession.created_at.desc())
-        .limit(1)
-    )
-    active_result = await db.execute(active_query)
-    active_session = active_result.scalars().first()
-    active_session_data = None
-    if active_session:
-        a_state = active_session.state_json or {}
-        active_session_data = {
-            "session_id": str(active_session.id),
-            "topic": active_session.topic,
-            "questions_answered": active_session.questions_answered,
-            "questions_correct": active_session.questions_correct,
-            "total_xp": a_state.get("total_xp", 0),
-            "streak": a_state.get("streak", 0),
-            "accuracy": round(
-                active_session.questions_correct
-                / max(1, active_session.questions_answered)
-                * 100
-            ),
-        }
-
-    # Generate subject suggestions based on what user has studied
-    # Use keyword matching to detect domain and suggest related topics
-    CS_KEYWORDS = {"c++", "pointer", "struct", "class", "template", "gpu", "llm",
-                   "programming", "algorithm", "data structure", "array", "code",
-                   "compiler", "memory", "function", "variable", "iterator",
-                   "inheritance", "polymorphism", "oop", "software", "cs106",
-                   "cs", "python", "javascript", "java", "rust", "go"}
-    MATH_KEYWORDS = {"calculus", "algebra", "linear", "matrix", "equation",
-                     "derivative", "integral", "statistics", "probability"}
-    SCIENCE_KEYWORDS = {"physics", "chemistry", "biology", "cell", "atom",
-                        "molecule", "force", "energy", "evolution"}
-
-    CS_SUGGESTIONS = [
-        "Algorithms", "Operating Systems", "Computer Networks",
-        "Database Systems", "Machine Learning", "Computer Architecture",
-        "Compiler Design", "Discrete Mathematics", "Software Engineering",
-        "Web Development", "Cybersecurity", "Distributed Systems",
-    ]
-    MATH_SUGGESTIONS = [
-        "Linear Algebra", "Calculus", "Differential Equations",
-        "Statistics", "Discrete Mathematics", "Number Theory",
-        "Real Analysis", "Probability Theory",
-    ]
-    SCIENCE_SUGGESTIONS = [
-        "Physics", "Chemistry", "Biology", "Organic Chemistry",
-        "Biochemistry", "Anatomy", "Ecology", "Genetics",
-    ]
-    GENERAL_SUGGESTIONS = [
-        "Psychology", "Economics", "Philosophy", "World History",
-        "US Government", "Spanish", "Art History", "Statistics",
-    ]
-
-    studied_lower = {s["subject"].lower() for s in subjects}
-    studied_words = set()
-    for s in subjects:
-        studied_words.update(s["subject"].lower().split())
-
-    # Detect user's domain from their studied subjects
-    cs_score = len(studied_words & CS_KEYWORDS)
-    math_score = len(studied_words & MATH_KEYWORDS)
-    science_score = len(studied_words & SCIENCE_KEYWORDS)
-
-    # Pick suggestion pool weighted by domain
-    suggestion_pool: list[str] = []
-    if cs_score >= math_score and cs_score >= science_score and cs_score > 0:
-        suggestion_pool = CS_SUGGESTIONS + MATH_SUGGESTIONS[:3]
-    elif math_score >= science_score and math_score > 0:
-        suggestion_pool = MATH_SUGGESTIONS + CS_SUGGESTIONS[:3]
-    elif science_score > 0:
-        suggestion_pool = SCIENCE_SUGGESTIONS + MATH_SUGGESTIONS[:3]
-    else:
-        suggestion_pool = GENERAL_SUGGESTIONS
-
-    suggestions: list[str] = []
-    for s in suggestion_pool:
-        if s.lower() not in studied_lower and s not in suggestions:
-            suggestions.append(s)
-    suggestions = suggestions[:8]
-
-    return {
-        "subjects": subjects,
-        "overall": {
-            "total_subjects": len(subjects),
-            "total_sessions": sum(s["total_sessions"] for s in subjects),
-            "total_questions": sum(s["total_questions"] for s in subjects),
-            "total_xp": sum(s["total_xp"] for s in subjects),
-            "concepts_mastered": concepts_mastered_count,
-        },
-        "active_session": active_session_data,
-        "suggestions": suggestions,
-    }
+        raise Forbidden()
+    return await _get_learning_history(db, student_name, student_id)
 
 
 # ============================================
@@ -927,7 +658,7 @@ async def scroll_start(
 ):
     """Start a TikTok-style scroll feed. Returns session + first batch of cards."""
     if current_user and current_user.name != request.student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     print(f"[DEBUG] scroll_start called: topic={request.topic}, student={request.student_name}", flush=True)
     engine = ScrollFeedEngine(db)
     prefs_dict = None
@@ -951,7 +682,7 @@ async def scroll_resume(
 ):
     """Resume the most recent active scroll session for a topic."""
     if current_user and current_user.name != request.student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     print(f"[DEBUG] scroll_resume called: topic={request.topic}, student={request.student_name}", flush=True)
     # Find most recent non-ended session with progress for this topic+student
     query = (
@@ -971,12 +702,12 @@ async def scroll_resume(
     session = result.scalars().first()
 
     if not session:
-        raise HTTPException(status_code=404, detail="No resumable session found")
+        raise ResourceNotFound("Resumable session")
 
     # Verify it's a scroll-mode session
     plan = session.plan_json or {}
     if plan.get("mode") != "scroll":
-        raise HTTPException(status_code=404, detail="No resumable session found")
+        raise ResourceNotFound("Resumable session")
 
     # Load state and fetch fresh cards from pool
     from ..services.scroll_feed_engine import FeedState
@@ -1028,7 +759,7 @@ async def scroll_answer(
         concept_hint=request.concept,
     )
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
 
     # Record content pool interaction if content_item_id provided
     if request.content_item_id:
@@ -1057,7 +788,7 @@ async def scroll_next(
     engine = ScrollFeedEngine(db)
     result = await engine.get_next_cards(session_id=session_id, count=count)
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
     return result
 
 
@@ -1071,7 +802,7 @@ async def scroll_analytics(
     engine = ScrollFeedEngine(db)
     result = await engine.get_session_analytics(session_id=session_id)
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
     return result
 
 
@@ -1084,7 +815,7 @@ async def get_calibration(
 ):
     """Get calibration metrics and DK-overconfident concepts for a student."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     from ..services.calibration_service import CalibrationService
     service = CalibrationService(db)
     return await service.get_student_calibration(student_name, subject)
@@ -1105,7 +836,7 @@ async def scroll_help(
         card_context=request.card_context,
     )
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
     return result
 
 
@@ -1130,7 +861,7 @@ async def scroll_skip(
     )
     session_obj = session.scalars().first()
     if not session_obj:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise SessionNotFound(session_id)
 
     await pool.record_interaction(
         student_name=session_obj.student_name,
@@ -1158,7 +889,7 @@ async def scroll_flashcard_flip(
     )
     session_obj = session.scalars().first()
     if not session_obj:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise SessionNotFound(session_id)
 
     pool = ContentPoolService(db)
     await pool.record_interaction(
@@ -1302,7 +1033,7 @@ async def syllabus_get(
     service = SyllabusService(db)
     cached = await service._get_cached(subject, student_id)
     if not cached:
-        raise HTTPException(status_code=404, detail="No cached syllabus found")
+        raise ResourceNotFound("Cached syllabus")
     return cached
 
 
@@ -1566,7 +1297,7 @@ async def pdf_to_syllabus(
         # Build a user-friendly error from the resource errors
         errors = [r["summary_preview"] for r in created_resources if r.get("summary_preview", "").startswith(("PDF has", "File is", "Processing failed"))]
         detail = errors[0] if errors else "Could not extract a topic from the uploaded files"
-        raise HTTPException(status_code=400, detail=detail)
+        raise InvalidInput(detail)
 
     await db.commit()
 
@@ -1594,7 +1325,7 @@ async def delete_subject(
 ):
     """Delete all data for a subject: syllabi, resources, and learning sessions."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     # Delete syllabus cache
     syl_result = await db.execute(
         delete(SyllabusCache).where(
@@ -1650,53 +1381,63 @@ async def presence_heartbeat(
     request: PresenceHeartbeatRequest,
     current_user: Optional[User] = Depends(get_current_user_clerk_optional),
 ):
-    """Record that a student is active on a node. TTL 60s."""
+    """Record that a student is active on a node. TTL 90s via Redis."""
     if current_user and current_user.name != request.student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
-    key = f"{request.subject}:{request.node_id}"
-    now = datetime.now(timezone.utc).timestamp()
+        raise Forbidden()
 
-    if key not in _presence_store:
-        _presence_store[key] = {"students": {}}
+    PRESENCE_TTL = 90  # seconds — Redis auto-expires, no manual cleanup needed
 
-    _presence_store[key]["students"][request.student_name] = now
+    redis_key = f"presence:{request.subject}:{request.node_id}:{request.student_name}"
+    now = datetime.now(timezone.utc).isoformat()
+
+    try:
+        redis = await _get_redis()
+        if redis:
+            await redis.setex(f"quizly:{redis_key}", PRESENCE_TTL, now)
+    except Exception:
+        # Redis unavailable — silently degrade; presence is non-critical
+        pass
+
     return {"ok": True}
 
 
 @router.get("/presence/{subject}")
 async def presence_get(subject: str):
     """Return active learner counts per node for a subject."""
-    now = datetime.now(timezone.utc).timestamp()
-    ttl = 60  # seconds
     result: Dict[str, Any] = {}
 
-    prefix = f"{subject}:"
-    keys_to_clean = []
+    try:
+        redis = await _get_redis()
+        if not redis:
+            return result
 
-    for key, data in _presence_store.items():
-        if not key.startswith(prefix):
-            continue
+        # Scan for all presence keys matching this subject.
+        # Key pattern: quizly:presence:{subject}:{node_id}:{student_name}
+        scan_pattern = f"quizly:presence:{subject}:*"
+        node_students: Dict[str, list] = {}
 
-        node_id = key[len(prefix):]
-        # Clean expired entries
-        active = {
-            name: ts
-            for name, ts in data["students"].items()
-            if now - ts < ttl
-        }
-        data["students"] = active
+        async for key in redis.scan_iter(scan_pattern):
+            # key looks like "quizly:presence:Math:node1:alice"
+            # Strip the "quizly:presence:{subject}:" prefix to get "node_id:student_name"
+            stripped = key[len(f"quizly:presence:{subject}:"):]
+            # node_id may contain colons, student_name is the last segment
+            parts = stripped.rsplit(":", 1)
+            if len(parts) != 2:
+                continue
+            node_id, student_name = parts
 
-        if not active:
-            keys_to_clean.append(key)
-            continue
+            if node_id not in node_students:
+                node_students[node_id] = []
+            node_students[node_id].append(student_name)
 
-        result[node_id] = {
-            "count": len(active),
-            "names": list(active.keys()),
-        }
-
-    for k in keys_to_clean:
-        del _presence_store[k]
+        for node_id, names in node_students.items():
+            result[node_id] = {
+                "count": len(names),
+                "names": names,
+            }
+    except Exception:
+        # Redis unavailable — return empty presence gracefully
+        pass
 
     return result
 
@@ -1714,7 +1455,7 @@ async def get_bkt_mastery(
 ):
     """Return full BKT state for all concepts (P(L), confidence)."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     engine = ScrollFeedEngine(db)
     mastery = await engine.get_bkt_mastery_map(student_name)
     return {
@@ -1732,7 +1473,7 @@ async def get_skill_tree_analysis(
 ):
     """Get comprehensive skill tree analysis for a student+subject."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     from ..services.skill_tree_analytics_service import SkillTreeAnalyticsService
     service = SkillTreeAnalyticsService(db)
     return await service.get_analysis(subject=subject, student_name=student_name)
@@ -1747,12 +1488,12 @@ async def get_recommended_path(
 ):
     """Return ordered list of concepts to study (knowledge graph optimal path)."""
     if current_user and current_user.name != student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     # Load syllabus
     service = SyllabusService(db)
     tree = await service._get_cached(subject)
     if not tree:
-        raise HTTPException(status_code=404, detail="No syllabus found for this subject")
+        raise ResourceNotFound("Syllabus for this subject")
 
     # Build knowledge graph
     kg = KnowledgeGraph(tree)
@@ -1907,7 +1648,7 @@ async def assessment_start(
 ):
     """Start a familiarity assessment. Returns self-rating items from syllabus."""
     if current_user and current_user.name != request.student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     return await service.start_assessment(
@@ -1924,7 +1665,7 @@ async def assessment_self_ratings(
 ):
     """Submit self-ratings. Returns diagnostic quiz questions."""
     if current_user and current_user.name != request.student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     return await service.submit_self_ratings(
@@ -1942,7 +1683,7 @@ async def assessment_diagnostic(
 ):
     """Submit diagnostic answers. Seeds BKT, returns summary."""
     if current_user and current_user.name != request.student_name:
-        raise HTTPException(status_code=403, detail="Cannot access another user's data")
+        raise Forbidden()
     from ..services.assessment_service import AssessmentService
     service = AssessmentService(db)
     result = await service.submit_diagnostic_answers(
@@ -1951,7 +1692,7 @@ async def assessment_diagnostic(
         answers=request.answers,
     )
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise SessionNotFound(session_id)
     return result
 
 
@@ -1966,7 +1707,7 @@ async def get_assessment(
     service = AssessmentService(db)
     result = await service.get_assessment(subject, student_name)
     if not result:
-        raise HTTPException(status_code=404, detail="No assessment found")
+        raise ResourceNotFound("Assessment")
     return result
 
 
@@ -1988,7 +1729,7 @@ async def codebase_analyze(
         student_id=request.student_id,
     )
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        raise InvalidInput(result["error"])
     return result
 
 
@@ -2006,7 +1747,7 @@ async def get_codebase_analysis(
     result = await db.execute(query)
     analysis = result.scalars().first()
     if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise ResourceNotFound("Analysis")
     return {
         "id": str(analysis.id),
         "github_url": analysis.github_url,
@@ -2035,7 +1776,7 @@ async def get_codebase_resources(
     result = await db.execute(query)
     analysis = result.scalars().first()
     if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise ResourceNotFound("Analysis")
 
     # Get resources for the syllabus subject
     subject = analysis.syllabus_subject or analysis.repo_name
@@ -2085,6 +1826,20 @@ async def get_leaderboard(
     db: AsyncSession = Depends(get_db),
 ):
     """Get leaderboard rankings aggregated from learning sessions."""
+    # Check Redis cache first (30s TTL)
+    cache_key = f"leaderboard:{period}:{offset}:{limit}"
+    cached = await CacheService.get(cache_key)
+    if cached is not None:
+        # Patch current_user_rank and is_current_user for the requesting user
+        if student_name:
+            cached["current_user_rank"] = None
+            for entry in cached.get("entries", []):
+                is_current = entry.get("student_name") == student_name
+                entry["is_current_user"] = is_current
+                if is_current:
+                    cached["current_user_rank"] = entry.get("rank")
+        return cached
+
     # --- Optimized: Use SQL GROUP BY for count/sum aggregation instead of
     # loading all full LearningSession ORM objects into Python ---
 
@@ -2184,7 +1939,7 @@ async def get_leaderboard(
     # Apply pagination via slicing after aggregation
     entries = all_entries[offset:offset + limit]
 
-    return {
+    response = {
         "period": period,
         "entries": entries,
         "current_user_rank": current_user_rank,
@@ -2195,3 +1950,8 @@ async def get_leaderboard(
             "total": total_players,
         },
     }
+
+    # Cache for 30 seconds (Redis unavailable is a no-op)
+    await CacheService.set(cache_key, response, ttl=30)
+
+    return response
