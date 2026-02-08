@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import * as SecureStore from "expo-secure-store";
 import { authApi } from "@/lib/api";
+import { setTokenGetter } from "@/lib/authTokenBridge";
 
 const GUEST_ID_KEY = "quizly_guest_id";
 const GUEST_NICKNAME_KEY = "quizly_guest_nickname";
@@ -163,6 +164,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return null;
   }, [clerkAuth]);
+
+  // Bridge token getter so API client can get tokens outside React components
+  useEffect(() => {
+    setTokenGetter(getToken);
+  }, [getToken]);
 
   const isLoaded = (CLERK_AVAILABLE ? clerkAuth.isLoaded : true) && isGuestLoaded;
   const isSignedIn = clerkAuth.isSignedIn ?? false;

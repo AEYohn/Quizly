@@ -1,209 +1,217 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '@/hooks/useTheme';
-import { Card } from '@/components/ui';
-import { LeaderboardRow } from '@/components/progression/LeaderboardRow';
-import { Trophy } from 'lucide-react-native';
-import { LeaderboardEntry } from '@/types/progression';
-
-// Mock data - in real app, fetch from API
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, userId: '1', name: 'Alex Chen', level: 15, xp: 4250, isCurrentUser: false },
-  { rank: 2, userId: '2', name: 'Sarah Kim', level: 14, xp: 3980, isCurrentUser: false },
-  { rank: 3, userId: '3', name: 'Mike Johnson', level: 12, xp: 3420, isCurrentUser: false },
-  { rank: 4, userId: '4', name: 'You', level: 10, xp: 2850, isCurrentUser: true },
-  { rank: 5, userId: '5', name: 'Emma Davis', level: 9, xp: 2540, isCurrentUser: false },
-  { rank: 6, userId: '6', name: 'James Wilson', level: 8, xp: 2180, isCurrentUser: false },
-  { rank: 7, userId: '7', name: 'Lisa Brown', level: 7, xp: 1920, isCurrentUser: false },
-  { rank: 8, userId: '8', name: 'David Lee', level: 6, xp: 1650, isCurrentUser: false },
-];
-
-type Tab = 'weekly' | 'allTime' | 'friends';
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Trophy, Zap, Flame, Target } from "lucide-react-native";
+import { useLeaderboard } from "@/hooks/feed/useLeaderboard";
 
 export default function LeaderboardScreen() {
-  const { colors, isDark } = useTheme();
-  const [activeTab, setActiveTab] = useState<Tab>('weekly');
+  const {
+    period,
+    setPeriod,
+    entries,
+    currentUserRank,
+    totalPlayers,
+    isLoading,
+    currentUserEntry,
+  } = useLeaderboard();
 
-  const bgColor = isDark ? 'bg-gray-900' : 'bg-gray-50';
-  const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'weekly', label: 'Weekly' },
-    { key: 'allTime', label: 'All Time' },
-    { key: 'friends', label: 'Friends' },
-  ];
+  const top3 = entries.slice(0, 3);
+  const rest = entries.slice(3);
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
-        <View style={styles.header}>
-          <Trophy size={28} color={colors.warning} />
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
+        <View className="px-5 pt-4 pb-2 flex-row items-center gap-3">
+          <Trophy size={28} color="#EAB308" />
+          <Text className="text-2xl font-bold text-gray-900">
             Leaderboard
           </Text>
         </View>
 
-        {/* Tabs */}
-        <View style={[styles.tabs, { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }]}>
-          {tabs.map((tab) => (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={[
-                styles.tab,
-                activeTab === tab.key && {
-                  backgroundColor: isDark ? '#374151' : '#FFFFFF',
-                },
-              ]}
+        {/* Period toggle */}
+        <View className="mx-5 mt-2 flex-row bg-gray-100 rounded-xl p-1">
+          <Pressable
+            onPress={() => setPeriod("weekly")}
+            className={`flex-1 py-2.5 rounded-lg items-center ${
+              period === "weekly" ? "bg-white shadow-sm" : ""
+            }`}
+          >
+            <Text
+              className={`text-sm font-semibold ${
+                period === "weekly" ? "text-gray-900" : "text-gray-500"
+              }`}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  {
-                    color:
-                      activeTab === tab.key ? colors.textPrimary : colors.textMuted,
-                  },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
-          ))}
+              Weekly
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setPeriod("alltime")}
+            className={`flex-1 py-2.5 rounded-lg items-center ${
+              period === "alltime" ? "bg-white shadow-sm" : ""
+            }`}
+          >
+            <Text
+              className={`text-sm font-semibold ${
+                period === "alltime" ? "text-gray-900" : "text-gray-500"
+              }`}
+            >
+              All Time
+            </Text>
+          </Pressable>
         </View>
 
-        {/* Top 3 Podium */}
-        <Card variant="elevated" className={`mb-4 ${cardBg}`}>
-          <View style={styles.podium}>
-            {/* Reorder to show: Silver (2nd), Gold (1st), Bronze (3rd) */}
-            {[MOCK_LEADERBOARD[1], MOCK_LEADERBOARD[0], MOCK_LEADERBOARD[2]].map((entry, displayIndex) => {
-              // displayIndex: 0=Silver, 1=Gold, 2=Bronze
-              const heights = [80, 100, 60]; // Silver, Gold, Bronze heights
-              const barColors = ['#E5E7EB', '#FCD34D', '#FDBA74']; // Silver, Gold, Bronze colors
-
-              return (
-                <View
-                  key={entry.userId}
-                  style={styles.podiumItem}
-                >
-                  <View
-                    style={[
-                      styles.podiumAvatar,
-                      { backgroundColor: colors.brand },
-                    ]}
-                  >
-                    <Text style={styles.podiumAvatarText}>
-                      {entry.name.charAt(0)}
+        {isLoading ? (
+          <View className="py-16 items-center">
+            <ActivityIndicator size="large" color="#6366F1" />
+          </View>
+        ) : entries.length === 0 ? (
+          <View className="py-16 items-center px-6">
+            <Trophy size={48} color="#D1D5DB" />
+            <Text className="text-base text-gray-500 mt-3 text-center">
+              No rankings yet. Start learning to appear on the leaderboard!
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Top 3 Podium */}
+            {top3.length >= 3 && (
+              <View className="flex-row justify-center items-end mt-6 mb-4 px-5">
+                {/* 2nd place */}
+                <View className="items-center flex-1">
+                  <View className="w-12 h-12 rounded-full bg-gray-200 items-center justify-center mb-2">
+                    <Text className="text-lg font-bold text-gray-600">
+                      {top3[1].student_name.charAt(0)}
                     </Text>
                   </View>
                   <Text
-                    style={[styles.podiumName, { color: colors.textPrimary }]}
+                    className="text-xs font-medium text-gray-700 mb-1"
                     numberOfLines={1}
                   >
-                    {entry.name.split(' ')[0]}
+                    {top3[1].student_name.split(" ")[0]}
                   </Text>
-                  <Text style={[styles.podiumXP, { color: colors.textSecondary }]}>
-                    {entry.xp.toLocaleString()}
+                  <Text className="text-xs text-gray-500">
+                    {top3[1].total_xp} XP
                   </Text>
-                  <View
-                    style={[
-                      styles.podiumBar,
-                      {
-                        height: heights[displayIndex],
-                        backgroundColor: barColors[displayIndex],
-                      },
-                    ]}
-                  >
-                    <Text style={styles.podiumRank}>{entry.rank}</Text>
+                  <View className="w-16 h-20 bg-gray-200 rounded-t-lg mt-2 items-center justify-center">
+                    <Text className="text-xl font-bold text-gray-500">2</Text>
                   </View>
                 </View>
-              );
-            })}
-          </View>
-        </Card>
 
-        {/* Full List */}
-        <Card variant="outline" className={cardBg}>
-          {MOCK_LEADERBOARD.map((entry) => (
-            <LeaderboardRow key={entry.userId} entry={entry} />
-          ))}
-        </Card>
+                {/* 1st place */}
+                <View className="items-center flex-1">
+                  <View className="w-14 h-14 rounded-full bg-amber-200 items-center justify-center mb-2">
+                    <Text className="text-xl font-bold text-amber-700">
+                      {top3[0].student_name.charAt(0)}
+                    </Text>
+                  </View>
+                  <Text
+                    className="text-xs font-semibold text-gray-900 mb-1"
+                    numberOfLines={1}
+                  >
+                    {top3[0].student_name.split(" ")[0]}
+                  </Text>
+                  <Text className="text-xs text-indigo-600 font-medium">
+                    {top3[0].total_xp} XP
+                  </Text>
+                  <View className="w-16 h-28 bg-amber-200 rounded-t-lg mt-2 items-center justify-center">
+                    <Text className="text-2xl font-bold text-amber-700">1</Text>
+                  </View>
+                </View>
+
+                {/* 3rd place */}
+                <View className="items-center flex-1">
+                  <View className="w-12 h-12 rounded-full bg-orange-100 items-center justify-center mb-2">
+                    <Text className="text-lg font-bold text-orange-600">
+                      {top3[2].student_name.charAt(0)}
+                    </Text>
+                  </View>
+                  <Text
+                    className="text-xs font-medium text-gray-700 mb-1"
+                    numberOfLines={1}
+                  >
+                    {top3[2].student_name.split(" ")[0]}
+                  </Text>
+                  <Text className="text-xs text-gray-500">
+                    {top3[2].total_xp} XP
+                  </Text>
+                  <View className="w-16 h-14 bg-orange-100 rounded-t-lg mt-2 items-center justify-center">
+                    <Text className="text-xl font-bold text-orange-500">3</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Full list */}
+            <View className="px-5 mt-2">
+              {rest.map((entry) => (
+                <View
+                  key={entry.rank}
+                  className={`flex-row items-center py-3 border-b border-gray-100 ${
+                    entry.is_current_user ? "bg-indigo-50 -mx-3 px-3 rounded-lg" : ""
+                  }`}
+                >
+                  <Text className="w-8 text-sm font-semibold text-gray-500 text-center">
+                    {entry.rank}
+                  </Text>
+                  <View className="w-9 h-9 rounded-full bg-indigo-100 items-center justify-center mx-2">
+                    <Text className="text-sm font-semibold text-indigo-600">
+                      {entry.student_name.charAt(0)}
+                    </Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      className={`text-sm font-medium ${
+                        entry.is_current_user
+                          ? "text-indigo-700"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      {entry.student_name}
+                      {entry.is_current_user ? " (You)" : ""}
+                    </Text>
+                    <Text className="text-xs text-gray-500">
+                      Lvl {entry.level} · {entry.accuracy}% accuracy
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center gap-1">
+                    <Zap size={14} color="#6366F1" />
+                    <Text className="text-sm font-semibold text-indigo-600">
+                      {entry.total_xp}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* Current user card at bottom */}
+            {currentUserEntry && currentUserRank && currentUserRank > 3 && (
+              <View className="mx-5 mt-4 bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex-row items-center">
+                <Text className="text-sm font-semibold text-gray-500 w-8 text-center">
+                  #{currentUserRank}
+                </Text>
+                <View className="flex-1 ml-2">
+                  <Text className="text-sm font-semibold text-indigo-700">
+                    Your Ranking
+                  </Text>
+                  <Text className="text-xs text-gray-500">
+                    out of {totalPlayers} learners
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Zap size={16} color="#6366F1" />
+                  <Text className="text-base font-bold text-indigo-600">
+                    {currentUserEntry.total_xp}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginLeft: 12,
-  },
-  tabs: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  podium: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingTop: 16,
-  },
-  podiumItem: {
-    alignItems: 'center',
-    marginHorizontal: 8,
-    width: 80,
-  },
-  podiumAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  podiumAvatarText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  podiumName: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  podiumXP: {
-    fontSize: 11,
-    marginBottom: 8,
-  },
-  podiumBar: {
-    width: 60,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  podiumRank: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-});

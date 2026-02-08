@@ -1,5 +1,12 @@
 import { Tabs } from "expo-router";
-import { Home, Gamepad2, Plus, BookOpen, User } from "lucide-react-native";
+import {
+  Home,
+  Trophy,
+  User,
+  Gamepad2,
+  Plus,
+  BookOpen,
+} from "lucide-react-native";
 
 export default function StudentLayout() {
   return (
@@ -22,6 +29,7 @@ export default function StudentLayout() {
         },
       }}
     >
+      {/* Visible tabs */}
       <Tabs.Screen
         name="index"
         options={{
@@ -30,24 +38,12 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen
-        name="join"
+        name="leaderboard"
         options={{
-          title: "Join",
-          tabBarIcon: ({ color, size }) => <Gamepad2 size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="create"
-        options={{
-          title: "Create",
-          tabBarIcon: ({ color, size }) => <Plus size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="study"
-        options={{
-          title: "Study",
-          tabBarIcon: ({ color, size }) => <BookOpen size={size} color={color} />,
+          title: "Leaderboard",
+          tabBarIcon: ({ color, size }) => (
+            <Trophy size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -56,6 +52,58 @@ export default function StudentLayout() {
           title: "Profile",
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
+      />
+
+      {/* Hidden tabs — accessible via navigation but not shown in tab bar */}
+      <Tabs.Screen
+        name="feed"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="skill-tree"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="subject-select"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="pdf-upload"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="assessment"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{ href: null }}
+      />
+
+      {/* Existing routes — hidden from tab bar */}
+      <Tabs.Screen
+        name="join"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="create"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="study"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="social"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{ href: null }}
       />
     </Tabs>
   );

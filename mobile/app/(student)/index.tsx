@@ -1,276 +1,338 @@
-import { View, Text, ScrollView, Pressable, RefreshControl } from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, Pressable, ScrollView, RefreshControl, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "@/providers/AuthProvider";
-import { useGameStore, useUserStore, useProgressionStore } from "@/stores";
-import { Card, PressableCard, Button, EmptyState } from "@/components/ui";
-import { XPBar, StreakBadge } from "@/components/progression";
+import { useRouter } from "expo-router";
 import {
-  Gamepad2,
-  Plus,
+  Search,
+  Play,
   BookOpen,
-  TrendingUp,
-  Trophy,
-  Clock,
   ChevronRight,
+  Zap,
+  Trophy,
+  FileUp,
+  Sparkles,
 } from "lucide-react-native";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useAuth } from "@/providers/AuthProvider";
+import { useHomeScreen } from "@/hooks/feed/useHomeScreen";
+import { useScrollSessionStore } from "@/stores/scrollSessionStore";
+import { StreakBadge } from "@/components/progression";
 
-export default function DashboardScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const { nickname, isGuest, isSignedIn, guestData } = useAuth();
-  const { recentGames } = useGameStore();
-  const { stats, lastNickname } = useUserStore();
-  const { checkAndUpdateStreak } = useProgressionStore();
+  const auth = useAuth();
+  const store = useScrollSessionStore();
+  const {
+    loadingMessage,
+    timeAgo,
+    handleQuickStart,
+    handleSubjectSelect,
+    handleDeleteSubject,
+    answerStartTime,
+  } = useHomeScreen();
+
+  const [quickInput, setQuickInput] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-
-  // Check and update streak on mount
-  useEffect(() => {
-    checkAndUpdateStreak();
-  }, [checkAndUpdateStreak]);
-
-  const displayName = nickname || lastNickname || guestData?.nickname || "Student";
-  const gamesPlayed = stats.totalGamesPlayed || guestData?.gamesPlayed?.length || 0;
-  const totalScore = stats.totalScore || guestData?.totalScore || 0;
-  const accuracy =
-    stats.totalQuestionsAnswered > 0
-      ? Math.round(
-          (stats.totalCorrectAnswers / stats.totalQuestionsAnswered) * 100
-        )
-      : 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Refresh data here when connected to API
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
+    store.setHistoryLoading(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, [store]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+  const handleQuickStartSubmit = async () => {
+    const topic = quickInput.trim();
+    if (!topic) return;
+    await handleSubjectSelect(topic);
+    router.push("/(student)/skill-tree");
   };
 
+  const handleSubjectTap = async (subject: string) => {
+    await handleSubjectSelect(subject);
+    router.push("/(student)/skill-tree");
+  };
+
+  const handleResumeTap = async () => {
+    if (!store.activeSession) return;
+    await handleQuickStart(store.activeSession.topic);
+    if (store.sessionId) {
+      router.push("/(student)/feed");
+    }
+  };
+
+  // Loading overlay when feed is starting
+  if (store.isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <View className="items-center gap-4">
+          <View className="w-12 h-12 rounded-full bg-indigo-100 items-center justify-center">
+            <Sparkles size={24} color="#6366F1" />
+          </View>
+          <Text className="text-base text-gray-600">{loadingMessage}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-4 py-6"
+        contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header with Streak */}
-        <View className="flex-row items-center justify-between mb-6">
-          <View className="flex-1">
+        {/* Header */}
+        <View className="px-5 pt-4 pb-2 flex-row items-center justify-between">
+          <View>
             <Text className="text-2xl font-bold text-gray-900">
-              Hey, {displayName}!
+              Hey, {auth.nickname || "Student"}
             </Text>
-            <Text className="text-gray-500 mt-1">
-              {isGuest ? "Playing as guest" : "Ready to learn?"}
+            <Text className="text-sm text-gray-500 mt-0.5">
+              Ready to learn something new?
             </Text>
           </View>
           <StreakBadge size="md" />
         </View>
 
-        {/* XP Progress */}
-        <Card variant="elevated" className="mb-6">
-          <XPBar showLevel={true} />
-        </Card>
-
-        {/* Quick Actions */}
-        <View className="flex-row gap-4 mb-6">
-          <PressableCard
-            className="flex-1"
-            variant="elevated"
-            onPress={() => router.push("/(student)/join")}
+        {/* Resume banner */}
+        {store.activeSession && (
+          <Pressable
+            onPress={handleResumeTap}
+            className="mx-5 mt-3 bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex-row items-center active:bg-indigo-100"
           >
-            <View className="items-center py-2">
-              <View className="w-14 h-14 bg-primary-100 rounded-2xl items-center justify-center mb-3">
-                <Gamepad2 size={28} color="#6366F1" />
-              </View>
+            <View className="flex-1">
+              <Text className="text-xs font-medium text-indigo-500 uppercase tracking-wide mb-0.5">
+                Continue Learning
+              </Text>
               <Text className="text-base font-semibold text-gray-900">
-                Join Game
+                {store.activeSession.topic}
               </Text>
-              <Text className="text-sm text-gray-500 text-center mt-1">
-                Enter a code
-              </Text>
-            </View>
-          </PressableCard>
-
-          <PressableCard
-            className="flex-1"
-            variant="elevated"
-            onPress={() => router.push("/(student)/create")}
-          >
-            <View className="items-center py-2">
-              <View className="w-14 h-14 bg-green-100 rounded-2xl items-center justify-center mb-3">
-                <Plus size={28} color="#22C55E" />
-              </View>
-              <Text className="text-base font-semibold text-gray-900">
-                Create Quiz
-              </Text>
-              <Text className="text-sm text-gray-500 text-center mt-1">
-                AI-powered
+              <Text className="text-xs text-gray-500 mt-0.5">
+                {store.activeSession.questions_answered} questions ·{" "}
+                {store.activeSession.total_xp} XP
               </Text>
             </View>
-          </PressableCard>
-        </View>
+            <View className="bg-indigo-600 rounded-full p-2.5">
+              <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
+            </View>
+          </Pressable>
+        )}
 
-        {/* Stats */}
-        <Card variant="outline" className="mb-6">
-          <Text className="text-lg font-semibold text-gray-900 mb-4">
-            Your Progress
+        {/* Quick start */}
+        <View className="px-5 mt-5">
+          <Text className="text-base font-semibold text-gray-900 mb-2">
+            Start Learning
           </Text>
-          <View className="flex-row">
-            <View className="flex-1 items-center">
-              <View className="w-10 h-10 bg-blue-100 rounded-xl items-center justify-center mb-2">
-                <Trophy size={20} color="#3B82F6" />
-              </View>
-              <Text className="text-2xl font-bold text-gray-900">
-                {totalScore}
-              </Text>
-              <Text className="text-xs text-gray-500">Total Points</Text>
-            </View>
-            <View className="flex-1 items-center">
-              <View className="w-10 h-10 bg-purple-100 rounded-xl items-center justify-center mb-2">
-                <Gamepad2 size={20} color="#8B5CF6" />
-              </View>
-              <Text className="text-2xl font-bold text-gray-900">
-                {gamesPlayed}
-              </Text>
-              <Text className="text-xs text-gray-500">Games Played</Text>
-            </View>
-            <View className="flex-1 items-center">
-              <View className="w-10 h-10 bg-green-100 rounded-xl items-center justify-center mb-2">
-                <TrendingUp size={20} color="#22C55E" />
-              </View>
-              <Text className="text-2xl font-bold text-gray-900">
-                {accuracy}%
-              </Text>
-              <Text className="text-xs text-gray-500">Accuracy</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Recent Games */}
-        <View className="mb-6">
-          <Text className="text-lg font-semibold text-gray-900 mb-4">
-            Recent Games
-          </Text>
-
-          {recentGames.length > 0 ? (
-            <View className="gap-2">
-              {recentGames.slice(0, 3).map((game) => (
-                <Card key={game.id} variant="outline">
-                  <View className="flex-row items-center">
-                    <View className="w-12 h-12 bg-primary-100 rounded-xl items-center justify-center mr-3">
-                      <Gamepad2 size={24} color="#6366F1" />
-                    </View>
-                    <View className="flex-1">
-                      <Text
-                        className="font-semibold text-gray-900"
-                        numberOfLines={1}
-                      >
-                        {game.quizTitle}
-                      </Text>
-                      <View className="flex-row items-center mt-1">
-                        <Trophy size={12} color="#F59E0B" />
-                        <Text className="text-sm text-gray-500 ml-1">
-                          {game.score} points
-                        </Text>
-                        <Text className="text-gray-300 mx-2">•</Text>
-                        <Clock size={12} color="#9CA3AF" />
-                        <Text className="text-sm text-gray-400 ml-1">
-                          {formatDate(game.playedAt)}
-                        </Text>
-                      </View>
-                    </View>
-                    <View className="bg-primary-50 px-2 py-1 rounded-md">
-                      <Text className="text-primary-700 font-medium text-sm">
-                        {game.correctAnswers}/{game.totalQuestions}
-                      </Text>
-                    </View>
-                  </View>
-                </Card>
-              ))}
-
-              {recentGames.length > 3 && (
-                <Pressable className="py-2 items-center">
-                  <Text className="text-primary-600 font-medium">
-                    View all games
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          ) : (
-            <Card variant="outline">
-              <EmptyState
-                icon={Gamepad2}
-                title="No games yet"
-                description="Join a live game to see your history here"
-                actionLabel="Join Game"
-                onAction={() => router.push("/(student)/join")}
+          <View className="flex-row gap-2">
+            <View className="flex-1 flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-3">
+              <Search size={18} color="#9CA3AF" />
+              <TextInput
+                value={quickInput}
+                onChangeText={setQuickInput}
+                placeholder="Enter any topic..."
+                placeholderTextColor="#9CA3AF"
+                className="flex-1 py-3 px-2 text-sm text-gray-900"
+                onSubmitEditing={handleQuickStartSubmit}
+                returnKeyType="go"
               />
-            </Card>
-          )}
-        </View>
-
-        {/* Study Materials */}
-        <View className="mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-semibold text-gray-900">
-              My Study Quizzes
-            </Text>
+            </View>
             <Pressable
-              onPress={() => router.push("/(student)/study")}
-              className="flex-row items-center"
+              onPress={handleQuickStartSubmit}
+              disabled={!quickInput.trim()}
+              className={`rounded-xl px-4 items-center justify-center ${
+                quickInput.trim() ? "bg-indigo-600 active:bg-indigo-700" : "bg-gray-200"
+              }`}
             >
-              <Text className="text-primary-600 font-medium">See all</Text>
-              <ChevronRight size={16} color="#6366F1" />
+              <Text
+                className={`font-semibold text-sm ${
+                  quickInput.trim() ? "text-white" : "text-gray-400"
+                }`}
+              >
+                Go
+              </Text>
             </Pressable>
           </View>
 
-          <Card variant="outline">
-            <EmptyState
-              icon={BookOpen}
-              title="No quizzes yet"
-              description="Create your first study quiz with AI"
-              actionLabel="Create Quiz"
-              onAction={() => router.push("/(student)/create")}
-            />
-          </Card>
+          {/* PDF upload CTA */}
+          <Pressable
+            onPress={() => router.push("/(student)/pdf-upload")}
+            className="flex-row items-center gap-2 mt-3 py-2"
+          >
+            <FileUp size={14} color="#6366F1" />
+            <Text className="text-sm text-indigo-600 font-medium">
+              Or upload a PDF / study material
+            </Text>
+          </Pressable>
         </View>
 
-        {/* Guest Banner */}
-        {isGuest && (
-          <Card className="bg-primary-50 border border-primary-200">
-            <View className="flex-row items-center">
-              <View className="flex-1">
-                <Text className="text-primary-900 font-semibold mb-1">
-                  Save your progress
-                </Text>
-                <Text className="text-primary-700 text-sm">
-                  Create an account to keep your quizzes and scores
-                </Text>
-              </View>
-              <Button
-                size="sm"
-                onPress={() => router.push("/(auth)/sign-up")}
+        {/* Suggestions */}
+        {store.suggestions.length > 0 && (
+          <View className="mt-4">
+            <Text className="px-5 text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              Suggestions
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+            >
+              {store.suggestions.map((s, idx) => (
+                <Pressable
+                  key={idx}
+                  onPress={() => {
+                    setQuickInput(s);
+                    handleSubjectSelect(s).then(() =>
+                      router.push("/(student)/skill-tree"),
+                    );
+                  }}
+                  className="bg-gray-50 border border-gray-200 rounded-full px-4 py-2 active:bg-gray-100"
+                >
+                  <Text className="text-sm text-gray-700">{s}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Subject history */}
+        <View className="mt-6 px-5">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-base font-semibold text-gray-900">
+              Your Subjects
+            </Text>
+            {store.history.length > 0 && (
+              <Pressable
+                onPress={() => router.push("/(student)/subject-select")}
               >
-                Sign Up
-              </Button>
+                <Text className="text-sm text-indigo-600 font-medium">
+                  See all
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
+          {store.historyLoading && store.history.length === 0 ? (
+            <View className="py-8 items-center">
+              <Text className="text-sm text-gray-400">
+                Loading subjects...
+              </Text>
             </View>
-          </Card>
+          ) : store.history.length === 0 ? (
+            <View className="bg-gray-50 rounded-xl p-6 items-center">
+              <BookOpen size={32} color="#D1D5DB" />
+              <Text className="text-sm text-gray-500 mt-2 text-center">
+                No subjects yet. Start learning above!
+              </Text>
+            </View>
+          ) : (
+            <View className="gap-3">
+              {store.history.slice(0, 5).map((subject) => (
+                <Pressable
+                  key={subject.subject}
+                  onPress={() => handleSubjectTap(subject.subject)}
+                  className="bg-white border border-gray-200 rounded-xl p-4 active:bg-gray-50"
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1 mr-3">
+                      <Text
+                        className="text-base font-medium text-gray-900"
+                        numberOfLines={1}
+                      >
+                        {subject.subject}
+                      </Text>
+                      <View className="flex-row items-center gap-3 mt-1">
+                        <Text className="text-xs text-gray-500">
+                          {subject.accuracy}% accuracy
+                        </Text>
+                        <View className="flex-row items-center gap-0.5">
+                          <Zap size={10} color="#6366F1" />
+                          <Text className="text-xs text-indigo-600 font-medium">
+                            {subject.total_xp} XP
+                          </Text>
+                        </View>
+                        {subject.last_studied_at && (
+                          <Text className="text-xs text-gray-400">
+                            {timeAgo(subject.last_studied_at)}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    <View className="flex-row items-center gap-2">
+                      <View className="w-10 h-10 rounded-full bg-indigo-50 items-center justify-center">
+                        <Text className="text-xs font-semibold text-indigo-600">
+                          {subject.accuracy}%
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color="#9CA3AF" />
+                    </View>
+                  </View>
+
+                  {/* Progress bar */}
+                  <View className="bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <View
+                      className="bg-indigo-500 h-full rounded-full"
+                      style={{
+                        width: `${Math.min(subject.accuracy, 100)}%`,
+                      }}
+                    />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Overall stats */}
+        {store.historyOverall &&
+          store.historyOverall.total_sessions > 0 && (
+            <View className="mt-6 px-5">
+              <Text className="text-base font-semibold text-gray-900 mb-3">
+                Overall Progress
+              </Text>
+              <View className="flex-row gap-3">
+                <View className="flex-1 bg-indigo-50 rounded-xl p-3 items-center">
+                  <Zap size={18} color="#6366F1" />
+                  <Text className="text-lg font-bold text-gray-900 mt-1">
+                    {store.historyOverall.total_xp}
+                  </Text>
+                  <Text className="text-xs text-gray-500">Total XP</Text>
+                </View>
+                <View className="flex-1 bg-emerald-50 rounded-xl p-3 items-center">
+                  <Trophy size={18} color="#10B981" />
+                  <Text className="text-lg font-bold text-gray-900 mt-1">
+                    {store.historyOverall.concepts_mastered}
+                  </Text>
+                  <Text className="text-xs text-gray-500">Mastered</Text>
+                </View>
+                <View className="flex-1 bg-amber-50 rounded-xl p-3 items-center">
+                  <BookOpen size={18} color="#D97706" />
+                  <Text className="text-lg font-bold text-gray-900 mt-1">
+                    {store.historyOverall.total_sessions}
+                  </Text>
+                  <Text className="text-xs text-gray-500">Sessions</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+        {/* Error */}
+        {store.error && (
+          <View className="mx-5 mt-4 bg-red-50 border border-red-200 rounded-xl p-3">
+            <Text className="text-sm text-red-700">{store.error}</Text>
+            <Pressable
+              onPress={() => store.setError(null)}
+              className="mt-1"
+            >
+              <Text className="text-xs text-red-500 font-medium">
+                Dismiss
+              </Text>
+            </Pressable>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
