@@ -64,6 +64,12 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
     const [localSessionId, setLocalSessionId] = useState<string | null>(null);
     const sessionStartedRef = useRef(false);
 
+    // Error state
+    const [sessionError, setSessionError] = useState<string | null>(null);
+
+    // Whether all initial flashcards have been reviewed (no more to fetch)
+    const [flashcardsExhausted, setFlashcardsExhausted] = useState(false);
+
     // Peek notes
     const [showPeekNotes, setShowPeekNotes] = useState(false);
 
@@ -84,6 +90,8 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         setLocalSessionId(null);
         setEditingNoteId(null);
         setShowPeekNotes(false);
+        setSessionError(null);
+        setFlashcardsExhausted(false);
         sessionStartedRef.current = false;
     }, [topic?.id]);
 
@@ -110,10 +118,14 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         }
 
         // 2. Create session + pre-load cards/quiz
+        //    Use initial cards from startFeed for flashcards (learn phase),
+        //    then skipPhase("quiz") ONCE to get quiz cards.
+        //    This leaves the session in quiz phase so getNextCards works for quiz.
         if (!sessionStartedRef.current) {
             sessionStartedRef.current = true;
             setCardsLoading(true);
             setQuizLoading(true);
+            setSessionError(null);
 
             scrollApi.startFeed(
                 topic.name,
@@ -127,35 +139,38 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
                 if (!res.success) {
                     setCardsLoading(false);
                     setQuizLoading(false);
+                    setSessionError("Failed to start study session. Please try again.");
                     return;
                 }
 
                 const sessionId = res.data.session_id;
                 setLocalSessionId(sessionId);
 
-                // Pre-load flashcards
-                try {
-                    const fcRes = await scrollApi.skipPhase(sessionId, "flashcards");
-                    if (!cancelled && fcRes.success) {
-                        setCardsData(fcRes.data.cards);
-                        setCardStats(fcRes.data.stats);
-                    }
-                } catch { /* ignore */ }
+                // Use initial cards from startFeed as flashcards
+                if (res.data.cards && res.data.cards.length > 0) {
+                    setCardsData(res.data.cards);
+                    setCardStats(res.data.stats);
+                }
                 if (!cancelled) setCardsLoading(false);
 
-                // Pre-load quiz
+                // Skip to quiz phase — single skipPhase call
                 try {
                     const qRes = await scrollApi.skipPhase(sessionId, "quiz");
                     if (!cancelled && qRes.success) {
                         setQuizData(qRes.data.cards);
                         setQuizStats(qRes.data.stats);
                     }
-                } catch { /* ignore */ }
+                } catch {
+                    if (!cancelled) {
+                        // Quiz load failed but flashcards still work
+                    }
+                }
                 if (!cancelled) setQuizLoading(false);
             }).catch(() => {
                 if (!cancelled) {
                     setCardsLoading(false);
                     setQuizLoading(false);
+                    setSessionError("Failed to start study session. Please try again.");
                 }
             });
         }
@@ -192,17 +207,10 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
             setCardIdx(nextIdx);
             return;
         }
-        // Fetch more cards
-        if (!localSessionId) return;
-        try {
-            const res = await scrollApi.getNextCards(localSessionId, 3);
-            if (res.success && res.data.cards.length > 0) {
-                setCardsData((prev) => [...prev, ...res.data.cards]);
-                setCardIdx(nextIdx);
-                setCardStats(res.data.stats);
-            }
-        } catch { /* ignore */ }
-    }, [localSessionId, cardIdx, cardsData.length]);
+        // Session is in quiz phase — cannot fetch more flashcards.
+        // Signal that all initial flashcards have been reviewed.
+        setFlashcardsExhausted(true);
+    }, [cardIdx, cardsData.length]);
 
     // ── Quiz handlers ──
 
@@ -304,6 +312,63 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         setEditTakeawayDraft("");
     }, [editingNoteId, editDraft, editTakeawayDraft, notesData, topic, store]);
 
+    // Retry session creation
+    const retrySession = useCallback(() => {
+        sessionStartedRef.current = false;
+        setSessionError(null);
+        setCardsData([]);
+        setQuizData([]);
+        setCardIdx(0);
+        setQuizIdx(0);
+        setFlashcardsExhausted(false);
+        // Trigger re-run by toggling a state that the effect depends on
+        // We'll use the sessionStartedRef reset — but the effect won't re-run
+        // since topic?.id hasn't changed. Instead, run the session logic inline.
+        if (!topic) return;
+        const studentName = getStudentName(auth.user);
+        setCardsLoading(true);
+        setQuizLoading(true);
+
+        scrollApi.startFeed(
+            topic.name,
+            studentName,
+            auth.user?.id,
+            undefined,
+            undefined,
+            "structured",
+        ).then(async (res) => {
+            if (!res.success) {
+                setCardsLoading(false);
+                setQuizLoading(false);
+                setSessionError("Failed to start study session. Please try again.");
+                return;
+            }
+
+            const sessionId = res.data.session_id;
+            setLocalSessionId(sessionId);
+            sessionStartedRef.current = true;
+
+            if (res.data.cards && res.data.cards.length > 0) {
+                setCardsData(res.data.cards);
+                setCardStats(res.data.stats);
+            }
+            setCardsLoading(false);
+
+            try {
+                const qRes = await scrollApi.skipPhase(sessionId, "quiz");
+                if (qRes.success) {
+                    setQuizData(qRes.data.cards);
+                    setQuizStats(qRes.data.stats);
+                }
+            } catch { /* quiz load failed */ }
+            setQuizLoading(false);
+        }).catch(() => {
+            setCardsLoading(false);
+            setQuizLoading(false);
+            setSessionError("Failed to start study session. Please try again.");
+        });
+    }, [topic, auth.user]);
+
     // Key takeaways for peek overlay
     const keyTakeaways = notesData
         ? Object.values(notesData.notes_by_concept)
@@ -355,5 +420,12 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         showPeekNotes,
         setShowPeekNotes,
         keyTakeaways,
+
+        // Error / retry
+        sessionError,
+        retrySession,
+
+        // Flashcard exhaustion
+        flashcardsExhausted,
     };
 }

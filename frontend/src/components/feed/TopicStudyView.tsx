@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, X, BookOpen, Layers, Zap, Pencil, Check, XIcon, Loader2, Eye, ExternalLink } from "lucide-react";
+import { ArrowLeft, BookOpen, Layers, Zap, Pencil, Check, XIcon, Loader2, Eye, ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { MathMarkdown } from "~/components/MathMarkdown";
 import { FlashcardCard } from "~/components/learning/FlashcardCard";
@@ -45,14 +45,77 @@ function MasteryRing({ mastery, size = 40 }: { mastery: number; size?: number })
 }
 
 // ============================================
-// Skeleton loader
+// Shimmer animation helper
 // ============================================
 
-function SkeletonCards() {
+function ShimmerBlock({ className }: { className?: string }) {
     return (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
-            <p className="text-xs text-indigo-300/50">Loading cards...</p>
+        <div className={cn("rounded-lg bg-indigo-400/[0.07] animate-pulse", className)} />
+    );
+}
+
+// ============================================
+// Tab-specific skeleton loaders (centered)
+// ============================================
+
+function NotesLoadingSkeleton() {
+    return (
+        <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
+            <BookOpen className="w-8 h-8 text-indigo-400/40 animate-pulse" />
+            <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+            <p className="text-xs text-indigo-300/50">Generating study notes...</p>
+            <div className="w-full max-w-sm space-y-3 mt-2">
+                <ShimmerBlock className="h-4 w-3/4" />
+                <ShimmerBlock className="h-3 w-full" />
+                <ShimmerBlock className="h-3 w-5/6" />
+                <ShimmerBlock className="h-3 w-2/3" />
+            </div>
+        </div>
+    );
+}
+
+function CardsLoadingSkeleton() {
+    return (
+        <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
+            <Layers className="w-8 h-8 text-indigo-400/40 animate-pulse" />
+            <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+            <p className="text-xs text-indigo-300/50">Preparing flashcards...</p>
+            <div className="w-full max-w-xs mt-2">
+                <ShimmerBlock className="h-48 w-full rounded-2xl" />
+            </div>
+        </div>
+    );
+}
+
+function QuizLoadingSkeleton() {
+    return (
+        <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
+            <Zap className="w-8 h-8 text-indigo-400/40 animate-pulse" />
+            <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+            <p className="text-xs text-indigo-300/50">Building quiz questions...</p>
+            <div className="w-full max-w-xs space-y-2.5 mt-2">
+                <ShimmerBlock className="h-5 w-4/5" />
+                <ShimmerBlock className="h-10 w-full rounded-xl" />
+                <ShimmerBlock className="h-10 w-full rounded-xl" />
+                <ShimmerBlock className="h-10 w-full rounded-xl" />
+                <ShimmerBlock className="h-10 w-full rounded-xl" />
+            </div>
+        </div>
+    );
+}
+
+function SessionErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+    return (
+        <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
+            <AlertCircle className="w-8 h-8 text-red-400/70" />
+            <p className="text-sm text-red-300/80 text-center max-w-xs">{message}</p>
+            <button
+                onClick={onRetry}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+            >
+                <RefreshCw className="w-4 h-4" />
+                Retry
+            </button>
         </div>
     );
 }
@@ -77,7 +140,7 @@ function PeekNotesOverlay({ takeaways, onClose }: { takeaways: Array<{ concept: 
             <div className="bg-[#0a0820]/95 backdrop-blur-xl border-t border-indigo-400/20 rounded-t-2xl max-h-[50vh] overflow-y-auto px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-bold text-indigo-200">Key Takeaways</h4>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-indigo-300/60"><X className="w-4 h-4" /></button>
+                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-indigo-300/60"><XIcon className="w-4 h-4" /></button>
                 </div>
                 {takeaways.length === 0 ? (
                     <p className="text-xs text-indigo-300/40">No takeaways available yet.</p>
@@ -124,9 +187,6 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
                         <h2 className="text-base font-bold text-white truncate">{topic.name}</h2>
                         <p className="text-[11px] text-indigo-300/50">{topic.concepts.length} concepts</p>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 text-indigo-300/60 transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
                 </div>
 
                 {/* ── Tab bar ── */}
@@ -159,10 +219,7 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
                 <div className={cn("absolute inset-0 overflow-y-auto", s.activeTab !== "notes" && "hidden")}>
                     <div className="px-4 py-4">
                         {s.notesLoading ? (
-                            <div className="flex flex-col items-center justify-center py-16 gap-3">
-                                <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
-                                <p className="text-xs text-indigo-300/50">Generating study notes...</p>
-                            </div>
+                            <NotesLoadingSkeleton />
                         ) : s.notesData && s.notesData.total_notes > 0 ? (
                             <div className="space-y-5">
                                 {Object.entries(s.notesData.notes_by_concept).map(([concept, notes]) => (
@@ -279,8 +336,18 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
 
                 {/* Cards (flashcards) tab */}
                 <div className={cn("absolute inset-0", s.activeTab !== "cards" && "hidden")}>
-                    {s.cardsLoading ? (
-                        <SkeletonCards />
+                    {s.sessionError ? (
+                        <SessionErrorState message={s.sessionError} onRetry={s.retrySession} />
+                    ) : s.cardsLoading ? (
+                        <CardsLoadingSkeleton />
+                    ) : s.flashcardsExhausted ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-3 px-6">
+                            <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                                <Check className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <p className="text-sm font-semibold text-indigo-200">All cards reviewed!</p>
+                            <p className="text-xs text-indigo-300/50 text-center max-w-xs">You&apos;ve gone through all the flashcards for this topic. Try the Quiz tab to test your knowledge.</p>
+                        </div>
                     ) : s.currentFlashcard ? (
                         <FlashcardCard
                             card={s.currentFlashcard}
@@ -290,7 +357,7 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
                             xpEarned={s.flashcardXp}
                         />
                     ) : (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2">
+                        <div className="h-full flex flex-col items-center justify-center gap-2">
                             <Layers className="w-5 h-5 text-indigo-400/30" />
                             <p className="text-xs text-indigo-300/40">No flashcards available.</p>
                         </div>
@@ -299,8 +366,10 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
 
                 {/* Quiz tab */}
                 <div className={cn("absolute inset-0", s.activeTab !== "quiz" && "hidden")}>
-                    {s.quizLoading ? (
-                        <SkeletonCards />
+                    {s.sessionError ? (
+                        <SessionErrorState message={s.sessionError} onRetry={s.retrySession} />
+                    ) : s.quizLoading ? (
+                        <QuizLoadingSkeleton />
                     ) : s.currentQuizCard ? (
                         <CosmicQuizCard
                             card={s.currentQuizCard}
@@ -312,15 +381,15 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
                             analytics={s.quizAnalytics}
                         />
                     ) : (
-                        <div className="flex flex-col items-center justify-center py-16 gap-2">
+                        <div className="h-full flex flex-col items-center justify-center gap-2">
                             <Zap className="w-5 h-5 text-indigo-400/30" />
                             <p className="text-xs text-indigo-300/40">No quiz cards available.</p>
                         </div>
                     )}
                 </div>
 
-                {/* Peek notes floating button — visible on Cards/Quiz tabs */}
-                {s.activeTab !== "notes" && (
+                {/* Peek notes floating button — visible on Cards/Quiz tabs when notes are loaded */}
+                {s.activeTab !== "notes" && s.keyTakeaways.length > 0 && (
                     <button
                         onClick={() => s.setShowPeekNotes(!s.showPeekNotes)}
                         className={cn(
