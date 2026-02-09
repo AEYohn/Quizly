@@ -1188,6 +1188,40 @@ async def get_topic_notes(
     }
 
 
+class UpdateTopicNoteRequest(BaseModel):
+    body_markdown: Optional[str] = None
+    key_takeaway: Optional[str] = None
+
+
+@router.patch("/content/topic-notes/{item_id}")
+async def update_topic_note(
+    item_id: str,
+    request: UpdateTopicNoteRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a study note's content (user edits)."""
+    from ..db_models_content_pool import ContentItem
+    import uuid as _uuid
+
+    result = await db.execute(
+        select(ContentItem).where(ContentItem.id == _uuid.UUID(item_id))
+    )
+    item = result.scalars().first()
+    if not item:
+        raise ResourceNotFound("Content item")
+
+    cj = dict(item.content_json or {})
+    if request.body_markdown is not None:
+        cj["body_markdown"] = request.body_markdown
+    if request.key_takeaway is not None:
+        cj["key_takeaway"] = request.key_takeaway
+    cj["user_edited"] = True
+    item.content_json = cj
+    await db.commit()
+
+    return {"ok": True, "id": str(item.id)}
+
+
 @router.post("/content/clear-stale-mcqs")
 async def clear_stale_mcqs(
     db: AsyncSession = Depends(get_db),

@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { ArrowLeft, BarChart3, Sparkles, FileUp, RefreshCw, Trash2, FileText, Loader2, Users, X, Play, BookOpen, Zap, Layers, Clock, CheckCircle2, ExternalLink } from "lucide-react";
-import { MathMarkdown } from "~/components/MathMarkdown";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { ArrowLeft, BarChart3, Sparkles, FileUp, RefreshCw, Trash2, FileText, Loader2, Users, X, Play } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import { ResourceChip } from "~/components/feed/ResourceChip";
+import { TopicStudyView } from "~/components/feed/TopicStudyView";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SkillTreeProps } from "~/variants/contracts";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
@@ -114,64 +114,7 @@ export function SkillTree({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [hintDismissed, setHintDismissed] = useState(false);
     const [selectedTopic, setSelectedTopic] = useState<SyllabusTopic | null>(null);
-    const [notesData, setNotesData] = useState<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string; sources?: Array<{ title: string; url: string }> }>> } | null>(null);
-    const [notesLoading, setNotesLoading] = useState(false);
-    const [showNotesSheet, setShowNotesSheet] = useState(false);
     const store = useScrollSessionStore();
-
-    const topicSessions = useMemo(() => {
-        if (!selectedTopic) return [];
-        return recentSessions
-            .filter((s) => s.topic.toLowerCase() === selectedTopic.name.toLowerCase() || s.topic.toLowerCase() === store.selectedSubject?.toLowerCase())
-            .slice(0, 3);
-    }, [selectedTopic, recentSessions, store.selectedSubject]);
-
-    const handleFetchNotes = useCallback(async (topic: SyllabusTopic) => {
-        setNotesLoading(true);
-        setShowNotesSheet(true);
-        setSelectedTopic(null);
-        const res = await onStudyNotes(topic);
-        if (res.success) {
-            setNotesData(res.data);
-            store.setTopicNotes(topic.id, res.data);
-        }
-        setNotesLoading(false);
-    }, [onStudyNotes, store]);
-
-    // Inline notes preview: auto-fetch when topic sheet opens
-    const [inlineNotesLoading, setInlineNotesLoading] = useState(false);
-    const [inlineNotesData, setInlineNotesData] = useState<typeof notesData>(null);
-
-    useEffect(() => {
-        if (!selectedTopic) { setInlineNotesData(null); return; }
-        const cached = useScrollSessionStore.getState().topicNotesCache?.[selectedTopic.id];
-        if (cached) { setInlineNotesData(cached); return; }
-        let cancelled = false;
-        setInlineNotesLoading(true);
-        onStudyNotes(selectedTopic).then((res) => {
-            if (cancelled) return;
-            if (res.success) {
-                setInlineNotesData(res.data);
-                useScrollSessionStore.getState().setTopicNotes(selectedTopic.id, res.data);
-            }
-            setInlineNotesLoading(false);
-        }).catch(() => { if (!cancelled) setInlineNotesLoading(false); });
-        return () => { cancelled = true; };
-    }, [selectedTopic, onStudyNotes]);
-
-    const timeAgo = useCallback((iso: string | null) => {
-        if (!iso) return "";
-        const normalized = /[Z+\-]\d{0,2}:?\d{0,2}$/.test(iso) ? iso : iso + "Z";
-        const diff = Date.now() - new Date(normalized).getTime();
-        if (diff < 0 || diff < 60000) return "just now";
-        const mins = Math.floor(diff / 60000);
-        if (mins < 60) return `${mins}m ago`;
-        const hours = Math.floor(mins / 60);
-        if (hours < 24) return `${hours}h ago`;
-        const days = Math.floor(hours / 24);
-        if (days < 7) return `${days}d ago`;
-        return `${Math.floor(days / 7)}w ago`;
-    }, []);
 
     // Auto-dismiss error after 5 seconds
     useEffect(() => {
@@ -464,227 +407,16 @@ export function SkillTree({
                 </div>
             </BottomSheet>
 
-            {/* Topic action sheet */}
-            <BottomSheet
-                open={!!selectedTopic}
-                onClose={() => setSelectedTopic(null)}
-                title={selectedTopic?.name}
-                tall
-            >
-                {selectedTopic && (
-                    <div className="flex flex-col gap-4 h-full">
-                        {/* Topic header with mastery ring */}
-                        <div className="flex items-center gap-3 shrink-0">
-                            <MasteryRing mastery={mastery[selectedTopic.id] ?? 0} size={48} />
-                            <div className="flex-1 min-w-0">
-                                <h3 className="text-base font-bold text-white truncate">{selectedTopic.name}</h3>
-                                <p className="text-xs text-indigo-300/60 mt-0.5">
-                                    {selectedTopic.concepts.length} concepts &middot; ~{selectedTopic.estimated_minutes}m
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Action buttons — horizontal row, always visible */}
-                        <div className="flex gap-2 shrink-0">
-                            <button
-                                onClick={() => {
-                                    const topic = selectedTopic;
-                                    setSelectedTopic(null);
-                                    onStartLearning(topic);
-                                }}
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
-                            >
-                                <Play className="w-4 h-4" />
-                                <span>Learn</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const topic = selectedTopic;
-                                    setSelectedTopic(null);
-                                    onFlashcardsOnly(topic);
-                                }}
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-medium text-sm transition-colors"
-                            >
-                                <Layers className="w-4 h-4" />
-                                <span>Cards</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    const topic = selectedTopic;
-                                    setSelectedTopic(null);
-                                    onQuizOnly(topic);
-                                }}
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-medium text-sm transition-colors"
-                            >
-                                <Zap className="w-4 h-4" />
-                                <span>Quiz</span>
-                            </button>
-                        </div>
-
-                        {/* Study notes — main scrollable content area */}
-                        <div className="flex-1 min-h-0 overflow-y-auto rounded-xl bg-indigo-950/30 border border-indigo-400/10">
-                            {inlineNotesLoading ? (
-                                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                                    <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
-                                    <p className="text-xs text-indigo-300/50">Generating study notes...</p>
-                                </div>
-                            ) : inlineNotesData && inlineNotesData.total_notes > 0 ? (
-                                <div className="px-4 py-4 space-y-5">
-                                    {Object.entries(inlineNotesData.notes_by_concept).map(([concept, notes]) => (
-                                        <div key={concept}>
-                                            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">{concept}</h4>
-                                            {notes.map((note) => (
-                                                <div key={note.id} className="mb-3">
-                                                    <MathMarkdown dark className="[&_p]:!text-[13px] [&_p]:!leading-relaxed [&_li]:!text-[13px] [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-[13px]">
-                                                        {note.body_markdown}
-                                                    </MathMarkdown>
-                                                    {note.key_takeaway && (
-                                                        <div className="mt-2 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-400/15">
-                                                            <p className="text-xs text-indigo-200/80 leading-relaxed">
-                                                                <span className="font-semibold text-indigo-300">Key takeaway:</span> {note.key_takeaway}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    {note.sources && note.sources.length > 0 && (
-                                                        <div className="flex flex-wrap gap-1.5 mt-2">
-                                                            {note.sources.map((src, i) => (
-                                                                <a
-                                                                    key={i}
-                                                                    href={src.url}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-400/15 text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/20 transition-colors"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    <ExternalLink className="w-3 h-3" />
-                                                                    {src.title}
-                                                                </a>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-12 gap-2">
-                                    <BookOpen className="w-5 h-5 text-indigo-400/30" />
-                                    <p className="text-xs text-indigo-300/40">Study notes will load here</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Resource chips + recent sessions — compact footer */}
-                        {((topicResources?.[selectedTopic.id]?.length ?? 0) > 0 || topicSessions.length > 0) && (
-                            <div className="shrink-0 space-y-3 pt-1 border-t border-indigo-400/10">
-                                {(topicResources?.[selectedTopic.id]?.length ?? 0) > 0 && (
-                                    <div>
-                                        <h4 className="text-[10px] font-semibold text-indigo-300/50 uppercase tracking-wider mb-1.5">Resources</h4>
-                                        <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                            {topicResources![selectedTopic.id]!.map((r, idx) => (
-                                                <ResourceChip key={idx} title={r.title} url={r.url} sourceType={r.source_type} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {topicSessions.length > 0 && (
-                                    <div>
-                                        <h4 className="text-[10px] font-semibold text-indigo-300/50 uppercase tracking-wider mb-1.5">Recent</h4>
-                                        <div className="flex gap-2 overflow-x-auto">
-                                            {topicSessions.slice(0, 3).map((session) => (
-                                                <div
-                                                    key={session.id}
-                                                    className="shrink-0 flex items-center gap-2 bg-indigo-950/40 border border-indigo-400/10 rounded-lg px-2.5 py-1.5"
-                                                >
-                                                    <CheckCircle2 className={cn(
-                                                        "w-3 h-3 shrink-0",
-                                                        session.accuracy >= 80 ? "text-emerald-400" :
-                                                        session.accuracy >= 50 ? "text-indigo-400" :
-                                                        "text-indigo-400/40",
-                                                    )} />
-                                                    <span className="text-[11px] text-white font-medium">
-                                                        {Math.round(session.accuracy)}%
-                                                    </span>
-                                                    <span className="text-[10px] text-indigo-300/40">
-                                                        {timeAgo(session.ended_at || session.started_at)}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </BottomSheet>
-
-            {/* Study notes bottom sheet */}
-            <BottomSheet
-                open={showNotesSheet}
-                onClose={() => { setShowNotesSheet(false); setNotesData(null); }}
-                title="Concept Review"
-            >
-                {notesLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-                    </div>
-                ) : notesData && notesData.total_notes > 0 ? (
-                    <div className="space-y-6">
-                        {Object.entries(notesData.notes_by_concept).map(([concept, notes]) => (
-                            <div key={concept}>
-                                <h3 className="text-sm font-bold text-indigo-200 mb-3 flex items-center gap-2">
-                                    <BookOpen className="w-4 h-4 text-indigo-400" />
-                                    {concept}
-                                </h3>
-                                <div className="space-y-3">
-                                    {notes.map((note) => (
-                                        <div
-                                            key={note.id}
-                                            className="bg-indigo-950/40 border border-indigo-400/15 rounded-xl px-4 py-3"
-                                        >
-                                            <h4 className="text-sm font-semibold text-white mb-2">{note.title}</h4>
-                                            <div className="text-sm leading-relaxed">
-                                                <MathMarkdown dark>{note.body_markdown}</MathMarkdown>
-                                            </div>
-                                            {note.key_takeaway && (
-                                                <div className="mt-3 pt-2 border-t border-indigo-400/10">
-                                                    <p className="text-xs text-indigo-300/70">
-                                                        <span className="font-semibold text-indigo-300">Key takeaway:</span> {note.key_takeaway}
-                                                    </p>
-                                                </div>
-                                            )}
-                                            {note.sources && note.sources.length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                                    {note.sources.map((src, i) => (
-                                                        <a
-                                                            key={i}
-                                                            href={src.url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-400/15 text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/20 transition-colors"
-                                                        >
-                                                            <ExternalLink className="w-3 h-3" />
-                                                            {src.title}
-                                                        </a>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-12">
-                        <BookOpen className="w-10 h-10 text-indigo-400/30 mx-auto mb-3" />
-                        <p className="text-sm text-indigo-200/60">No study notes available for this topic yet.</p>
-                        <p className="text-xs text-indigo-300/40 mt-1">Start a learning session to generate notes.</p>
-                    </div>
-                )}
-            </BottomSheet>
+            {/* Full-screen topic study view */}
+            {selectedTopic && (
+                <TopicStudyView
+                    topic={selectedTopic}
+                    mastery={mastery[selectedTopic.id] ?? 0}
+                    onClose={() => setSelectedTopic(null)}
+                    onStudyNotes={onStudyNotes}
+                    topicResources={topicResources?.[selectedTopic.id]}
+                />
+            )}
         </div>
     );
 }

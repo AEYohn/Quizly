@@ -1382,6 +1382,12 @@ export const learnApi = {
         fetchApiAuth<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string; sources?: Array<{ title: string; url: string }> }>> }>(
             `/learn/content/topic-notes?topic=${encodeURIComponent(topic)}&generate=true&comprehensive=true${concepts?.length ? `&concepts=${encodeURIComponent(concepts.join(','))}` : ''}`
         ),
+
+    updateTopicNote: (itemId: string, body: { body_markdown?: string; key_takeaway?: string }) =>
+        fetchApiAuth<{ ok: boolean; id: string }>(`/learn/content/topic-notes/${itemId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        }),
 };
 
 export interface SubjectHistory {

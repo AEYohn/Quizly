@@ -17,6 +17,86 @@ from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
 logger = get_logger(__name__)
 
 
+SUBJECT_CATEGORIES = {
+    "math": {
+        "keywords": [
+            "calculus", "algebra", "probability", "statistics", "geometry",
+            "trigonometry", "linear algebra", "differential", "integral",
+            "matrix", "vector", "theorem", "proof", "equation", "derivative",
+            "limit", "series", "function", "polynomial", "logarithm",
+            "combinatorics", "number theory", "topology", "optimization",
+        ],
+        "emphasis": (
+            "FORMATTING EMPHASIS (MATH subject): Use extensive LaTeX math notation "
+            "with $$...$$ for display equations and $...$ for inline math. Include "
+            "step-by-step derivations, worked examples with intermediate steps, and "
+            "formal definitions. Prefer precise mathematical language."
+        ),
+    },
+    "cs": {
+        "keywords": [
+            "algorithm", "data structure", "programming", "python", "java",
+            "javascript", "typescript", "code", "software", "database",
+            "api", "recursion", "sorting", "graph", "tree", "hash",
+            "complexity", "big-o", "object-oriented", "functional",
+            "compiler", "operating system", "network", "web development",
+            "machine learning", "artificial intelligence",
+        ],
+        "emphasis": (
+            "FORMATTING EMPHASIS (CS subject): Use code blocks (```python, ```js, etc.) "
+            "for examples. Include Big-O complexity analysis where relevant. Use mermaid "
+            "flowchart diagrams for algorithms and data flow. Show pseudocode for "
+            "key algorithms."
+        ),
+    },
+    "science": {
+        "keywords": [
+            "biology", "chemistry", "physics", "genetics", "cell",
+            "molecule", "atom", "energy", "force", "evolution",
+            "ecosystem", "reaction", "element", "periodic", "dna",
+            "protein", "thermodynamics", "quantum", "electromagnetic",
+            "organic chemistry", "biochemistry", "neuroscience",
+        ],
+        "emphasis": (
+            "FORMATTING EMPHASIS (SCIENCE subject): Use mermaid process diagrams for "
+            "biological/chemical processes. Include chemical/physics formulas with LaTeX. "
+            "Describe experimental methods and observations. Use diagrams to show "
+            "relationships between components."
+        ),
+    },
+    "history": {
+        "keywords": [
+            "civilization", "war", "revolution", "empire", "dynasty",
+            "colonial", "medieval", "ancient", "modern", "century",
+            "political", "treaty", "independence", "constitution",
+            "democracy", "monarchy", "renaissance", "industrial",
+            "world war", "cold war", "civil rights",
+        ],
+        "emphasis": (
+            "FORMATTING EMPHASIS (HISTORY subject): Use chronological structure with "
+            "**bolded dates** and time periods. Present cause-effect chains clearly. "
+            "Use timeline narrative format. Include quotes from primary sources where "
+            "relevant. Compare different perspectives on events."
+        ),
+    },
+    "humanities": {
+        "keywords": [
+            "literature", "philosophy", "psychology", "economics",
+            "sociology", "anthropology", "linguistics", "ethics",
+            "aesthetics", "rhetoric", "critical theory", "semiotics",
+            "existentialism", "phenomenology", "postmodernism",
+            "macroeconomics", "microeconomics", "behavioral",
+        ],
+        "emphasis": (
+            "FORMATTING EMPHASIS (HUMANITIES subject): Include relevant quotes and "
+            "citations. Present contrasting viewpoints and schools of thought. Use "
+            "mermaid concept map diagrams to show relationships between ideas. "
+            "Define key terminology precisely."
+        ),
+    },
+}
+
+
 class StudyNotesGenerator:
     """
     Generates comprehensive study notes using Gemini with Google Search grounding.
@@ -32,6 +112,19 @@ class StudyNotesGenerator:
 
     def __init__(self, api_key: Optional[str] = None):
         self.available = GEMINI_AVAILABLE
+
+    @staticmethod
+    def _detect_subject_category(concept_name: str, context: Optional[str] = None) -> str:
+        """Detect subject category from concept name and context using keyword matching."""
+        text = f"{concept_name} {context or ''}".lower()
+        scores: Dict[str, int] = {}
+        for category, info in SUBJECT_CATEGORIES.items():
+            score = sum(1 for kw in info["keywords"] if kw in text)
+            if score > 0:
+                scores[category] = score
+        if not scores:
+            return "general"
+        return max(scores, key=lambda k: scores[k])
 
     async def generate_comprehensive_note(
         self, concept: Dict, context: Optional[str] = None
@@ -59,10 +152,16 @@ class StudyNotesGenerator:
             f"\nCOMMON MISCONCEPTIONS: {misconceptions}" if misconceptions else ""
         )
 
+        # Detect subject category for formatting emphasis
+        category = self._detect_subject_category(concept_name, context)
+        formatting_line = ""
+        if category != "general" and category in SUBJECT_CATEGORIES:
+            formatting_line = f"\n\n{SUBJECT_CATEGORIES[category]['emphasis']}"
+
         prompt = f"""You are creating comprehensive study notes for a student learning about a concept.
 Use your search capabilities to find accurate, up-to-date information.
 
-CONCEPT: {concept_name}{topics_line}{misconceptions_line}{context_line}
+CONCEPT: {concept_name}{topics_line}{misconceptions_line}{context_line}{formatting_line}
 
 Create thorough study notes with:
 1. A clear, descriptive title
