@@ -1380,7 +1380,7 @@ export const learnApi = {
 
     getTopicNotes: (topic: string, concepts?: string[]) =>
         fetchApiAuth<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>(
-            `/content/topic-notes?topic=${encodeURIComponent(topic)}&generate=true${concepts?.length ? `&concepts=${encodeURIComponent(concepts.join(','))}` : ''}`
+            `/learn/content/topic-notes?topic=${encodeURIComponent(topic)}&generate=true${concepts?.length ? `&concepts=${encodeURIComponent(concepts.join(','))}` : ''}`
         ),
 };
 
