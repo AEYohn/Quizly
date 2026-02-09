@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeft, BarChart3, Settings2, Zap } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { ArrowLeft, BarChart3, Settings2, Zap, BookOpen, Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { SocraticOverlay, AnalyticsOverlay } from "~/components/shared";
 import { FlashcardCard } from "~/components/learning/FlashcardCard";
@@ -43,10 +44,32 @@ export function ActiveFeed({
     onFileUpload,
     onToggleNotes,
     onReset,
+    notesData,
+    notesLoading,
 }: ActiveFeedProps) {
     const cardType = currentCard.card_type;
     const totalCards = cards.length;
     const difficultyPercent = Math.round(stats.difficulty * 100);
+
+    const [showNotesPanel, setShowNotesPanel] = useState(false);
+    const currentConceptRef = useRef<HTMLDivElement>(null);
+
+    const handleToggleNotes = useCallback(() => {
+        setShowNotesPanel((prev) => !prev);
+    }, []);
+
+    // Auto-scroll to the current concept section when notes panel opens
+    useEffect(() => {
+        if (showNotesPanel && currentConceptRef.current) {
+            // Small delay to let the sheet animate open
+            const timer = setTimeout(() => {
+                currentConceptRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [showNotesPanel, currentCard.concept]);
+
+    const hasNotes = notesData && notesData.total_notes > 0;
 
     return (
         <div className="h-full flex flex-col bg-[#0a0820] relative">
@@ -94,6 +117,19 @@ export function ActiveFeed({
                 </div>
 
                 <div className="flex items-center gap-1">
+                    {(hasNotes || notesLoading) && (
+                        <button
+                            onClick={handleToggleNotes}
+                            className={cn(
+                                "p-2 rounded-xl transition-colors",
+                                showNotesPanel
+                                    ? "bg-indigo-500/20 text-indigo-200"
+                                    : "hover:bg-indigo-500/10 text-indigo-300/60",
+                            )}
+                        >
+                            <BookOpen className="w-4 h-4" />
+                        </button>
+                    )}
                     <button
                         onClick={onShowAnalytics}
                         className="p-2 rounded-xl hover:bg-indigo-500/10 text-indigo-300/60 transition-colors"
@@ -185,6 +221,66 @@ export function ActiveFeed({
                 title="Feed Settings"
             >
                 <FeedTuneControls mode="active" />
+            </BottomSheet>
+
+            {/* Study notes panel */}
+            <BottomSheet
+                open={showNotesPanel}
+                onClose={() => setShowNotesPanel(false)}
+                title="Study Notes"
+            >
+                {notesLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                    </div>
+                ) : hasNotes ? (
+                    <div className="space-y-6">
+                        {Object.entries(notesData.notes_by_concept).map(([concept, notes]) => {
+                            const isCurrent = currentCard.concept?.toLowerCase() === concept.toLowerCase();
+                            return (
+                                <div
+                                    key={concept}
+                                    ref={isCurrent ? currentConceptRef : undefined}
+                                >
+                                    <h3 className="text-sm font-bold text-indigo-200 mb-3 flex items-center gap-2">
+                                        <BookOpen className="w-4 h-4 text-indigo-400" />
+                                        {concept}
+                                        {isCurrent && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/30 text-amber-200">
+                                                CURRENT
+                                            </span>
+                                        )}
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {notes.map((note) => (
+                                            <div
+                                                key={note.id}
+                                                className="bg-indigo-950/40 border border-indigo-400/15 rounded-xl px-4 py-3"
+                                            >
+                                                <h4 className="text-sm font-semibold text-white mb-2">{note.title}</h4>
+                                                <div className="text-sm text-indigo-100/80 leading-relaxed whitespace-pre-wrap">
+                                                    {note.body_markdown}
+                                                </div>
+                                                {note.key_takeaway && (
+                                                    <div className="mt-3 pt-2 border-t border-indigo-400/10">
+                                                        <p className="text-xs text-indigo-300/70">
+                                                            <span className="font-semibold text-indigo-300">Key takeaway:</span> {note.key_takeaway}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <BookOpen className="w-10 h-10 text-indigo-400/30 mx-auto mb-3" />
+                        <p className="text-sm text-indigo-200/60">No study notes available for this topic yet.</p>
+                    </div>
+                )}
             </BottomSheet>
         </div>
     );

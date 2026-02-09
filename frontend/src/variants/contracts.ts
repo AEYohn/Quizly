@@ -1,4 +1,5 @@
 import type { ScrollCard, ScrollStats, ScrollAnalytics, ScrollSessionAnalytics, LeaderboardEntry, LearnProgressResponse, QuestionHistoryItem, QuestionHistorySessionSummary, CalibrationResponse, PaginationMeta } from "~/lib/api";
+import type { ApiResult } from "~/types";
 import type { SyllabusTopic, SyllabusTree } from "~/stores/scrollSessionStore";
 
 // Home screen props
@@ -50,6 +51,10 @@ export interface SkillTreeProps {
     subjectResources: Array<{ id: string; file_name: string; file_type: string; concepts_count: number }>;
     showResourceSheet: boolean;
     onNodeTap: (topic: SyllabusTopic) => void;
+    onStartLearning: (topic: SyllabusTopic) => void;
+    onStudyNotes: (topic: SyllabusTopic) => Promise<ApiResult<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>>;
+    onQuizOnly: (topic: SyllabusTopic) => void;
+    recentSessions: Array<{ id: string; topic: string; phase: string; questions_answered: number; questions_correct: number; accuracy: number; started_at: string | null; ended_at: string | null }>;
     onBack: () => void;
     onUploadResource: (files: FileList) => void;
     onManageResources: () => void;
@@ -98,6 +103,8 @@ export interface ActiveFeedProps {
     onFileUpload: (file: File) => void;
     onToggleNotes: () => void;
     onReset: () => void;
+    notesData: { topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> } | null;
+    notesLoading: boolean;
 }
 
 // Leaderboard props

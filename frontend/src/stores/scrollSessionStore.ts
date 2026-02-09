@@ -91,6 +91,9 @@ interface ScrollSessionState {
     subjectResources: Array<{ id: string; file_name: string; file_type: string; concepts_count: number }>;
     isUploadingResource: boolean;
 
+    // Topic notes cache (transient)
+    topicNotesCache: Record<string, { topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>;
+
     // Assessment (transient)
     assessmentPhase: 'none' | 'self_rating' | 'diagnostic' | 'complete';
 
@@ -144,6 +147,8 @@ interface ScrollSessionState {
     setIsUploadingResource: (v: boolean) => void;
     addSubjectResource: (r: { id: string; file_name: string; file_type: string; concepts_count: number }) => void;
     removeSubjectResource: (id: string) => void;
+    // Topic notes actions
+    setTopicNotes: (topicId: string, data: { topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }) => void;
     // History actions
     setHistory: (subjects: SubjectHistory[], overall: LearningHistoryResponse["overall"]) => void;
     setHistoryLoading: (loading: boolean) => void;
@@ -198,6 +203,8 @@ const initialState = {
     // Resources (transient)
     subjectResources: [] as Array<{ id: string; file_name: string; file_type: string; concepts_count: number }>,
     isUploadingResource: false,
+    // Topic notes cache (transient)
+    topicNotesCache: {} as Record<string, { topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>,
     // Assessment (transient)
     assessmentPhase: 'none' as const,
     // Codebase (transient)
@@ -270,6 +277,7 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
                     presence: state.presence,
                     recommendedNext: state.recommendedNext,
                     bktMastery: state.bktMastery,
+                    topicNotesCache: state.topicNotesCache,
                 })),
             // Syllabus actions
             setSyllabus: (tree) => set({ syllabus: tree }),
@@ -287,6 +295,7 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
                     presence: {},
                     recommendedNext: null,
                     bktMastery: {},
+                    topicNotesCache: {},
                 }),
             // RL-adaptive actions
             setRecommendedNext: (id) => set({ recommendedNext: id }),
@@ -297,6 +306,10 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
             addSubjectResource: (r) => set((state) => ({ subjectResources: [...state.subjectResources, r] })),
             removeSubjectResource: (id) => set((state) => ({
                 subjectResources: state.subjectResources.filter((r) => r.id !== id),
+            })),
+            // Topic notes actions
+            setTopicNotes: (topicId, data) => set((state) => ({
+                topicNotesCache: { ...state.topicNotesCache, [topicId]: data },
             })),
             // History actions
             setHistory: (subjects, overall) => set({ history: subjects, historyOverall: overall }),

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useId, useState, useEffect } from "react";
-import { ArrowLeft, BarChart3, Star, Sparkles, Upload, FileUp, RefreshCw, Trash2, FileText, Loader2, Check, Users, X } from "lucide-react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { ArrowLeft, BarChart3, Sparkles, FileUp, RefreshCw, Trash2, FileText, Loader2, Users, X, Play, BookOpen, Zap, Clock, CheckCircle2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import { ResourceChip } from "~/components/feed/ResourceChip";
@@ -10,315 +10,67 @@ import type { SkillTreeProps } from "~/variants/contracts";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
 
 // ============================================
-// Star particle background
+// Mastery ring — SVG circle with stroke-dasharray
 // ============================================
 
-function CosmicStarField() {
-    return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div
-                className="absolute inset-0"
-                style={{
-                    background: `
-                        radial-gradient(2px 2px at 5% 10%, rgba(255,255,255,0.7) 50%, transparent 100%),
-                        radial-gradient(1.5px 1.5px at 12% 45%, rgba(255,255,255,0.5) 50%, transparent 100%),
-                        radial-gradient(2.5px 2.5px at 22% 22%, rgba(165,180,252,0.8) 50%, transparent 100%),
-                        radial-gradient(1.5px 1.5px at 30% 70%, rgba(255,255,255,0.5) 50%, transparent 100%),
-                        radial-gradient(2px 2px at 42% 15%, rgba(255,255,255,0.6) 50%, transparent 100%),
-                        radial-gradient(2.5px 2.5px at 55% 50%, rgba(110,231,183,0.6) 50%, transparent 100%),
-                        radial-gradient(1.5px 1.5px at 62% 80%, rgba(255,255,255,0.4) 50%, transparent 100%),
-                        radial-gradient(2px 2px at 75% 25%, rgba(255,255,255,0.7) 50%, transparent 100%),
-                        radial-gradient(2.5px 2.5px at 82% 60%, rgba(165,180,252,0.6) 50%, transparent 100%),
-                        radial-gradient(1.5px 1.5px at 90% 40%, rgba(255,255,255,0.5) 50%, transparent 100%),
-                        radial-gradient(2px 2px at 95% 85%, rgba(251,191,36,0.5) 50%, transparent 100%),
-                        radial-gradient(1.5px 1.5px at 18% 88%, rgba(255,255,255,0.4) 50%, transparent 100%),
-                        radial-gradient(2px 2px at 48% 92%, rgba(165,180,252,0.4) 50%, transparent 100%),
-                        radial-gradient(1.5px 1.5px at 68% 5%, rgba(255,255,255,0.5) 50%, transparent 100%)
-                    `,
-                }}
-            />
-        </div>
-    );
-}
+function MasteryRing({ mastery, size = 40 }: { mastery: number; size?: number }) {
+    const strokeWidth = 3;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const fraction = Math.max(0, Math.min(100, mastery)) / 100;
+    const dashOffset = circumference * (1 - fraction);
 
-// ============================================
-// Node types & helpers
-// ============================================
-
-interface NodePosition {
-    x: number;
-    y: number;
-    xPercent: number;
-    topic: SyllabusTopic;
-    status: "mastered" | "in_progress" | "recommended";
-    masteryValue: number;
-}
-
-function getNodeStatus(
-    topic: SyllabusTopic,
-    mastery: Record<string, number>,
-    recommendedNext: string | null,
-    completedIds: Set<string>,
-): "mastered" | "in_progress" | "recommended" {
-    if (topic.id === recommendedNext) return "recommended";
-    const m = mastery[topic.id] ?? 0;
-    if (m >= 80) return "mastered";
-    return "in_progress";
-}
-
-// Color palette per state — ported from TreeNode.tsx with cosmic enhancements
-const PALETTE = {
-    mastered: {
-        ring: "#34d399",
-        glow: "rgba(52,211,153,0.5)",
-        fill1: "#064e3b",
-        fill2: "#022c22",
-        labelColor: "text-emerald-300",
-        masteryColor: "text-emerald-400/80",
-    },
-    in_progress: {
-        ring: "#818cf8",
-        glow: "rgba(129,140,248,0.4)",
-        fill1: "#2e1065",
-        fill2: "#0f0a2e",
-        labelColor: "text-indigo-200",
-        masteryColor: "text-indigo-300/80",
-    },
-    recommended: {
-        ring: "#c4b5fd",
-        glow: "rgba(196,181,253,0.6)",
-        fill1: "#3b1d8e",
-        fill2: "#1e1b4b",
-        labelColor: "text-violet-200",
-        masteryColor: "text-violet-300/80",
-    },
-} as const;
-
-// ============================================
-// Individual HTML node component
-// ============================================
-
-const NODE_SIZE = 80;
-const RING_STROKE = 4;
-
-function CosmicNode({
-    node,
-    index,
-    presence,
-    resources,
-    onTap,
-}: {
-    node: NodePosition;
-    index: number;
-    presence: number;
-    resources: Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>;
-    onTap: () => void;
-}) {
-    const uid = useId();
-    const p = PALETTE[node.status];
-    const tappable = true;
-
-    const svgSize = NODE_SIZE + 24;
-    const center = svgSize / 2;
-    const ringR = NODE_SIZE / 2 - 3;
-    const circumference = 2 * Math.PI * ringR;
-    const masteryFraction = Math.max(0, Math.min(100, node.masteryValue)) / 100;
-    const dashOffset = circumference * (1 - masteryFraction);
-
-    const gradId = `cg-${uid}`;
-    const shadowId = `cs-${uid}`;
-    const glowId = `cgl-${uid}`;
+    const color =
+        mastery >= 80 ? "#34d399" :   // emerald-400
+        mastery >= 40 ? "#818cf8" :   // indigo-400
+        mastery > 0   ? "rgba(129,140,248,0.3)" : // indigo-400/30
+                        "rgba(129,140,248,0.15)";  // indigo-400/15
 
     return (
-        <div
-            className={cn(
-                "absolute flex flex-col items-center",
-                "cursor-pointer",
-            )}
-            style={{
-                left: `${node.xPercent * 100}%`,
-                top: node.y,
-                transform: "translateX(-50%)",
-            }}
-            onClick={() => onTap()}
-            role="button"
-            tabIndex={0}
-        >
-            {/* Peer badge */}
-            {presence > 0 && (
-                <div
-                    className="absolute z-30 flex items-center gap-0.5 rounded-full text-[9px] font-black text-white shadow-xl"
-                    style={{
-                        top: 0,
-                        right: center - 50,
-                        padding: "2px 7px",
-                        background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-                        boxShadow: "0 2px 12px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-                    }}
-                >
-                    <Users className="w-2.5 h-2.5" />
-                    {presence}
-                </div>
-            )}
-
-            {/* Main node with SVG rings + gradients */}
-            <div
-                className={cn(
-                    "relative transition-transform duration-200 ease-out",
-                    "hover:scale-[1.12] active:scale-[0.92]",
-                    node.status === "recommended" && "animate-[float_4s_ease-in-out_infinite]",
-                )}
-            >
-                <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
-                    <defs>
-                        <radialGradient id={gradId} cx="38%" cy="32%" r="60%">
-                            <stop offset="0%" stopColor={p.fill1} />
-                            <stop offset="100%" stopColor={p.fill2} />
-                        </radialGradient>
-                        <filter id={shadowId} x="-30%" y="-20%" width="160%" height="160%">
-                            <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#000" floodOpacity="0.6" />
-                        </filter>
-                        {node.status === "recommended" && (
-                            <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
-                                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
-                                <feFlood floodColor="#c4b5fd" floodOpacity="0.3" result="color" />
-                                <feComposite in="color" in2="blur" operator="in" result="glow" />
-                                <feMerge>
-                                    <feMergeNode in="glow" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
-                            </filter>
-                        )}
-                    </defs>
-
-                    {/* Recommended outer pulse */}
-                    {node.status === "recommended" && (
-                        <>
-                            <circle
-                                cx={center} cy={center} r={ringR + 10}
-                                fill="none" stroke="rgba(196,181,253,0.15)" strokeWidth="2"
-                                className="animate-ping"
-                                style={{ animationDuration: "3s", transformOrigin: "center" }}
-                            />
-                            <circle
-                                cx={center} cy={center} r={ringR + 6}
-                                fill="none" stroke="rgba(196,181,253,0.2)" strokeWidth="1.5"
-                            />
-                        </>
-                    )}
-
-                    {/* Mastered outer glow ring */}
-                    {node.status === "mastered" && (
-                        <circle
-                            cx={center} cy={center} r={ringR + 8}
-                            fill="none" stroke="rgba(52,211,153,0.15)" strokeWidth="3"
-                        />
-                    )}
-
-                    {/* Main circle body with gradient fill */}
+        <div className="relative shrink-0" style={{ width: size, height: size }}>
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                {/* Track */}
+                <circle
+                    cx={size / 2} cy={size / 2} r={radius}
+                    fill="none"
+                    stroke="rgba(129,140,248,0.1)"
+                    strokeWidth={strokeWidth}
+                />
+                {/* Progress arc */}
+                {fraction > 0 && (
                     <circle
-                        cx={center} cy={center} r={NODE_SIZE / 2}
-                        fill={`url(#${gradId})`}
-                        filter={`url(#${shadowId})`}
-                        stroke="rgba(255,255,255,0.08)"
-                        strokeWidth="1"
-                    />
-
-                    {/* Inner light highlight for depth */}
-                    <circle
-                        cx={center - NODE_SIZE * 0.12} cy={center - NODE_SIZE * 0.15}
-                        r={NODE_SIZE * 0.25}
-                        fill="rgba(255,255,255,0.04)"
-                    />
-
-                    {/* Track ring (background) */}
-                    <circle
-                        cx={center} cy={center} r={ringR}
+                        cx={size / 2} cy={size / 2} r={radius}
                         fill="none"
-                        stroke="rgba(255,255,255,0.07)"
-                        strokeWidth={RING_STROKE}
+                        stroke={color}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={dashOffset}
+                        strokeLinecap="round"
+                        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                        className="transition-all duration-700 ease-out"
                     />
-
-                    {/* Mastery arc */}
-                    {masteryFraction > 0 && (
-                        <circle
-                            cx={center} cy={center} r={ringR}
-                            fill="none"
-                            stroke={p.ring}
-                            strokeWidth={RING_STROKE}
-                            strokeDasharray={circumference}
-                            strokeDashoffset={dashOffset}
-                            strokeLinecap="round"
-                            transform={`rotate(-90 ${center} ${center})`}
-                            className="transition-all duration-700 ease-out"
-                            style={{ filter: `drop-shadow(0 0 6px ${p.glow})` }}
-                        />
-                    )}
-
-                    {/* Recommended: faint full ring when no mastery */}
-                    {node.status === "recommended" && masteryFraction === 0 && (
-                        <circle
-                            cx={center} cy={center} r={ringR}
-                            fill="none"
-                            stroke="rgba(196,181,253,0.3)"
-                            strokeWidth={RING_STROKE}
-                        />
-                    )}
-                </svg>
-
-                {/* Center icon / content — HTML overlay */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                    {node.status === "mastered" ? (
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-400/15 backdrop-blur-sm">
-                            <Star className="w-6 h-6 text-emerald-400" fill="currentColor" strokeWidth={1.5} />
-                        </div>
-                    ) : node.status === "recommended" ? (
-                        <div className="relative">
-                            <Sparkles
-                                className="w-8 h-8 text-violet-200"
-                                style={{ filter: "drop-shadow(0 0 10px rgba(196,181,253,0.7))" }}
-                            />
-                        </div>
-                    ) : node.masteryValue > 0 ? (
-                        <span className="text-[18px] font-black tabular-nums text-white/85 drop-shadow-sm">
-                            {node.masteryValue}
-                        </span>
-                    ) : (
-                        <span className="text-[22px] font-black text-indigo-300/60">
-                            {index + 1}
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            {/* HTML label — crisp rendering */}
-            <span
-                className={cn(
-                    "mt-2.5 text-sm font-semibold text-center leading-tight max-w-[120px] line-clamp-2 tracking-wide",
-                    p.labelColor,
                 )}
-            >
-                {node.topic.name}
-            </span>
-
-            {/* Mastery percentage below label */}
-            {node.masteryValue > 0 && (
-                <span className={cn("text-xs font-medium mt-0.5", p.masteryColor)}>
-                    {node.masteryValue}%
+                {/* Full ring for 0% — faint outline */}
+                {fraction === 0 && (
+                    <circle
+                        cx={size / 2} cy={size / 2} r={radius}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth={strokeWidth}
+                    />
+                )}
+            </svg>
+            {/* Center percentage */}
+            <div className="absolute inset-0 flex items-center justify-center">
+                <span className={cn(
+                    "text-[11px] font-bold tabular-nums",
+                    mastery >= 80 ? "text-emerald-400" :
+                    mastery > 0 ? "text-indigo-300" :
+                    "text-indigo-400/30",
+                )}>
+                    {mastery > 0 ? `${mastery}` : ""}
                 </span>
-            )}
-
-            {/* Curated resource chips */}
-            {resources.length > 0 && (
-                <div
-                    className="flex flex-col items-center gap-1 mt-1.5 max-w-[160px]"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {resources.slice(0, 2).map((r, idx) => (
-                        <ResourceChip key={idx} title={r.title} url={r.url} sourceType={r.source_type} />
-                    ))}
-                </div>
-            )}
+            </div>
         </div>
     );
 }
@@ -343,6 +95,10 @@ export function SkillTree({
     subjectResources,
     showResourceSheet,
     onNodeTap,
+    onStartLearning,
+    onStudyNotes,
+    onQuizOnly,
+    recentSessions,
     onBack,
     onUploadResource,
     onManageResources,
@@ -355,7 +111,44 @@ export function SkillTree({
 }: SkillTreeProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [hintDismissed, setHintDismissed] = useState(false);
+    const [selectedTopic, setSelectedTopic] = useState<SyllabusTopic | null>(null);
+    const [notesData, setNotesData] = useState<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> } | null>(null);
+    const [notesLoading, setNotesLoading] = useState(false);
+    const [showNotesSheet, setShowNotesSheet] = useState(false);
     const store = useScrollSessionStore();
+
+    const topicSessions = useMemo(() => {
+        if (!selectedTopic) return [];
+        return recentSessions
+            .filter((s) => s.topic.toLowerCase() === selectedTopic.name.toLowerCase() || s.topic.toLowerCase() === store.selectedSubject?.toLowerCase())
+            .slice(0, 3);
+    }, [selectedTopic, recentSessions, store.selectedSubject]);
+
+    const handleFetchNotes = useCallback(async (topic: SyllabusTopic) => {
+        setNotesLoading(true);
+        setShowNotesSheet(true);
+        setSelectedTopic(null);
+        const res = await onStudyNotes(topic);
+        if (res.success) {
+            setNotesData(res.data);
+            store.setTopicNotes(topic.id, res.data);
+        }
+        setNotesLoading(false);
+    }, [onStudyNotes, store]);
+
+    const timeAgo = useCallback((iso: string | null) => {
+        if (!iso) return "";
+        const normalized = /[Z+\-]\d{0,2}:?\d{0,2}$/.test(iso) ? iso : iso + "Z";
+        const diff = Date.now() - new Date(normalized).getTime();
+        if (diff < 0 || diff < 60000) return "just now";
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `${mins}m ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `${days}d ago`;
+        return `${Math.floor(days / 7)}w ago`;
+    }, []);
 
     // Auto-dismiss error after 5 seconds
     useEffect(() => {
@@ -374,55 +167,12 @@ export function SkillTree({
         return topics;
     }, [syllabus]);
 
-    const completedIds = useMemo(() => {
-        const set = new Set<string>();
-        for (const [id, m] of Object.entries(mastery)) {
-            if (m >= 80) set.add(id);
-        }
-        return set;
-    }, [mastery]);
-
-    // Layout constants — bigger, more spacious
-    const NODE_SPACING_Y = 180;
-    const AMPLITUDE = 0.22; // as fraction of container width
-    const SVG_INTERNAL_WIDTH = 400;
-
-    const nodePositions: NodePosition[] = useMemo(() => {
-        return allTopics.map((topic, i) => {
-            const y = 80 + i * NODE_SPACING_Y;
-            const xPercent = 0.5 + AMPLITUDE * Math.sin((i * Math.PI) / 2.2);
-            const x = xPercent * SVG_INTERNAL_WIDTH;
-            const status = getNodeStatus(topic, mastery, recommendedNext, completedIds);
-            const masteryValue = mastery[topic.id] ?? 0;
-            return { x, y, xPercent, topic, status, masteryValue };
-        });
-    }, [allTopics, mastery, recommendedNext, completedIds]);
-
-    // Total height of the scrollable area — enough room for last node + label
-    const totalHeight = nodePositions.length > 0
-        ? nodePositions[nodePositions.length - 1]!.y + 220
-        : 400;
-
-    // SVG path for connecting curve (uses SVG coordinate space, then scaled via viewBox)
-    const pathD = useMemo(() => {
-        if (nodePositions.length < 2) return "";
-        let d = `M ${nodePositions[0]!.x} ${nodePositions[0]!.y}`;
-        for (let i = 1; i < nodePositions.length; i++) {
-            const prev = nodePositions[i - 1]!;
-            const curr = nodePositions[i]!;
-            const cpY = (prev.y + curr.y) / 2;
-            d += ` C ${prev.x} ${cpY}, ${curr.x} ${cpY}, ${curr.x} ${curr.y}`;
-        }
-        return d;
-    }, [nodePositions]);
-
     const masteredCount = Object.values(mastery).filter((m) => m >= 80).length;
 
     if (isLoading) {
         return (
-            <div className="h-full bg-[#050510] flex items-center justify-center relative">
-                <CosmicStarField />
-                <div className="relative z-10 text-center space-y-4">
+            <div className="h-full bg-[#050510] flex items-center justify-center">
+                <div className="text-center space-y-4">
                     <div className="relative w-20 h-20 mx-auto">
                         <div className="absolute inset-0 rounded-full bg-indigo-500/30 animate-ping" />
                         <div className="relative w-20 h-20 flex items-center justify-center">
@@ -436,11 +186,9 @@ export function SkillTree({
     }
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-[#050510] via-[#0a0820] to-[#050515] relative">
-            <CosmicStarField />
-
+        <div className="h-full flex flex-col bg-[#050510] relative">
             {/* Header */}
-            <div className="relative z-10 shrink-0 px-5 pt-5 pb-3">
+            <div className="shrink-0 px-5 pt-5 pb-3">
                 <div className="flex items-center justify-between mb-3">
                     <button
                         onClick={onBack}
@@ -513,7 +261,7 @@ export function SkillTree({
 
             {/* Hint banner when no resources uploaded */}
             {resourceCount === 0 && !hintDismissed && (
-                <div className="relative z-10 mx-5 mb-3">
+                <div className="mx-5 mb-3">
                     <div className="rounded-xl bg-violet-500/8 border border-violet-500/15 px-4 py-3 flex items-start gap-3">
                         <Sparkles className="w-4 h-4 text-violet-300 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
@@ -540,7 +288,7 @@ export function SkillTree({
 
             {/* Regen banner */}
             {showRegenBanner && (
-                <div className="relative z-10 mx-5 mb-3 rounded-xl bg-indigo-500/15 border border-indigo-400/30 px-4 py-3 flex items-center justify-between">
+                <div className="mx-5 mb-3 rounded-xl bg-indigo-500/15 border border-indigo-400/30 px-4 py-3 flex items-center justify-between">
                     <div className="text-sm text-indigo-100">
                         New resources detected. Regenerate star map?
                     </div>
@@ -563,65 +311,80 @@ export function SkillTree({
                 </div>
             )}
 
-            {/* Scrollable hybrid SVG path + HTML nodes */}
-            <div className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden">
-                <div className="relative w-full" style={{ height: totalHeight }}>
-                    {/* SVG layer — path only */}
-                    <svg
-                        className="absolute inset-0 w-full pointer-events-none"
-                        style={{ height: totalHeight }}
-                        viewBox={`0 0 ${SVG_INTERNAL_WIDTH} ${totalHeight}`}
-                        preserveAspectRatio="none"
-                    >
-                        <defs>
-                            <linearGradient id="cosmic-path-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="#a5b4fc" stopOpacity="0.9" />
-                                <stop offset="50%" stopColor="#818cf8" stopOpacity="0.6" />
-                                <stop offset="100%" stopColor="#a5b4fc" stopOpacity="0.9" />
-                            </linearGradient>
-                            <filter id="cosmic-path-glow" x="-30%" y="-5%" width="160%" height="110%">
-                                <feGaussianBlur stdDeviation="8" result="blur" />
-                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                            </filter>
-                        </defs>
+            {/* Scrollable list body */}
+            <div className="flex-1 overflow-y-auto px-5 pb-20">
+                {syllabus.units.map((unit) => (
+                    <div key={unit.id} className="mb-6">
+                        {/* Unit header */}
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="text-lg">{unit.icon}</span>
+                            <span className="text-base font-semibold text-indigo-100">{unit.name}</span>
+                        </div>
 
-                        {/* Glow layer — thick blurred path */}
-                        {pathD && (
-                            <path
-                                d={pathD}
-                                fill="none"
-                                stroke="url(#cosmic-path-gradient)"
-                                strokeWidth="8"
-                                strokeLinecap="round"
-                                filter="url(#cosmic-path-glow)"
-                                opacity="0.7"
-                            />
-                        )}
+                        {/* Topics list */}
+                        <div className="ml-3 border-l-2 border-indigo-400/20 pl-4 space-y-2">
+                            {unit.topics.map((topic) => {
+                                const m = mastery[topic.id] ?? 0;
+                                const p = presence[topic.id] ?? 0;
+                                const isRecommended = recommendedNext === topic.id;
+                                const resources = topicResources?.[topic.id] ?? [];
 
-                        {/* Main solid path */}
-                        {pathD && (
-                            <path
-                                d={pathD}
-                                fill="none"
-                                stroke="url(#cosmic-path-gradient)"
-                                strokeWidth="4"
-                                strokeLinecap="round"
-                            />
-                        )}
-                    </svg>
+                                return (
+                                    <button
+                                        key={topic.id}
+                                        onClick={() => setSelectedTopic(topic)}
+                                        className={cn(
+                                            "w-full flex items-center gap-3 rounded-xl p-3 text-left transition-colors",
+                                            "bg-indigo-950/40 border",
+                                            "hover:bg-indigo-950/60 hover:border-indigo-400/25",
+                                            isRecommended
+                                                ? "border-indigo-400/40"
+                                                : "border-indigo-400/15",
+                                        )}
+                                    >
+                                        <MasteryRing mastery={m} size={40} />
 
-                    {/* HTML node layer — positioned absolutely along the curve */}
-                    {nodePositions.map((node, i) => (
-                        <CosmicNode
-                            key={node.topic.id}
-                            node={node}
-                            index={i}
-                            presence={presence[node.topic.id] ?? 0}
-                            resources={topicResources?.[node.topic.id] ?? []}
-                            onTap={() => onNodeTap(node.topic)}
-                        />
-                    ))}
-                </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-sm font-medium text-white truncate">
+                                                    {topic.name}
+                                                </span>
+                                                {isRecommended && (
+                                                    <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-500/20 border border-indigo-400/30 text-indigo-200">
+                                                        NEXT
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-xs text-indigo-300/50">
+                                                    {topic.concepts.length} concepts &middot; ~{topic.estimated_minutes}m
+                                                </span>
+                                                {p > 0 && (
+                                                    <span className="flex items-center gap-0.5 text-xs text-indigo-300/50">
+                                                        <Users className="w-3 h-3" />
+                                                        {p}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {resources.length > 0 && (
+                                                <div
+                                                    className="flex flex-wrap gap-1 mt-1.5"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {resources.slice(0, 2).map((r, idx) => (
+                                                        <ResourceChip key={idx} title={r.title} url={r.url} sourceType={r.source_type} />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <Play className="w-4 h-4 text-indigo-400/60 shrink-0" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Floating analysis button */}
@@ -678,13 +441,180 @@ export function SkillTree({
                 </div>
             </BottomSheet>
 
-            {/* Float animation keyframes */}
-            <style jsx global>{`
-                @keyframes float {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-6px); }
-                }
-            `}</style>
+            {/* Topic action sheet */}
+            <BottomSheet
+                open={!!selectedTopic}
+                onClose={() => setSelectedTopic(null)}
+                title={selectedTopic?.name}
+            >
+                {selectedTopic && (
+                    <div className="space-y-5">
+                        {/* Topic header with mastery ring */}
+                        <div className="flex items-center gap-4">
+                            <MasteryRing mastery={mastery[selectedTopic.id] ?? 0} size={56} />
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-white truncate">{selectedTopic.name}</h3>
+                                <p className="text-sm text-indigo-300/60 mt-0.5">
+                                    {selectedTopic.concepts.length} concepts &middot; ~{selectedTopic.estimated_minutes}m
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Concept chips */}
+                        <div className="overflow-x-auto -mx-5 px-5">
+                            <div className="flex gap-2 pb-1">
+                                {selectedTopic.concepts.map((concept) => (
+                                    <span
+                                        key={concept}
+                                        className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-indigo-950/60 border border-indigo-400/20 text-indigo-200"
+                                    >
+                                        {concept}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="space-y-2.5">
+                            <button
+                                onClick={() => {
+                                    const topic = selectedTopic;
+                                    setSelectedTopic(null);
+                                    onStartLearning(topic);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
+                            >
+                                <Play className="w-5 h-5" />
+                                <div className="flex-1 text-left">
+                                    <div>Start Learning</div>
+                                    <div className="text-xs font-normal text-indigo-200/70 mt-0.5">Learn, flashcards, then quiz</div>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => handleFetchNotes(selectedTopic)}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
+                            >
+                                <BookOpen className="w-5 h-5" />
+                                <div className="flex-1 text-left">
+                                    <div>Study Notes</div>
+                                    <div className="text-xs font-normal text-indigo-300/50 mt-0.5">Review key concepts</div>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const topic = selectedTopic;
+                                    setSelectedTopic(null);
+                                    onQuizOnly(topic);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
+                            >
+                                <Zap className="w-5 h-5" />
+                                <div className="flex-1 text-left">
+                                    <div>Quiz Only</div>
+                                    <div className="text-xs font-normal text-indigo-300/50 mt-0.5">Skip straight to questions</div>
+                                </div>
+                            </button>
+                        </div>
+
+                        {/* Resource chips for this topic */}
+                        {(topicResources?.[selectedTopic.id]?.length ?? 0) > 0 && (
+                            <div>
+                                <h4 className="text-xs font-semibold text-indigo-300/60 uppercase tracking-wider mb-2">Resources</h4>
+                                <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                    {topicResources![selectedTopic.id]!.map((r, idx) => (
+                                        <ResourceChip key={idx} title={r.title} url={r.url} sourceType={r.source_type} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Recent history */}
+                        {topicSessions.length > 0 && (
+                            <div>
+                                <h4 className="text-xs font-semibold text-indigo-300/60 uppercase tracking-wider mb-2">Recent Sessions</h4>
+                                <div className="space-y-2">
+                                    {topicSessions.map((session) => (
+                                        <div
+                                            key={session.id}
+                                            className="flex items-center gap-3 bg-indigo-950/40 border border-indigo-400/10 rounded-lg px-3 py-2.5"
+                                        >
+                                            <CheckCircle2 className={cn(
+                                                "w-4 h-4 shrink-0",
+                                                session.accuracy >= 80 ? "text-emerald-400" :
+                                                session.accuracy >= 50 ? "text-indigo-400" :
+                                                "text-indigo-400/40",
+                                            )} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs text-white font-medium">
+                                                    {session.questions_correct}/{session.questions_answered} correct
+                                                    <span className="text-indigo-300/50 ml-1">({Math.round(session.accuracy)}%)</span>
+                                                </div>
+                                                <div className="text-[10px] text-indigo-300/40 mt-0.5 flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {timeAgo(session.ended_at || session.started_at)}
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300/60 font-medium">
+                                                {session.phase}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </BottomSheet>
+
+            {/* Study notes bottom sheet */}
+            <BottomSheet
+                open={showNotesSheet}
+                onClose={() => { setShowNotesSheet(false); setNotesData(null); }}
+                title="Study Notes"
+            >
+                {notesLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                    </div>
+                ) : notesData && notesData.total_notes > 0 ? (
+                    <div className="space-y-6">
+                        {Object.entries(notesData.notes_by_concept).map(([concept, notes]) => (
+                            <div key={concept}>
+                                <h3 className="text-sm font-bold text-indigo-200 mb-3 flex items-center gap-2">
+                                    <BookOpen className="w-4 h-4 text-indigo-400" />
+                                    {concept}
+                                </h3>
+                                <div className="space-y-3">
+                                    {notes.map((note) => (
+                                        <div
+                                            key={note.id}
+                                            className="bg-indigo-950/40 border border-indigo-400/15 rounded-xl px-4 py-3"
+                                        >
+                                            <h4 className="text-sm font-semibold text-white mb-2">{note.title}</h4>
+                                            <div className="text-sm text-indigo-100/80 leading-relaxed whitespace-pre-wrap">
+                                                {note.body_markdown}
+                                            </div>
+                                            {note.key_takeaway && (
+                                                <div className="mt-3 pt-2 border-t border-indigo-400/10">
+                                                    <p className="text-xs text-indigo-300/70">
+                                                        <span className="font-semibold text-indigo-300">Key takeaway:</span> {note.key_takeaway}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <BookOpen className="w-10 h-10 text-indigo-400/30 mx-auto mb-3" />
+                        <p className="text-sm text-indigo-200/60">No study notes available for this topic yet.</p>
+                        <p className="text-xs text-indigo-300/40 mt-1">Start a learning session to generate notes.</p>
+                    </div>
+                )}
+            </BottomSheet>
         </div>
     );
 }

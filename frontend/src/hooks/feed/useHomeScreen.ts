@@ -30,7 +30,7 @@ export function useHomeScreen() {
     }, []);
 
     // Quick-start: tap a topic and go
-    const handleQuickStart = useCallback(async (topic: string) => {
+    const handleQuickStart = useCallback(async (topic: string, opts?: { mode?: 'structured' | 'mixed'; topicMeta?: { name: string; concepts: string[] } }) => {
         if (feedStartingRef.current || store.isLoading) return;
         feedStartingRef.current = true;
         store.setTopicInput(topic);
@@ -83,10 +83,13 @@ export function useHomeScreen() {
             const subTopicHint = store.selectedSubject && topic !== store.selectedSubject
                 ? `Focus on subtopic: ${topic}`
                 : undefined;
-            const notesWithContext = [subTopicHint, store.notesInput.trim()].filter(Boolean).join('\n') || undefined;
+            const topicMetaHint = opts?.topicMeta?.concepts?.length
+                ? `Key concepts: ${opts.topicMeta.concepts.join(', ')}`
+                : undefined;
+            const notesWithContext = [subTopicHint, topicMetaHint, store.notesInput.trim()].filter(Boolean).join('\n') || undefined;
             const res = await scrollApi.startFeed(
                 sessionTopic, studentName, auth.user?.id,
-                notesWithContext, apiPrefs,
+                notesWithContext, apiPrefs, opts?.mode,
             );
             if (!res.success) { store.setError(res.error ?? "Failed to start feed"); return; }
             store.setSessionId(res.data.session_id);
@@ -124,13 +127,11 @@ export function useHomeScreen() {
             if (res.success) {
                 store.setSyllabus(res.data);
                 store.setSelectedSubject(res.data.subject);
-                const firstTopics = res.data.units
-                    .flatMap((u) => u.topics)
-                    .slice(0, 2);
-                firstTopics.forEach((t, i) => {
+                const allTopics = res.data.units.flatMap((u) => u.topics);
+                allTopics.forEach((t, i) => {
                     setTimeout(() => {
                         scrollApi.pregenContent(t.name, t.concepts, res.data.subject).catch(() => {});
-                    }, i * 3000);
+                    }, i * 2000);
                 });
                 resourcesApi.list(res.data.subject, auth.user?.id).then((rRes) => {
                     if (rRes.success) {
@@ -176,14 +177,13 @@ export function useHomeScreen() {
                 concepts_count: r.concepts_count,
             })));
 
-            // Pre-generate content for first 2 topics
-            const firstTopics = (res.data.syllabus as { units: Array<{ topics: Array<{ name: string; concepts: string[] }> }> }).units
-                .flatMap((u) => u.topics)
-                .slice(0, 2);
-            firstTopics.forEach((t, i) => {
+            // Pre-generate content for all topics
+            const allPdfTopics = (res.data.syllabus as { units: Array<{ topics: Array<{ name: string; concepts: string[] }> }> }).units
+                .flatMap((u) => u.topics);
+            allPdfTopics.forEach((t, i) => {
                 setTimeout(() => {
                     scrollApi.pregenContent(t.name, t.concepts, res.data.subject).catch(() => {});
-                }, i * 3000);
+                }, i * 2000);
             });
         } catch (err) {
             store.setError(err instanceof Error ? err.message : "Failed to process document");

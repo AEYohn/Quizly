@@ -94,6 +94,8 @@ function CosmicFeed() {
                 onFileUpload={activeFeed.handleFileUpload}
                 onToggleNotes={() => activeFeed.setShowNotes(!activeFeed.showNotes)}
                 onReset={() => { store.reset(); activeFeed.setShowTuneSheet(false); }}
+                notesData={activeFeed.topicNotesData}
+                notesLoading={!activeFeed.topicNotesData && !!store.activeSyllabusNode}
             />
         );
     }
@@ -119,6 +121,10 @@ function CosmicFeed() {
                     subjectResources={store.subjectResources}
                     showResourceSheet={skillTree.showResourceSheet}
                     onNodeTap={skillTree.handleNodeTap}
+                    onStartLearning={skillTree.handleStartLearning}
+                    onStudyNotes={skillTree.handleStudyNotes}
+                    onQuizOnly={skillTree.handleQuizOnly}
+                    recentSessions={skillTree.recentSessions}
                     onBack={() => store.clearSyllabus()}
                     onUploadResource={skillTree.handleUploadResource}
                     onManageResources={() => skillTree.setShowResourceSheet(true)}

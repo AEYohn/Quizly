@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { scrollApi, curriculumApi } from "~/lib/api";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { scrollApi, curriculumApi, learnApi } from "~/lib/api";
 import type { ScrollSessionAnalytics } from "~/lib/api";
 import { useAuth, getStudentName } from "~/lib/auth";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
@@ -207,6 +207,30 @@ export function useActiveFeed(answerStartTime: React.MutableRefObject<number>) {
         }
     }, [store.sessionId]);
 
+    // Pre-fetch topic notes when a syllabus-based session starts
+    useEffect(() => {
+        if (!store.sessionId || !store.activeSyllabusNode || !store.syllabus) return;
+        const topicId = store.activeSyllabusNode;
+        // Skip if already cached
+        if (store.topicNotesCache[topicId]) return;
+        const topic = store.syllabus.units
+            .flatMap((u) => u.topics)
+            .find((t) => t.id === topicId);
+        if (!topic) return;
+        learnApi.getTopicNotes(topic.name, topic.concepts).then((res) => {
+            if (res.success) {
+                store.setTopicNotes(topicId, res.data);
+            }
+        }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [store.sessionId, store.activeSyllabusNode]);
+
+    // Memoized topic notes for the active node
+    const topicNotesData = useMemo(() => {
+        if (!store.activeSyllabusNode) return null;
+        return store.topicNotesCache[store.activeSyllabusNode] ?? null;
+    }, [store.activeSyllabusNode, store.topicNotesCache]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
@@ -232,6 +256,7 @@ export function useActiveFeed(answerStartTime: React.MutableRefObject<number>) {
         isProcessingFile,
         showTuneSheet,
         setShowTuneSheet,
+        topicNotesData,
         handleFileUpload,
         handleStart,
         handleAnswer,
