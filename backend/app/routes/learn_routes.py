@@ -1039,6 +1039,62 @@ async def scroll_flashcard_flip(
     }
 
 
+@router.get("/content/topic-notes")
+async def get_topic_notes(
+    topic: str = Query(..., min_length=1),
+    concepts: str = Query(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return info_card content grouped by concept for study notes."""
+    from ..db_models_content_pool import ContentItem
+
+    conditions = [
+        ContentItem.topic == topic,
+        ContentItem.content_type == "info_card",
+        ContentItem.is_active.is_(True),
+    ]
+
+    # Filter by specific concepts if provided
+    concept_list = [c.strip() for c in concepts.split(",") if c.strip()] if concepts else []
+    if concept_list:
+        conditions.append(ContentItem.concept.in_(concept_list))
+
+    query = (
+        select(ContentItem)
+        .where(and_(*conditions))
+        .order_by(ContentItem.concept, ContentItem.quality_score.desc())
+    )
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    # Group by concept, skip items with empty body
+    notes_by_concept: Dict[str, list] = {}
+    for item in items:
+        cj = item.content_json or {}
+        body = cj.get("body_markdown", "")
+        if not body or not body.strip():
+            continue
+        concept = item.concept
+        if concept not in notes_by_concept:
+            notes_by_concept[concept] = []
+        notes_by_concept[concept].append({
+            "id": str(item.id),
+            "concept": concept,
+            "title": cj.get("title", ""),
+            "body_markdown": body,
+            "key_takeaway": cj.get("key_takeaway", ""),
+            "style": cj.get("style", ""),
+        })
+
+    total_notes = sum(len(notes) for notes in notes_by_concept.values())
+
+    return {
+        "topic": topic,
+        "total_notes": total_notes,
+        "notes_by_concept": notes_by_concept,
+    }
+
+
 @router.post("/content/clear-stale-mcqs")
 async def clear_stale_mcqs(
     db: AsyncSession = Depends(get_db),

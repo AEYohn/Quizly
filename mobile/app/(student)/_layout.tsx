@@ -79,6 +79,10 @@ export default function StudentLayout() {
         name="settings"
         options={{ href: null }}
       />
+      <Tabs.Screen
+        name="topic-notes"
+        options={{ href: null }}
+      />
 
       {/* Existing routes — hidden from tab bar */}
       <Tabs.Screen

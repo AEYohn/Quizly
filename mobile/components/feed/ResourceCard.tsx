@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Linking, Image } from "react-native";
+import { View, Text, Pressable, Linking, Image, Alert } from "react-native";
 import { ExternalLink, Play, FileText, Globe } from "lucide-react-native";
 import { useHaptics } from "@/hooks/useHaptics";
 import type { ScrollCard } from "@/types/learn";
@@ -11,10 +11,18 @@ interface ResourceCardProps {
 export function ResourceCard({ card, onNext }: ResourceCardProps) {
   const haptics = useHaptics();
 
-  const handleOpen = () => {
-    if (card.resource_url) {
-      haptics.light();
-      Linking.openURL(card.resource_url);
+  const handleOpen = async () => {
+    if (!card.resource_url) return;
+    haptics.light();
+    try {
+      const canOpen = await Linking.canOpenURL(card.resource_url);
+      if (canOpen) {
+        await Linking.openURL(card.resource_url);
+      } else {
+        Alert.alert("Can't open link", "This URL doesn't appear to be valid. It may have been removed or is unavailable.");
+      }
+    } catch {
+      Alert.alert("Can't open link", "Something went wrong trying to open this resource.");
     }
   };
 

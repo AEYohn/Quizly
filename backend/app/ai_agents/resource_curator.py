@@ -136,6 +136,23 @@ Only include resources you are confident are real and accessible."""
             log_error(logger, "search_with_grounding failed", error=str(e))
             return []
 
+    def _is_valid_url(self, url: str) -> bool:
+        """Check if a URL is plausibly real and not hallucinated."""
+        try:
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https"):
+                return False
+            netloc = parsed.netloc.replace("www.", "")
+            if not netloc or "." not in netloc:
+                return False
+            # Reject known placeholder / loopback domains
+            blocked = {"example.com", "example.org", "example.net", "localhost", "127.0.0.1"}
+            if netloc in blocked:
+                return False
+            return True
+        except Exception:
+            return False
+
     def _parse_response(
         self,
         response: Any,
@@ -157,6 +174,9 @@ Only include resources you are confident are real and accessible."""
         resources = []
         for item in raw[:max_results]:
             if not isinstance(item, dict) or not item.get("url"):
+                continue
+
+            if not self._is_valid_url(item["url"]):
                 continue
 
             domain = ""
@@ -199,16 +219,25 @@ Only include resources you are confident are real and accessible."""
     def _enrich_with_grounding(
         self, resources: List[Dict[str, Any]], grounding_urls: List[str]
     ) -> None:
-        """Cross-reference parsed resources with grounding URLs for validation."""
-        grounding_domains = set()
+        """Cross-reference parsed resources with grounding URLs for validation.
+
+        When a resource's domain matches a grounding-verified URL domain,
+        replace the LLM-generated URL with the verified one to avoid
+        hallucinated links.
+        """
+        grounding_by_domain: Dict[str, str] = {}
         for url in grounding_urls:
             try:
-                grounding_domains.add(urlparse(url).netloc.replace("www.", ""))
+                domain = urlparse(url).netloc.replace("www.", "")
+                if domain:
+                    # First grounding URL per domain wins (most relevant)
+                    grounding_by_domain.setdefault(domain, url)
             except Exception:
                 pass
 
         for resource in resources:
             domain = resource.get("external_domain", "")
-            if domain in grounding_domains:
-                # Boost relevance for grounding-verified resources
+            if domain in grounding_by_domain:
+                # Replace LLM URL with Google Search-verified URL
+                resource["url"] = grounding_by_domain[domain]
                 resource["relevance_score"] = min(1.0, resource["relevance_score"] + 0.1)

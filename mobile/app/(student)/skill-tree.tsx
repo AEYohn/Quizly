@@ -18,47 +18,10 @@ import { useScrollSessionStore } from "@/stores/scrollSessionStore";
 import { useHomeScreen } from "@/hooks/feed/useHomeScreen";
 import { useSkillTree } from "@/hooks/feed/useSkillTree";
 import { useHaptics } from "@/hooks/useHaptics";
-
-function MasteryRing({ mastery, size = 40 }: { mastery: number; size?: number }) {
-  const color =
-    mastery >= 80
-      ? "#10B981"
-      : mastery >= 40
-        ? "#EAB308"
-        : mastery > 0
-          ? "#6366F1"
-          : "#D1D5DB";
-
-  return (
-    <View
-      style={{ width: size, height: size }}
-      className="rounded-full items-center justify-center"
-    >
-      {/* Background ring */}
-      <View
-        style={{ width: size, height: size, borderColor: "#E5E7EB", borderWidth: 3 }}
-        className="rounded-full absolute"
-      />
-      {/* Progress ring (simplified — colored border) */}
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderColor: color,
-          borderWidth: 3,
-          borderTopColor: mastery < 100 ? "#E5E7EB" : color,
-          borderRightColor: mastery < 75 ? "#E5E7EB" : color,
-          borderBottomColor: mastery < 50 ? "#E5E7EB" : color,
-          borderLeftColor: mastery < 25 ? "#E5E7EB" : color,
-        }}
-        className="rounded-full absolute"
-      />
-      <Text style={{ color, fontSize: size * 0.28 }} className="font-bold">
-        {mastery}%
-      </Text>
-    </View>
-  );
-}
+import { scrollApi } from "@/lib/learnApi";
+import { MasteryRing } from "@/components/feed/MasteryRing";
+import { TopicActionSheet } from "@/components/feed/TopicActionSheet";
+import type { SyllabusTopic } from "@/types/learn";
 
 export default function SkillTreeScreen() {
   const router = useRouter();
@@ -75,18 +38,60 @@ export default function SkillTreeScreen() {
   } = useSkillTree(handleQuickStart);
 
   const [tappedNodeId, setTappedNodeId] = useState<string | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<SyllabusTopic | null>(null);
+  const [showTopicSheet, setShowTopicSheet] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // Navigate to feed when session starts
-  const handleNodePress = async (topic: any) => {
-    if (tappedNodeId || store.isLoading) return;
+  // Open modal instead of immediately navigating
+  const handleNodePress = (topic: SyllabusTopic) => {
+    if (store.isLoading) return;
     haptics.medium();
-    setTappedNodeId(topic.id);
+    setSelectedTopic(topic);
+    setShowTopicSheet(true);
+  };
+
+  // Full structured flow: learn → flashcards → quiz
+  const handleStartLearning = async () => {
+    if (!selectedTopic || actionLoading) return;
+    setActionLoading(true);
+    setTappedNodeId(selectedTopic.id);
     try {
-      await handleNodeTap(topic);
+      await handleNodeTap(selectedTopic);
       if (useScrollSessionStore.getState().sessionId) {
+        setShowTopicSheet(false);
         router.push("/(student)/feed");
       }
     } finally {
+      setActionLoading(false);
+      setTappedNodeId(null);
+    }
+  };
+
+  // Navigate to study notes screen
+  const handleStudyNotes = () => {
+    if (!selectedTopic) return;
+    setShowTopicSheet(false);
+    router.push({
+      pathname: "/(student)/topic-notes" as any,
+      params: { topicId: selectedTopic.id, topicName: selectedTopic.name },
+    });
+  };
+
+  // Start session, skip to quiz phase
+  const handleQuizOnly = async () => {
+    if (!selectedTopic || actionLoading) return;
+    setActionLoading(true);
+    setTappedNodeId(selectedTopic.id);
+    try {
+      await handleNodeTap(selectedTopic);
+      const sessionId = useScrollSessionStore.getState().sessionId;
+      if (sessionId) {
+        await scrollApi.skipPhase(sessionId, "quiz");
+        setShowTopicSheet(false);
+        router.push("/(student)/feed");
+      }
+    } finally {
+      setActionLoading(false);
       setTappedNodeId(null);
     }
   };
@@ -278,6 +283,21 @@ export default function SkillTreeScreen() {
         <View className="absolute bottom-24 left-5 right-5 bg-red-50 border border-red-200 rounded-xl p-3">
           <Text className="text-sm text-red-700">{store.error}</Text>
         </View>
+      )}
+
+      {/* Topic action sheet */}
+      {selectedTopic && (
+        <TopicActionSheet
+          visible={showTopicSheet}
+          topic={selectedTopic}
+          mastery={store.mastery[selectedTopic.id] ?? 0}
+          resources={topicResources[selectedTopic.id] ?? []}
+          onClose={() => setShowTopicSheet(false)}
+          onStartLearning={handleStartLearning}
+          onStudyNotes={handleStudyNotes}
+          onQuizOnly={handleQuizOnly}
+          isLoading={actionLoading}
+        />
       )}
     </SafeAreaView>
   );

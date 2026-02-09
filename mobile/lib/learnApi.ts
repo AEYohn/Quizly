@@ -20,6 +20,9 @@ import type {
   AssessmentStartResponse,
   AssessmentSelfRatingsResponse,
   AssessmentDiagnosticResponse,
+  QuestionHistorySessionsResponse,
+  QuestionHistoryResponse,
+  QuestionHistoryItem,
 } from "@/types/learn";
 
 const API_BASE =
@@ -121,12 +124,13 @@ async function fetchApi<T>(
       const data = await response.json();
       return { success: true, data };
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
+      const isAbort = error instanceof Error && error.name === "AbortError";
+      if (isAbort) {
         lastError = "Request timed out";
       } else {
         lastError = error instanceof Error ? error.message : "Network error";
       }
-      if ((error instanceof TypeError || (error instanceof DOMException && error.name === "AbortError")) && attempt < cfg.maxRetries) {
+      if ((error instanceof TypeError || isAbort) && attempt < cfg.maxRetries) {
         await sleep(backoff(attempt, cfg));
         continue;
       }
@@ -191,7 +195,7 @@ async function fetchFormDataAuth<T>(
     const data = await response.json();
     return { success: true, data };
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (error instanceof Error && error.name === "AbortError") {
       return { success: false, error: "Upload timed out" };
     }
     return {
@@ -245,6 +249,7 @@ export const scrollApi = {
       };
       question_style?: string | null;
     },
+    mode?: "structured" | "mixed",
   ) =>
     fetchApiAuth<{
       session_id: string;
@@ -260,6 +265,7 @@ export const scrollApi = {
         student_id: studentId,
         notes,
         preferences,
+        mode: mode ?? "structured",
       }),
     }),
 
@@ -360,6 +366,43 @@ export const scrollApi = {
         retry: false,
       },
     ),
+
+  getPoolStatus: (topic: string) =>
+    fetchApiAuth<{
+      topic: string;
+      total_items: number;
+      by_type: Record<string, number>;
+      status: string;
+    }>(`/learn/content/pool-status?topic=${encodeURIComponent(topic)}`),
+
+  skipPhase: (sessionId: string, targetPhase: string) =>
+    fetchApiAuth<{
+      session_id: string;
+      cards: ScrollCard[];
+      stats: ScrollStats;
+    }>(`/learn/scroll/${sessionId}/skip-phase`, {
+      method: "POST",
+      body: JSON.stringify({ target_phase: targetPhase }),
+    }),
+
+  getTopicNotes: (topic: string, concepts: string[]) =>
+    fetchApiAuth<{
+      topic: string;
+      total_notes: number;
+      notes_by_concept: Record<
+        string,
+        Array<{
+          id: string;
+          concept: string;
+          title: string;
+          body_markdown: string;
+          key_takeaway: string;
+          style: string;
+        }>
+      >;
+    }>(
+      `/learn/content/topic-notes?topic=${encodeURIComponent(topic)}&concepts=${encodeURIComponent(concepts.join(","))}`,
+    ),
 };
 
 // ============================================
@@ -409,6 +452,52 @@ export const learnApi = {
         studentName,
       ),
     ),
+
+  getQuestionHistorySessions: (studentName: string, limit = 20, offset = 0) =>
+    fetchApiAuth<QuestionHistorySessionsResponse>(
+      withStudentName(
+        `/learn/question-history/sessions?limit=${limit}&offset=${offset}`,
+        studentName,
+      ),
+    ),
+
+  getSessionQuestions: (sessionId: string) =>
+    fetchApiAuth<{ session_id: string; items: QuestionHistoryItem[] }>(
+      `/learn/question-history/session/${sessionId}`,
+    ),
+
+  getQuestionHistory: (
+    studentName: string,
+    filters?: { is_correct?: boolean; concept?: string; topic?: string },
+    limit = 20,
+    offset = 0,
+  ) => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    params.set("offset", String(offset));
+    if (filters?.is_correct !== undefined)
+      params.set("is_correct", String(filters.is_correct));
+    if (filters?.concept) params.set("concept", filters.concept);
+    if (filters?.topic) params.set("topic", filters.topic);
+    return fetchApiAuth<QuestionHistoryResponse>(
+      withStudentName(
+        `/learn/question-history?${params.toString()}`,
+        studentName,
+      ),
+    );
+  },
+
+  getReviewQueue: (studentName: string) =>
+    fetchApiAuth<{
+      items: Array<{
+        concept: string;
+        due_date: string;
+        interval_days: number;
+        ease_factor: number;
+        repetitions: number;
+      }>;
+      total_due: number;
+    }>(withStudentName("/learn/review-queue", studentName)),
 };
 
 // ============================================
@@ -568,6 +657,257 @@ export const assessmentApi = {
         }),
       },
     ),
+};
+
+// ============================================
+// Conversation (AI Tutor) API
+// ============================================
+
+export const conversationApi = {
+  start: (topic: string, studentName: string, studentId?: string) =>
+    fetchApiAuth<{
+      session_id: string;
+      messages: Array<{ role: string; content: string; action?: string }>;
+      question?: {
+        id: string;
+        prompt: string;
+        options: string[];
+        concept: string;
+        difficulty: number;
+      };
+      plan: Record<string, unknown>;
+      phase: string;
+    }>(withStudentName("/learn/session/start", studentName), {
+      method: "POST",
+      body: JSON.stringify({
+        topic,
+        student_name: studentName,
+        student_id: studentId,
+      }),
+    }),
+
+  submitAnswer: (sessionId: string, answer: string, confidence: number) =>
+    fetchApiAuth<{
+      assessment: {
+        is_correct: boolean;
+        correct_answer: string;
+        explanation: string;
+      };
+      action: string;
+      message: string;
+      question?: {
+        id: string;
+        prompt: string;
+        options: string[];
+        concept: string;
+        difficulty: number;
+      };
+      lesson?: { title: string; content: string; concept: string };
+      progress?: {
+        conceptsMastered: string[];
+        conceptsInProgress: string[];
+        questionsAnswered: number;
+        accuracy: number;
+      };
+    }>(`/learn/session/${sessionId}/answer`, {
+      method: "POST",
+      body: JSON.stringify({ answer, confidence }),
+    }),
+
+  sendMessage: (sessionId: string, message: string) =>
+    fetchApiAuth<{
+      message: string;
+      discussion_phase: string;
+      ready_to_retry: boolean;
+      question?: {
+        id: string;
+        prompt: string;
+        options: string[];
+        concept: string;
+        difficulty: number;
+      };
+    }>(`/learn/session/${sessionId}/message`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+
+  end: (sessionId: string) =>
+    fetchApiAuth<{
+      summary: {
+        questions_answered: number;
+        accuracy: number;
+        concepts_covered: string[];
+        mastery_updates: Array<{
+          concept: string;
+          score: number;
+          trend: string;
+        }>;
+        duration_minutes: number;
+      };
+    }>(`/learn/session/${sessionId}/end`, {
+      method: "POST",
+    }),
+};
+
+// ============================================
+// Adaptive Learning API
+// ============================================
+
+export const adaptiveApi = {
+  analyzeConfidenceCorrectness: (studentName: string, subject?: string) =>
+    fetchApiAuth<{
+      student_name: string;
+      total_responses: number;
+      overall_confidence: number;
+      overall_accuracy: number;
+      overconfidence_index: number;
+      calibration_label: string;
+      by_concept: Array<{
+        concept: string;
+        avg_confidence: number;
+        accuracy: number;
+        responses: number;
+        calibration_gap: number;
+      }>;
+    }>(withStudentName(
+      `/learn/adaptive/confidence-correctness${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`,
+      studentName,
+    )),
+
+  getDueReviews: (studentName: string, subject?: string) =>
+    fetchApiAuth<{
+      items: Array<{
+        concept: string;
+        due_date: string;
+        interval_days: number;
+        ease_factor: number;
+        last_reviewed: string | null;
+      }>;
+      total_due: number;
+    }>(withStudentName(
+      `/learn/adaptive/spaced-repetition/due${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`,
+      studentName,
+    )),
+
+  updateSpacedRepetition: (studentName: string, concept: string, quality: number) =>
+    fetchApiAuth<{
+      concept: string;
+      next_review: string;
+      interval_days: number;
+      ease_factor: number;
+    }>(withStudentName("/learn/adaptive/spaced-repetition/update", studentName), {
+      method: "POST",
+      body: JSON.stringify({ concept, quality }),
+    }),
+
+  getMasteryTracking: (studentName: string, subject?: string) =>
+    fetchApiAuth<{
+      concepts: Array<{
+        concept: string;
+        mastery_score: number;
+        attempts: number;
+        correct: number;
+        trend: string;
+        last_seen: string | null;
+      }>;
+    }>(withStudentName(
+      `/learn/adaptive/mastery${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`,
+      studentName,
+    )),
+
+  trackMisconception: (studentName: string, concept: string, misconception: string) =>
+    fetchApiAuth<{
+      concept: string;
+      misconception: string;
+      count: number;
+    }>(withStudentName("/learn/adaptive/misconceptions/track", studentName), {
+      method: "POST",
+      body: JSON.stringify({ concept, misconception }),
+    }),
+};
+
+// ============================================
+// Student Profile API
+// ============================================
+
+export const studentApi = {
+  getProfile: () =>
+    fetchApiAuth<{
+      student_name: string;
+      total_xp: number;
+      level: number;
+      sessions_played: number;
+      total_correct: number;
+      total_answered: number;
+      accuracy: number;
+      best_streak: number;
+      joined_at: string;
+    }>("/student/profile"),
+
+  getMastery: () =>
+    fetchApiAuth<{
+      concepts: Array<{
+        concept: string;
+        score: number;
+        attempts: number;
+        correct: number;
+        last_seen: string | null;
+      }>;
+      summary: {
+        total: number;
+        mastered: number;
+        in_progress: number;
+        needs_work: number;
+      };
+    }>("/student/mastery"),
+
+  getReviewQueue: () =>
+    fetchApiAuth<{
+      items: Array<{
+        concept: string;
+        due_date: string;
+        interval_days: number;
+      }>;
+      total_due: number;
+    }>("/student/review-queue"),
+
+  completeReview: (concept: string, quality: number) =>
+    fetchApiAuth<{
+      concept: string;
+      next_review: string;
+      interval_days: number;
+    }>("/student/review/complete", {
+      method: "POST",
+      body: JSON.stringify({ concept, quality }),
+    }),
+};
+
+// ============================================
+// Skill Tree Analysis API
+// ============================================
+
+export const skillTreeAnalysisApi = {
+  get: (subject: string, studentName: string) =>
+    fetchApiAuth<{
+      subject: string;
+      concepts: Array<{
+        concept: string;
+        mastery: number;
+        attempts: number;
+        correct: number;
+        trend: string;
+        weaknesses: string[];
+        prerequisites: string[];
+      }>;
+      ai_insights?: {
+        summary: string;
+        recommendations: string[];
+        focus_areas: string[];
+      };
+    }>(withStudentName(
+      `/learn/skill-tree-analysis/${encodeURIComponent(subject)}`,
+      studentName,
+    )),
 };
 
 // ============================================
