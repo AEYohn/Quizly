@@ -134,6 +134,12 @@ class FeedState:
     concepts_mastered: List[str] = field(default_factory=list)
     pending_milestone: Optional[Dict[str, Any]] = field(default=None)
 
+    # Structured learning flow phases
+    feed_phase: str = "mixed"  # "learn" | "flashcards" | "quiz" | "mixed"
+    learn_cards_seen: int = 0
+    flashcard_cards_seen: int = 0
+    quiz_cards_seen: int = 0
+
     # Socratic help chat history
     help_history: List[Dict[str, str]] = field(default_factory=list)
 
@@ -212,6 +218,7 @@ class ScrollFeedEngine:
         student_id: Optional[str] = None,
         notes: Optional[str] = None,
         preferences: Optional[Dict[str, Any]] = None,
+        mode: str = "structured",
     ) -> Dict[str, Any]:
         """Start a scroll feed session. Returns session + first batch of cards."""
 
@@ -245,6 +252,7 @@ class ScrollFeedEngine:
             base_difficulty=starting_difficulty,
             current_difficulty=starting_difficulty,
             user_preferences=preferences or {},
+            feed_phase="learn" if mode == "structured" else "mixed",
         )
 
         # Create session
@@ -415,6 +423,13 @@ class ScrollFeedEngine:
         for item in state.reintroduction_queue:
             item["cooldown"] = item.get("cooldown", 0) - 1
 
+        # 7b. Phase transition check (structured mode)
+        if state.feed_phase not in ("mixed", None):
+            self._increment_phase_counter(state, "mcq")  # answer = quiz card
+            next_phase = self._check_phase_transition(state)
+            if next_phase:
+                self._apply_phase_transition(state, next_phase)
+
         # 8. Record content pool interaction (if card came from pool)
         # content_item_id is passed from the frontend; we record it if present
         # (handled by the API layer, not here directly)
@@ -562,6 +577,52 @@ class ScrollFeedEngine:
                 "reintroductions_queued": len(state.reintroduction_queue),
             },
         }
+
+    # ===================================================================
+    # STRUCTURED PHASE LOGIC
+    # ===================================================================
+
+    PHASE_WEIGHTS = {
+        "learn":      {"info_card": 0.6, "resource_card": 0.4, "mcq": 0.0, "flashcard": 0.0},
+        "flashcards": {"flashcard": 0.8, "info_card": 0.2, "mcq": 0.0, "resource_card": 0.0},
+        "quiz":       {"mcq": 0.75, "flashcard": 0.15, "info_card": 0.1, "resource_card": 0.0},
+    }
+
+    def _check_phase_transition(self, state: FeedState) -> Optional[str]:
+        """Check if the feed should transition to the next phase."""
+        if state.feed_phase == "learn":
+            min_learn = max(len(state.concepts) * 2, 4)
+            all_introduced = all(c in state.concepts_introduced for c in state.concepts)
+            if all_introduced and state.learn_cards_seen >= min_learn:
+                return "flashcards"
+        elif state.feed_phase == "flashcards":
+            min_flash = max(len(state.concepts), 3)
+            if state.flashcard_cards_seen >= min_flash:
+                return "quiz"
+        return None
+
+    def _apply_phase_transition(self, state: FeedState, next_phase: str) -> None:
+        """Apply a phase transition and set a milestone card."""
+        labels = {
+            "flashcards": "Learning complete — time to memorize!",
+            "quiz": "Flashcards done — time to test yourself!",
+        }
+        state.pending_milestone = {
+            "milestone_type": "phase_transition",
+            "from_phase": state.feed_phase,
+            "to_phase": next_phase,
+            "message": labels.get(next_phase, f"Moving to {next_phase}"),
+        }
+        state.feed_phase = next_phase
+
+    def _increment_phase_counter(self, state: FeedState, card_type: str) -> None:
+        """Increment the appropriate phase counter based on current phase."""
+        if state.feed_phase == "learn":
+            state.learn_cards_seen += 1
+        elif state.feed_phase == "flashcards":
+            state.flashcard_cards_seen += 1
+        elif state.feed_phase == "quiz":
+            state.quiz_cards_seen += 1
 
     # ===================================================================
     # INTERNAL: The Algorithm
@@ -845,6 +906,9 @@ class ScrollFeedEngine:
         try:
             # Pass user content_mix preference as type_weights override
             type_weights = state.user_preferences.get("content_mix")
+            # Phase-based weight override (structured mode)
+            if state.feed_phase in self.PHASE_WEIGHTS:
+                type_weights = self.PHASE_WEIGHTS[state.feed_phase]
             pool_cards = await self.pool_service.select_cards(
                 topic=topic,
                 concepts=state.concepts,
@@ -864,6 +928,14 @@ class ScrollFeedEngine:
                     state.content_type_counts[ctype] = state.content_type_counts.get(ctype, 0) + 1
                     if c.question.get("prompt"):
                         state.previous_prompts.append(c.question["prompt"])
+                    # Increment phase counter for structured mode
+                    if state.feed_phase not in ("mixed", None):
+                        self._increment_phase_counter(state, ctype)
+                # Check for phase transition after generating cards
+                if state.feed_phase not in ("mixed", None):
+                    next_phase = self._check_phase_transition(state)
+                    if next_phase:
+                        self._apply_phase_transition(state, next_phase)
                 return prepend_cards + pool_cards
         except Exception as e:
             capture_exception(e, context={"service": "scroll_feed_engine", "operation": "pool_card_selection"})
@@ -926,11 +998,16 @@ class ScrollFeedEngine:
                 "cards_answered": card.question.get("cards_answered", 0),
                 "accuracy": card.question.get("accuracy", 0),
             }
+            # Phase transition fields
+            if card.question.get("milestone_type") == "phase_transition":
+                d["milestone_message"] = card.question.get("message", "")
+                d["from_phase"] = card.question.get("from_phase", "")
+                d["to_phase"] = card.question.get("to_phase", "")
         return d
 
     def _get_stats(self, state: FeedState) -> Dict[str, Any]:
         """Get current session stats for the UI."""
-        return {
+        stats: Dict[str, Any] = {
             "streak": state.streak,
             "best_streak": state.best_streak,
             "total_xp": state.total_xp,
@@ -940,7 +1017,27 @@ class ScrollFeedEngine:
             "current_concept": state.concepts[state.current_concept_idx % max(1, len(state.concepts))] if state.concepts else "",
             "concepts_mastered": len(getattr(state, "concepts_mastered", [])),
             "total_concepts": len(state.concepts),
+            "feed_phase": state.feed_phase,
         }
+        # Phase progress for structured mode
+        if state.feed_phase not in ("mixed", None):
+            n = len(state.concepts) or 1
+            if state.feed_phase == "learn":
+                current = state.learn_cards_seen
+                total = max(n * 2, 4)
+            elif state.feed_phase == "flashcards":
+                current = state.flashcard_cards_seen
+                total = max(n, 3)
+            else:  # quiz
+                current = state.quiz_cards_seen
+                total = max(n * 2, 6)
+            labels = {"learn": "Learning", "flashcards": "Memorizing", "quiz": "Testing"}
+            stats["phase_progress"] = {
+                "current": current,
+                "total": total,
+                "label": labels.get(state.feed_phase, "Practicing"),
+            }
+        return stats
 
     def _build_card_analytics(
         self, state: FeedState, concept: str, is_correct: bool

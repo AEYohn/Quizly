@@ -1,16 +1,18 @@
-import type { ScrollCard } from "@/types/learn";
+import type { ScrollCard, ScrollAnalytics, SyllabusTopic } from "@/types/learn";
 import { MCQCard } from "./MCQCard";
 import { FlashcardCard } from "./FlashcardCard";
 import { InfoCard } from "./InfoCard";
 import { ResourceCard } from "./ResourceCard";
 import { MilestoneCard } from "./MilestoneCard";
+import { TopicOverviewCard } from "./TopicOverviewCard";
 
 interface CardRendererProps {
   card: ScrollCard;
   result: { isCorrect: boolean; xpEarned: number; streakBroken: boolean } | null;
+  analytics: ScrollAnalytics | null;
   flashcardXp: number | null;
   infoAcknowledged: boolean;
-  onAnswer: (answer: string) => void;
+  onAnswer: (answer: string, confidence: number) => void;
   onNext: () => void;
   onHelp: () => void;
   onFlashcardRate: (rating: number) => void;
@@ -20,6 +22,7 @@ interface CardRendererProps {
 export function CardRenderer({
   card,
   result,
+  analytics,
   flashcardXp,
   infoAcknowledged,
   onAnswer,
@@ -29,6 +32,21 @@ export function CardRenderer({
   onInfoGotIt,
 }: CardRendererProps) {
   switch (card.card_type) {
+    case "topic_overview":
+      return (
+        <TopicOverviewCard
+          key={card.id}
+          topic={{
+            id: card.id,
+            name: card.concept,
+            concepts: card.options || [],
+            prerequisites: [],
+            estimated_minutes: card.xp_value || 0,
+            order: 0,
+          }}
+          onStart={onNext}
+        />
+      );
     case "milestone":
       return <MilestoneCard key={card.id} card={card} onNext={onNext} />;
     case "flashcard":
@@ -62,6 +80,7 @@ export function CardRenderer({
           key={card.content_item_id}
           card={card}
           result={result}
+          analytics={analytics}
           onAnswer={onAnswer}
           onNext={onNext}
           onHelp={onHelp}

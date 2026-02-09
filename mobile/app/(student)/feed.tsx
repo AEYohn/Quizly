@@ -2,7 +2,7 @@ import { View, Text, Pressable, FlatList, Dimensions, ActivityIndicator } from "
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Sparkles } from "lucide-react-native";
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
 import { useScrollSessionStore } from "@/stores/scrollSessionStore";
 import { useHomeScreen } from "@/hooks/feed/useHomeScreen";
 import { useActiveFeed } from "@/hooks/feed/useActiveFeed";
@@ -11,6 +11,7 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { FeedHeader } from "@/components/feed/FeedHeader";
 import { CardRenderer } from "@/components/feed/CardRenderer";
 import { SocraticHelpSheet } from "@/components/feed/SocraticHelpSheet";
+import { SkeletonCard } from "@/components/feed/SkeletonCard";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -20,18 +21,30 @@ export default function FeedScreen() {
   const haptics = useHaptics();
   const { answerStartTime } = useHomeScreen();
   const {
+    isPrefetching,
     handleAnswer,
     handleNext,
     handleSkip,
     handleFlashcardRate,
     handleInfoGotIt,
     handleShowAnalytics,
+    handleSkipPhase,
     showTuneSheet,
     setShowTuneSheet,
   } = useActiveFeed(answerStartTime);
 
   const flatListRef = useRef<FlatList>(null);
   const [skipping, runSkip] = useAsyncAction();
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  const handleAnalyticsTap = async () => {
+    setAnalyticsLoading(true);
+    try {
+      await handleShowAnalytics();
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
 
   const currentCard = store.cards[store.currentIdx];
 
@@ -84,8 +97,34 @@ export default function FeedScreen() {
     );
   }
 
-  // Out of cards
+  // Out of cards — show skeleton when prefetching, celebration when truly done
   if (!currentCard) {
+    if (store.isLoading || isPrefetching) {
+      return (
+        <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+          <View className="flex-row items-center px-2">
+            <Pressable
+              onPress={handleBack}
+              className="p-2 rounded-full active:bg-gray-100"
+            >
+              <ArrowLeft size={22} color="#374151" />
+            </Pressable>
+            <View className="flex-1">
+              <FeedHeader
+                stats={store.stats}
+                topic={store.topic}
+                onSettingsTap={() => setShowTuneSheet(true)}
+                onAnalyticsTap={handleAnalyticsTap}
+                analyticsLoading={analyticsLoading}
+                onSkipPhase={handleSkipPhase}
+              />
+            </View>
+          </View>
+          <SkeletonCard />
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center px-6">
         <View className="items-center gap-4">
@@ -124,7 +163,8 @@ export default function FeedScreen() {
             stats={store.stats}
             topic={store.topic}
             onSettingsTap={() => setShowTuneSheet(true)}
-            onAnalyticsTap={handleShowAnalytics}
+            onAnalyticsTap={handleAnalyticsTap}
+            analyticsLoading={analyticsLoading}
           />
         </View>
       </View>
@@ -134,6 +174,7 @@ export default function FeedScreen() {
         <CardRenderer
           card={currentCard}
           result={store.result}
+          analytics={store.analytics}
           flashcardXp={store.flashcardXp}
           infoAcknowledged={store.infoAcknowledged}
           onAnswer={handleAnswer}

@@ -11,7 +11,7 @@ import { useScrollSessionStore } from "@/stores/scrollSessionStore";
 import type { SyllabusTopic } from "@/types/learn";
 
 export function useSkillTree(
-  handleQuickStart: (topic: string) => Promise<void>,
+  handleQuickStart: (topic: string, opts?: { mode?: "structured" | "mixed"; topicMeta?: SyllabusTopic }) => Promise<void>,
 ) {
   const auth = useAuth();
   const store = useScrollSessionStore();
@@ -99,13 +99,13 @@ export function useSkillTree(
     }
   }, [store, auth.userId]);
 
-  // Topic node tap → start feed
+  // Topic node tap → start feed (structured mode with topic metadata)
   const handleNodeTap = useCallback(
     async (topic: SyllabusTopic) => {
       if (store.isLoading) return;
       store.setActiveSyllabusNode(topic.id);
       store.setTopicInput(topic.name);
-      await handleQuickStart(topic.name);
+      await handleQuickStart(topic.name, { mode: "structured", topicMeta: topic });
     },
     [store, handleQuickStart],
   );

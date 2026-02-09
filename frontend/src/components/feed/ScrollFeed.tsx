@@ -46,6 +46,8 @@ import { BottomSheet } from "~/components/feed/BottomSheet";
 import { SkillTreeAnalysis } from "~/components/feed/SkillTreeAnalysis";
 import { RichText, Explanation } from "~/components/shared/RichText";
 import { MilestoneCard } from "~/components/feed/MilestoneCard";
+import { PhaseProgressBar } from "~/components/feed/PhaseProgressBar";
+import { TopicOverviewCard } from "~/components/feed/TopicOverviewCard";
 
 // Lazy-load heavy sub-components behind modals / bottom sheets
 const SkillTreePath = dynamic(
@@ -716,6 +718,7 @@ export function ScrollFeed() {
                 auth.user?.id,
                 store.notesInput.trim() || undefined,
                 apiPrefs,
+                "structured",
             );
 
             if (!res.success) {
@@ -857,6 +860,20 @@ export function ScrollFeed() {
         }
     }, [store.sessionId]);
 
+    // Skip phase (structured mode)
+    const handleSkipPhase = useCallback(async (targetPhase: string) => {
+        if (!store.sessionId) return;
+        try {
+            const res = await scrollApi.skipPhase(store.sessionId, targetPhase);
+            if (res.success && res.data) {
+                store.addCards(res.data.cards);
+                store.setStats(res.data.stats);
+            }
+        } catch {
+            // Silent — skip is best-effort
+        }
+    }, [store]);
+
     // Keyboard
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
@@ -953,7 +970,7 @@ export function ScrollFeed() {
                 : topic;
             const res = await scrollApi.startFeed(
                 topicWithContext, studentName, auth.user?.id,
-                store.notesInput.trim() || undefined, apiPrefs,
+                store.notesInput.trim() || undefined, apiPrefs, "structured",
             );
             if (!res.success) { store.setError(res.error ?? "Failed to start feed"); return; }
             store.setSessionId(res.data.session_id);
@@ -1661,6 +1678,15 @@ export function ScrollFeed() {
                 </div>
             </div>
 
+            {/* Phase progress bar for structured mode */}
+            {store.stats.feed_phase && store.stats.feed_phase !== "mixed" && (
+                <PhaseProgressBar
+                    phase={store.stats.feed_phase}
+                    progress={store.stats.phase_progress}
+                    onSkip={handleSkipPhase}
+                />
+            )}
+
             {/* Card area */}
             <div className="flex-1 overflow-hidden relative" aria-live="polite">
                 {!store.result && store.flashcardXp === null && !store.infoAcknowledged && (
@@ -1674,7 +1700,9 @@ export function ScrollFeed() {
                     </button>
                 )}
 
-                {currentCard.card_type === "milestone" ? (
+                {currentCard.card_type === "topic_overview" ? (
+                    <TopicOverviewCard card={currentCard} onStart={handleNext} />
+                ) : currentCard.card_type === "milestone" ? (
                     <MilestoneCard card={currentCard} onNext={handleNext} />
                 ) : currentCard.card_type === "flashcard" ? (
                     <FlashcardCard

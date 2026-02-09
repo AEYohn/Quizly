@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy, Flame, ArrowRight } from "lucide-react";
+import { Trophy, Flame, ArrowRight, BookOpen, Layers, Brain } from "lucide-react";
 import { cn } from "~/lib/utils";
 import type { ScrollCard } from "~/lib/api";
 
@@ -9,9 +9,48 @@ interface MilestoneCardProps {
     onNext: () => void;
 }
 
+const PHASE_STYLES = {
+    learn: { Icon: BookOpen, bg: "bg-indigo-500/15", text: "text-indigo-400", btnBg: "bg-indigo-500/20 hover:bg-indigo-500/30", btnText: "text-indigo-300" },
+    flashcards: { Icon: Layers, bg: "bg-violet-500/15", text: "text-violet-400", btnBg: "bg-violet-500/20 hover:bg-violet-500/30", btnText: "text-violet-300" },
+    quiz: { Icon: Brain, bg: "bg-pink-500/15", text: "text-pink-400", btnBg: "bg-pink-500/20 hover:bg-pink-500/30", btnText: "text-pink-300" },
+} as const;
+
 export function MilestoneCard({ card, onNext }: MilestoneCardProps) {
     const isMastery = card.milestone_type === "concept_mastered";
+    const isPhaseTransition = card.milestone_type === "phase_transition";
     const stats = card.milestone_stats;
+
+    // Phase transition variant
+    if (isPhaseTransition) {
+        const toPhase = (card.to_phase ?? "quiz") as keyof typeof PHASE_STYLES;
+        const style = PHASE_STYLES[toPhase] ?? PHASE_STYLES.quiz;
+        const PhaseIcon = style.Icon;
+        const ctaLabels: Record<string, string> = {
+            flashcards: "Start Flashcards",
+            quiz: "Start Quiz",
+        };
+
+        return (
+            <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+                <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center mb-5", style.bg)}>
+                    <PhaseIcon className={cn("w-8 h-8", style.text)} />
+                </div>
+                <h2 className="text-xl font-bold text-gray-100 mb-2">
+                    {card.milestone_message || "Phase complete!"}
+                </h2>
+                <p className="text-sm text-gray-400 mb-6 max-w-[260px]">
+                    Great progress! Ready for the next step.
+                </p>
+                <button
+                    onClick={onNext}
+                    className={cn("flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-colors", style.btnBg, style.btnText)}
+                >
+                    {ctaLabels[toPhase] ?? "Continue"}
+                    <ArrowRight className="w-4 h-4" />
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col items-center justify-center h-full px-6 text-center">

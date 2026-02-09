@@ -1479,6 +1479,10 @@ export interface ScrollCard {
         cards_answered: number;
         accuracy: number;
     };
+    // Phase transition milestone fields
+    milestone_message?: string;
+    from_phase?: string;
+    to_phase?: string;
 }
 
 export interface ScrollStats {
@@ -1490,6 +1494,8 @@ export interface ScrollStats {
     current_concept?: string;
     concepts_mastered?: number;
     total_concepts?: number;
+    feed_phase?: 'learn' | 'flashcards' | 'quiz' | 'mixed';
+    phase_progress?: { current: number; total: number; label: string };
 }
 
 export interface CalibrationNudge {
@@ -1699,6 +1705,7 @@ export const scrollApi = {
             content_mix?: { mcq: number; flashcard: number; info_card: number };
             question_style?: string | null;
         },
+        mode?: 'structured' | 'mixed',
     ) =>
         fetchApiAuth<{
             session_id: string;
@@ -1708,7 +1715,7 @@ export const scrollApi = {
             stats: ScrollStats;
         }>('/learn/scroll/start', {
             method: 'POST',
-            body: JSON.stringify({ topic, student_name: studentName, student_id: studentId, notes, preferences }),
+            body: JSON.stringify({ topic, student_name: studentName, student_id: studentId, notes, preferences, mode: mode ?? 'structured' }),
         }),
 
     submitAnswer: (sessionId: string, answer: string, timeMs: number, contentItemId?: string, correctAnswer?: string, confidence?: number, cardData?: { prompt?: string; options?: string[]; explanation?: string; concept?: string }) =>
@@ -1782,6 +1789,16 @@ export const scrollApi = {
             by_type: Record<string, number>;
             concepts: string[];
         }>(`/learn/content/pool-status?topic=${encodeURIComponent(topic)}`),
+
+    skipPhase: (sessionId: string, targetPhase: string) =>
+        fetchApiAuth<{
+            session_id: string;
+            cards: ScrollCard[];
+            stats: ScrollStats;
+        }>(`/learn/scroll/${sessionId}/skip-phase`, {
+            method: 'POST',
+            body: JSON.stringify({ target_phase: targetPhase }),
+        }),
 };
 
 // ============================================

@@ -41,6 +41,10 @@ export interface ScrollCard {
     cards_answered: number;
     accuracy: number;
   };
+  // Phase transition milestone fields
+  milestone_message?: string;
+  from_phase?: string;
+  to_phase?: string;
 }
 
 export interface ScrollStats {
@@ -52,6 +56,8 @@ export interface ScrollStats {
   current_concept?: string;
   concepts_mastered?: number;
   total_concepts?: number;
+  feed_phase?: "learn" | "flashcards" | "quiz" | "mixed";
+  phase_progress?: { current: number; total: number; label: string };
 }
 
 export interface CalibrationNudge {

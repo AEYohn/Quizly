@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { scrollApi, syllabusApi, learnApi, resourcesApi } from "@/lib/learnApi";
 import { useAuth } from "@/providers/AuthProvider";
 import { useScrollSessionStore } from "@/stores/scrollSessionStore";
+import type { SyllabusTopic, ScrollCard } from "@/types/learn";
 
 export function useHomeScreen() {
   const auth = useAuth();
@@ -27,7 +28,7 @@ export function useHomeScreen() {
   }, []);
 
   const handleQuickStart = useCallback(
-    async (topic: string) => {
+    async (topic: string, opts?: { mode?: "structured" | "mixed"; topicMeta?: SyllabusTopic }) => {
       if (feedStartingRef.current || store.isLoading) return;
       feedStartingRef.current = true;
       store.setTopicInput(topic);
@@ -35,17 +36,30 @@ export function useHomeScreen() {
       store.setError(null);
       setLoadingMessage("Resuming...");
 
-      const timeout5s = setTimeout(() => {
+      const timeout3s = setTimeout(() => {
         if (feedStartingRef.current)
           setLoadingMessage("Generating questions...");
-      }, 5000);
-      const timeout15s = setTimeout(() => {
-        if (feedStartingRef.current) setLoadingMessage("Almost ready...");
-      }, 15000);
-      const timeout30s = setTimeout(() => {
+      }, 3000);
+      const timeout7s = setTimeout(() => {
         if (feedStartingRef.current)
-          setLoadingMessage("This is taking longer than usual...");
-      }, 30000);
+          setLoadingMessage("Building practice problems...");
+      }, 7000);
+      const timeout12s = setTimeout(() => {
+        if (feedStartingRef.current)
+          setLoadingMessage("Almost there...");
+      }, 12000);
+      const timeout20s = setTimeout(() => {
+        if (feedStartingRef.current)
+          setLoadingMessage("This is taking a moment \u2014 AI is crafting your content");
+      }, 20000);
+      const timeout35s = setTimeout(() => {
+        if (feedStartingRef.current)
+          setLoadingMessage("Still working...");
+      }, 35000);
+      const timeout55s = setTimeout(() => {
+        if (feedStartingRef.current)
+          setLoadingMessage("Hang tight \u2014 this shouldn't be much longer");
+      }, 55000);
       const timeout = setTimeout(() => {
         if (feedStartingRef.current) {
           feedStartingRef.current = false;
@@ -89,12 +103,14 @@ export function useHomeScreen() {
         const notesWithContext =
           [subTopicHint, store.notesInput.trim()].filter(Boolean).join("\n") ||
           undefined;
+        const feedMode = opts?.mode ?? "structured";
         const res = await scrollApi.startFeed(
           sessionTopic,
           studentName,
           auth.userId ?? undefined,
           notesWithContext,
           apiPrefs,
+          feedMode,
         );
         if (!res.success) {
           store.setError(res.error ?? "Failed to start feed");
@@ -102,7 +118,25 @@ export function useHomeScreen() {
         }
         store.setSessionId(res.data!.session_id);
         store.setTopic(sessionTopic);
-        store.setCards(res.data!.cards);
+
+        // Prepend a client-side TopicOverviewCard in structured mode
+        let cards = res.data!.cards;
+        if (feedMode === "structured" && opts?.topicMeta) {
+          const overviewCard: ScrollCard = {
+            id: `overview_${Date.now()}`,
+            prompt: "",
+            options: opts.topicMeta.concepts,
+            correct_answer: "",
+            explanation: "",
+            concept: opts.topicMeta.name,
+            difficulty: 0,
+            card_type: "topic_overview",
+            is_reintroduction: false,
+            xp_value: opts.topicMeta.estimated_minutes,
+          };
+          cards = [overviewCard, ...cards];
+        }
+        store.setCards(cards);
         store.setCurrentIdx(0);
         store.setStats(res.data!.stats);
         store.clearCardState();
@@ -112,9 +146,12 @@ export function useHomeScreen() {
           err instanceof Error ? err.message : "Something went wrong",
         );
       } finally {
-        clearTimeout(timeout5s);
-        clearTimeout(timeout15s);
-        clearTimeout(timeout30s);
+        clearTimeout(timeout3s);
+        clearTimeout(timeout7s);
+        clearTimeout(timeout12s);
+        clearTimeout(timeout20s);
+        clearTimeout(timeout35s);
+        clearTimeout(timeout55s);
         clearTimeout(timeout);
         feedStartingRef.current = false;
         store.setIsLoading(false);

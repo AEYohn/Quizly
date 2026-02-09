@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { scrollApi } from "@/lib/learnApi";
 import type { ScrollSessionAnalytics } from "@/types/learn";
 import { useAuth } from "@/providers/AuthProvider";
@@ -16,6 +16,37 @@ export function useActiveFeed(
   const [showTuneSheet, setShowTuneSheet] = useState(false);
 
   const answeredCardIdx = useRef<number>(-1);
+
+  // Prefetch state — use ref to prevent concurrent calls + state for UI
+  const isPrefetchingRef = useRef(false);
+  const [isPrefetching, setIsPrefetching] = useState(false);
+
+  const prefetchCards = useCallback(async () => {
+    if (isPrefetchingRef.current || !store.sessionId) return;
+    isPrefetchingRef.current = true;
+    setIsPrefetching(true);
+    try {
+      const res = await scrollApi.getNextCards(store.sessionId, 5);
+      if (res.success && res.data) {
+        if (res.data.cards.length > 0) {
+          store.addCards(res.data.cards);
+        }
+        store.setStats(res.data.stats);
+      }
+    } catch {
+      // Silent — prefetch is best-effort
+    }
+    isPrefetchingRef.current = false;
+    setIsPrefetching(false);
+  }, [store]);
+
+  // Prefetch when 2 cards from end of buffer
+  useEffect(() => {
+    const remaining = store.cards.length - store.currentIdx;
+    if (remaining <= 2 && store.sessionId && !isPrefetchingRef.current) {
+      prefetchCards();
+    }
+  }, [store.currentIdx, store.cards.length, store.sessionId, prefetchCards]);
 
   // Start feed (manual entry)
   const handleStart = useCallback(async () => {
@@ -66,7 +97,7 @@ export function useActiveFeed(
 
   // Submit answer
   const handleAnswer = useCallback(
-    async (answer: string) => {
+    async (answer: string, confidence?: number) => {
       if (!store.sessionId || store.result) return;
 
       const timeMs = Date.now() - answerStartTime.current;
@@ -91,6 +122,7 @@ export function useActiveFeed(
           timeMs,
           currentCard.content_item_id,
           currentCard.correct_answer,
+          confidence,
         );
         if (res.success && res.data) {
           store.setStats(res.data.stats);
@@ -118,7 +150,12 @@ export function useActiveFeed(
   const handleNext = useCallback(() => {
     store.advanceCard();
     answerStartTime.current = Date.now();
-  }, [store, answerStartTime]);
+    // Check if prefetch needed after advancing
+    const remaining = store.cards.length - (store.currentIdx + 1);
+    if (remaining <= 2 && store.sessionId && !isPrefetchingRef.current) {
+      prefetchCards();
+    }
+  }, [store, answerStartTime, prefetchCards]);
 
   // Skip card
   const handleSkip = useCallback(async () => {
@@ -195,6 +232,23 @@ export function useActiveFeed(
     store.setInfoAcknowledged(true);
   }, [store, answerStartTime]);
 
+  // Skip phase (structured mode)
+  const handleSkipPhase = useCallback(
+    async (targetPhase: string) => {
+      if (!store.sessionId) return;
+      try {
+        const res = await scrollApi.skipPhase(store.sessionId, targetPhase);
+        if (res.success && res.data) {
+          store.addCards(res.data.cards);
+          store.setStats(res.data.stats);
+        }
+      } catch {
+        // Silent — skip is best-effort
+      }
+    },
+    [store],
+  );
+
   // Analytics
   const handleShowAnalytics = useCallback(async () => {
     if (!store.sessionId) return;
@@ -206,6 +260,7 @@ export function useActiveFeed(
   }, [store.sessionId]);
 
   return {
+    isPrefetching,
     sessionAnalytics,
     showAnalytics,
     setShowAnalytics,
@@ -218,5 +273,6 @@ export function useActiveFeed(
     handleFlashcardRate,
     handleInfoGotIt,
     handleShowAnalytics,
+    handleSkipPhase,
   };
 }

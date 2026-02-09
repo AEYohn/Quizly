@@ -126,6 +126,7 @@ class ScrollStartRequest(BaseModel):
     student_id: Optional[str] = None
     notes: Optional[str] = None  # Paste notes/syllabus for question generation
     preferences: Optional[FeedPreferences] = None  # Feed tuning controls
+    mode: Optional[str] = Field(default="structured", pattern="^(structured|mixed)$")
 
 
 class ScrollAnswerRequest(BaseModel):
@@ -158,6 +159,11 @@ class FlashcardFlipRequest(BaseModel):
     content_item_id: str
     time_to_flip_ms: int = Field(default=0, ge=0)
     self_rated_knowledge: int = Field(default=3, ge=1, le=5)  # 1=no idea, 5=knew it
+
+
+class ScrollSkipPhaseRequest(BaseModel):
+    """Skip to a target phase in structured mode."""
+    target_phase: str = Field(..., pattern="^(flashcards|quiz)$")
 
 
 class ScrollResumeRequest(BaseModel):
@@ -651,6 +657,7 @@ async def get_learning_history(
 @router.post("/scroll/start")
 async def scroll_start(
     request: ScrollStartRequest,
+    background_tasks: BackgroundTasks,
     identity: tuple = Depends(resolve_student_identity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -660,13 +667,70 @@ async def scroll_start(
     prefs_dict = None
     if request.preferences:
         prefs_dict = request.preferences.model_dump(exclude_none=True)
+    feed_mode = request.mode or "structured"
     result = await engine.start_feed(
         student_name=student_name,
         topic=request.topic,
         student_id=request.student_id,
         notes=request.notes,
         preferences=prefs_dict,
+        mode=feed_mode,
     )
+
+    # Background resource scraping for structured mode
+    if feed_mode == "structured":
+        concepts = result.get("concepts", [])
+        topic = request.topic
+
+        async def _scrape_resources():
+            from ..database import async_session
+            async with async_session() as bg_db:
+                from ..services.content_generation_orchestrator import ContentGenerationOrchestrator
+                orchestrator = ContentGenerationOrchestrator(bg_db)
+                for concept_name in concepts[:6]:
+                    try:
+                        resources = await orchestrator.resource_curator.curate_resources(
+                            concept_name, max_results=2
+                        )
+                        for res in resources:
+                            from ..db_models_content_pool import ContentItem
+                            import hashlib
+                            url_hash = hashlib.md5(res.get("url", "").encode()).hexdigest()
+                            existing = await bg_db.execute(
+                                select(ContentItem.id).where(
+                                    and_(
+                                        ContentItem.topic == topic,
+                                        ContentItem.content_type == "resource_card",
+                                        ContentItem.concept == concept_name,
+                                    )
+                                ).limit(20)
+                            )
+                            dupe = False
+                            for row in existing.all():
+                                item = await bg_db.get(ContentItem, row[0])
+                                if item and hashlib.md5(
+                                    (item.content_json or {}).get("url", "").encode()
+                                ).hexdigest() == url_hash:
+                                    dupe = True
+                                    break
+                            if not dupe:
+                                item = ContentItem(
+                                    content_type="resource_card",
+                                    topic=topic,
+                                    concept=concept_name,
+                                    difficulty=0.3,
+                                    content_json=res,
+                                    tags=[],
+                                    source="serper_curated",
+                                    generator_agent="ResourceCuratorAgent",
+                                )
+                                bg_db.add(item)
+                        await bg_db.commit()
+                    except Exception as e:
+                        log_error(logger, "structured_resource_scrape failed", concept=concept_name, error=str(e))
+
+        background_tasks.add_task(_scrape_resources)
+
     return result
 
 
@@ -729,6 +793,53 @@ async def scroll_resume(
         "cards": [engine._card_to_dict(c) for c in cards],
         "stats": engine._get_stats(state),
         "resumed": True,
+    }
+
+
+@router.post("/scroll/{session_id}/skip-phase")
+async def scroll_skip_phase(
+    session_id: str,
+    request: ScrollSkipPhaseRequest,
+    identity: tuple = Depends(resolve_student_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Skip to a target phase in structured learning mode."""
+    await verify_session_ownership(session_id, identity, db)
+    import uuid as _uuid
+    session = await db.execute(
+        select(LearningSession).where(LearningSession.id == _uuid.UUID(session_id))
+    )
+    session_obj = session.scalars().first()
+    if not session_obj:
+        raise SessionNotFound(session_id)
+
+    from ..services.scroll_feed_engine import FeedState
+    state = FeedState.from_dict(session_obj.state_json)
+
+    # Validate transition
+    if state.feed_phase == "mixed":
+        raise InvalidInput("Cannot skip phases in mixed mode")
+    phase_order = ["learn", "flashcards", "quiz"]
+    current_idx = phase_order.index(state.feed_phase) if state.feed_phase in phase_order else -1
+    target_idx = phase_order.index(request.target_phase)
+    if target_idx <= current_idx:
+        raise InvalidInput(f"Cannot skip backwards from {state.feed_phase} to {request.target_phase}")
+
+    state.feed_phase = request.target_phase
+
+    # Generate new batch for the target phase
+    engine = ScrollFeedEngine(db)
+    cards = await engine._generate_card_batch_from_pool(
+        state, session_obj.topic, count=3, student_name=session_obj.student_name
+    )
+
+    session_obj.state_json = state.to_dict()
+    await db.commit()
+
+    return {
+        "session_id": session_id,
+        "cards": [engine._card_to_dict(c) for c in cards],
+        "stats": engine._get_stats(state),
     }
 
 
