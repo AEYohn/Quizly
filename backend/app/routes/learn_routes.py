@@ -1043,6 +1043,7 @@ async def scroll_flashcard_flip(
 async def get_topic_notes(
     topic: str = Query(..., min_length=1),
     concepts: str = Query(""),
+    generate: bool = Query(False),
     db: AsyncSession = Depends(get_db),
 ):
     """Return info_card content grouped by concept for study notes."""
@@ -1087,6 +1088,48 @@ async def get_topic_notes(
         })
 
     total_notes = sum(len(notes) for notes in notes_by_concept.values())
+
+    # Auto-generate notes if none exist and generation requested
+    if total_notes == 0 and generate and concept_list:
+        from ..ai_agents.info_card_generator import InfoCardGenerator
+        gen = InfoCardGenerator()
+        for concept_name in concept_list[:5]:
+            concept_dict = {
+                "id": concept_name.lower().replace(" ", "_"),
+                "name": concept_name,
+                "topics": [],
+                "misconceptions": [],
+            }
+            for style in ["key_insight", "summary"]:
+                card = await gen.generate_info_card(concept_dict, style=style)
+                if card.get("llm_required"):
+                    continue
+                content_json = {
+                    "title": card.get("title", ""),
+                    "body_markdown": card.get("body_markdown", ""),
+                    "key_takeaway": card.get("key_takeaway", ""),
+                    "style": card.get("style", style),
+                }
+                item = ContentItem(
+                    topic=topic,
+                    concept=concept_name,
+                    content_type="info_card",
+                    difficulty=0.3,
+                    content_json=content_json,
+                    generator_agent="info_card_generator",
+                    quality_score=0.5,
+                )
+                db.add(item)
+                notes_by_concept.setdefault(concept_name, []).append({
+                    "id": str(item.id),
+                    "concept": concept_name,
+                    "title": content_json["title"],
+                    "body_markdown": content_json["body_markdown"],
+                    "key_takeaway": content_json["key_takeaway"],
+                    "style": content_json["style"],
+                })
+        await db.commit()
+        total_notes = sum(len(n) for n in notes_by_concept.values())
 
     return {
         "topic": topic,

@@ -8,7 +8,7 @@ resources in a single call. No external search API needed.
 import json
 import re
 from typing import Dict, Any, Optional, List
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
@@ -129,6 +129,9 @@ Only include resources you are confident are real and accessible."""
             if grounding_urls:
                 self._enrich_with_grounding(resources, grounding_urls)
 
+            # Validate URLs via HEAD request; replace dead links with search fallbacks
+            resources = await self._validate_urls(resources)
+
             return resources
 
         except Exception as e:
@@ -199,6 +202,35 @@ Only include resources you are confident are real and accessible."""
             })
 
         return resources
+
+    async def _validate_urls(self, resources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Validate URLs via HEAD request. Replace dead ones with search fallbacks."""
+        import httpx
+
+        validated = []
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
+            for r in resources:
+                try:
+                    resp = await client.head(r["url"])
+                    if resp.status_code < 400:
+                        validated.append(r)
+                    else:
+                        r["url"] = self._search_fallback_url(r.get("title", ""), r.get("source_type", "article"))
+                        r["is_fallback"] = True
+                        validated.append(r)
+                except Exception:
+                    r["url"] = self._search_fallback_url(r.get("title", ""), r.get("source_type", "article"))
+                    r["is_fallback"] = True
+                    validated.append(r)
+        return validated
+
+    def _search_fallback_url(self, title: str, source_type: str) -> str:
+        """Generate a Google search URL as fallback for dead links."""
+        site = ""
+        if source_type == "video":
+            site = "site:youtube.com "
+        query = quote_plus(f"{site}{title}")
+        return f"https://www.google.com/search?q={query}"
 
     def _extract_grounding_urls(self, response: Any) -> List[str]:
         """Extract verified URLs from Gemini grounding metadata."""

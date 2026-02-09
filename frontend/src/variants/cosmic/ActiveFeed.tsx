@@ -227,7 +227,7 @@ export function ActiveFeed({
             <BottomSheet
                 open={showNotesPanel}
                 onClose={() => setShowNotesPanel(false)}
-                title="Study Notes"
+                title="Concept Review"
             >
                 {notesLoading ? (
                     <div className="flex items-center justify-center py-12">

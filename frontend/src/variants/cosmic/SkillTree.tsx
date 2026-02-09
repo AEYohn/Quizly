@@ -496,8 +496,8 @@ export function SkillTree({
                             >
                                 <BookOpen className="w-5 h-5" />
                                 <div className="flex-1 text-left">
-                                    <div>Study Notes</div>
-                                    <div className="text-xs font-normal text-indigo-300/50 mt-0.5">Review key concepts</div>
+                                    <div>Concept Review</div>
+                                    <div className="text-xs font-normal text-indigo-300/50 mt-0.5">Spot gaps in your knowledge</div>
                                 </div>
                             </button>
                             <button
@@ -570,7 +570,7 @@ export function SkillTree({
             <BottomSheet
                 open={showNotesSheet}
                 onClose={() => { setShowNotesSheet(false); setNotesData(null); }}
-                title="Study Notes"
+                title="Concept Review"
             >
                 {notesLoading ? (
                     <div className="flex items-center justify-center py-12">
