@@ -1377,6 +1377,11 @@ export const learnApi = {
 
     getSessionQuestions: (sessionId: string) =>
         fetchApiAuth<{ session_id: string; items: QuestionHistoryItem[] }>(`/learn/question-history/session/${sessionId}`),
+
+    getTopicNotes: (topic: string, concepts?: string[]) =>
+        fetchApiAuth<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>(
+            `/content/topic-notes?topic=${encodeURIComponent(topic)}${concepts?.length ? `&concepts=${encodeURIComponent(concepts.join(','))}` : ''}`
+        ),
 };
 
 export interface SubjectHistory {
@@ -1670,7 +1675,9 @@ export const resourcesApi = {
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-                return { success: false, error: typeof error.detail === 'string' ? error.detail : 'Upload failed' };
+                const detail = error.detail;
+                const message = typeof detail === 'string' ? detail : (detail?.message ?? 'Upload failed');
+                return { success: false, error: message };
             }
             const data = await response.json();
             return { success: true, data };

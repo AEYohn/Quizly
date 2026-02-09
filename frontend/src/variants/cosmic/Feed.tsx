@@ -172,6 +172,7 @@ function CosmicFeed() {
             onQuickStart={homeScreen.handleQuickStart}
             onPdfUpload={homeScreen.handlePdfUpload}
             pdfUploading={store.syllabusLoading}
+            pdfUploadStage={homeScreen.pdfUploadStage}
             onDeleteSubject={homeScreen.handleDeleteSubject}
             timeAgo={homeScreen.timeAgo}
             onCodebaseAnalyze={homeScreen.handleCodebaseAnalyze}

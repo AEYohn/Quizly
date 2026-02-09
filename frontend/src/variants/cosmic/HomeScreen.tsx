@@ -58,6 +58,7 @@ export function HomeScreen({
     onPdfUpload,
     pdfUploading,
     onDeleteSubject,
+    pdfUploadStage,
     timeAgo,
     onCodebaseAnalyze,
     codebaseLoading,
@@ -156,23 +157,28 @@ export function HomeScreen({
                             }
                         }}
                     />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={pdfUploading}
-                        className="w-full flex items-center justify-center gap-2.5 py-3 rounded-2xl border-2 border-dashed border-indigo-400/25 text-indigo-200/60 hover:border-indigo-400/50 hover:text-indigo-200 transition-all disabled:opacity-50"
-                    >
-                        {pdfUploading ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-indigo-300/50 border-t-indigo-300 rounded-full animate-spin" />
-                                <span className="text-sm font-medium">Processing document...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Upload className="w-4 h-4" />
-                                <span className="text-sm font-medium">Upload PDF to generate skill tree</span>
-                            </>
-                        )}
-                    </button>
+                    {pdfUploading ? (
+                        <div className="w-full rounded-2xl border border-indigo-400/25 bg-indigo-950/40 px-5 py-4 space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-5 h-5 border-2 border-indigo-300/50 border-t-indigo-300 rounded-full animate-spin shrink-0" />
+                                <span className="text-sm font-medium text-indigo-200 transition-all duration-300">
+                                    {pdfUploadStage || "Processing document..."}
+                                </span>
+                            </div>
+                            <div className="w-full bg-indigo-950/60 rounded-full h-1.5 overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full animate-pulse" style={{ width: "60%" }} />
+                            </div>
+                            <p className="text-xs text-indigo-300/40">This may take a moment for larger documents</p>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-2.5 py-3 rounded-2xl border-2 border-dashed border-indigo-400/25 text-indigo-200/60 hover:border-indigo-400/50 hover:text-indigo-200 transition-all"
+                        >
+                            <Upload className="w-4 h-4" />
+                            <span className="text-sm font-medium">Upload PDF to generate skill tree</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Learn a Project — GitHub URL */}

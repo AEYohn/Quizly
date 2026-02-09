@@ -10,6 +10,7 @@ export function useHomeScreen() {
     const store = useScrollSessionStore();
 
     const [loadingMessage, setLoadingMessage] = useState("Setting up your feed...");
+    const [pdfUploadStage, setPdfUploadStage] = useState("");
 
     const feedStartingRef = useRef(false);
     const answerStartTime = useRef(Date.now());
@@ -154,20 +155,42 @@ export function useHomeScreen() {
     }, [store, auth.user?.id]);
 
     // PDF upload → extract topic → generate syllabus
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB — matches backend limit
     const handlePdfUpload = useCallback(async (files: FileList) => {
+        // Client-side file size validation
+        const oversized = Array.from(files).find((f) => f.size > MAX_FILE_SIZE);
+        if (oversized) {
+            const sizeMB = (oversized.size / (1024 * 1024)).toFixed(1);
+            store.setError(`"${oversized.name}" is ${sizeMB}MB — max file size is 10MB`);
+            return;
+        }
+
         store.setSyllabusLoading(true);
         store.setError(null);
+        setPdfUploadStage("Uploading document...");
         try {
             const formData = new FormData();
             Array.from(files).forEach((f) => formData.append("files", f));
             if (auth.user?.id) formData.append("student_id", auth.user.id);
 
+            const stageTimer1 = setTimeout(() => setPdfUploadStage("Reading and extracting text..."), 3000);
+            const stageTimer2 = setTimeout(() => setPdfUploadStage("Identifying key concepts..."), 8000);
+            const stageTimer3 = setTimeout(() => setPdfUploadStage("Building your skill tree..."), 15000);
+            const stageTimer4 = setTimeout(() => setPdfUploadStage("Almost there — generating questions..."), 25000);
+
             const res = await resourcesApi.pdfToSyllabus(formData);
+
+            clearTimeout(stageTimer1);
+            clearTimeout(stageTimer2);
+            clearTimeout(stageTimer3);
+            clearTimeout(stageTimer4);
+
             if (!res.success) {
                 store.setError(res.error ?? "Failed to process document");
                 return;
             }
 
+            setPdfUploadStage("Preparing content...");
             store.setSyllabus(res.data.syllabus);
             store.setSelectedSubject(res.data.subject);
             store.setSubjectResources(res.data.resources.filter((r) => r.id).map((r) => ({
@@ -189,6 +212,7 @@ export function useHomeScreen() {
             store.setError(err instanceof Error ? err.message : "Failed to process document");
         } finally {
             store.setSyllabusLoading(false);
+            setPdfUploadStage("");
         }
     }, [store, auth.user?.id]);
 
@@ -258,6 +282,7 @@ export function useHomeScreen() {
 
     return {
         loadingMessage,
+        pdfUploadStage,
         timeAgo,
         handleQuickStart,
         handleSubjectSelect,

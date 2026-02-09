@@ -25,6 +25,7 @@ export interface HomeScreenProps {
     onQuickStart: (topic: string) => void;
     onPdfUpload: (files: FileList) => void;
     pdfUploading: boolean;
+    pdfUploadStage: string;
     onDeleteSubject: (subject: string) => void;
     timeAgo: (iso: string | null) => string;
     // Codebase analysis
