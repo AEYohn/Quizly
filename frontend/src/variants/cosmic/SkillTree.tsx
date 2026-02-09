@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { ArrowLeft, BarChart3, Sparkles, FileUp, RefreshCw, Trash2, FileText, Loader2, Users, X, Play, BookOpen, Zap, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, BarChart3, Sparkles, FileUp, RefreshCw, Trash2, FileText, Loader2, Users, X, Play, BookOpen, Zap, Layers, Clock, CheckCircle2 } from "lucide-react";
+import { MathMarkdown } from "~/components/MathMarkdown";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
 import { ResourceChip } from "~/components/feed/ResourceChip";
@@ -98,6 +99,7 @@ export function SkillTree({
     onStartLearning,
     onStudyNotes,
     onQuizOnly,
+    onFlashcardsOnly,
     recentSessions,
     onBack,
     onUploadResource,
@@ -135,6 +137,27 @@ export function SkillTree({
         }
         setNotesLoading(false);
     }, [onStudyNotes, store]);
+
+    // Inline notes preview: auto-fetch when topic sheet opens
+    const [inlineNotesLoading, setInlineNotesLoading] = useState(false);
+    const [inlineNotesData, setInlineNotesData] = useState<typeof notesData>(null);
+
+    useEffect(() => {
+        if (!selectedTopic) { setInlineNotesData(null); return; }
+        const cached = store.topicNotesCache?.[selectedTopic.id];
+        if (cached) { setInlineNotesData(cached); return; }
+        let cancelled = false;
+        setInlineNotesLoading(true);
+        onStudyNotes(selectedTopic).then((res) => {
+            if (cancelled) return;
+            if (res.success) {
+                setInlineNotesData(res.data);
+                store.setTopicNotes(selectedTopic.id, res.data);
+            }
+            setInlineNotesLoading(false);
+        }).catch(() => { if (!cancelled) setInlineNotesLoading(false); });
+        return () => { cancelled = true; };
+    }, [selectedTopic, store, onStudyNotes]);
 
     const timeAgo = useCallback((iso: string | null) => {
         if (!iso) return "";
@@ -474,31 +497,57 @@ export function SkillTree({
                             </div>
                         </div>
 
-                        {/* Action buttons */}
-                        <div className="space-y-2.5">
+                        {/* Inline notes preview */}
+                        <div className="rounded-xl bg-indigo-950/40 border border-indigo-400/15 px-4 py-3 max-h-40 overflow-y-auto">
+                            {inlineNotesLoading ? (
+                                <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                                </div>
+                            ) : inlineNotesData && inlineNotesData.total_notes > 0 ? (
+                                <div className="space-y-2">
+                                    {Object.entries(inlineNotesData.notes_by_concept).slice(0, 2).map(([concept, notes]) => (
+                                        <div key={concept}>
+                                            <h4 className="text-xs font-bold text-indigo-300 mb-1">{concept}</h4>
+                                            {notes.slice(0, 1).map((note) => (
+                                                <div key={note.id} className="text-xs">
+                                                    <MathMarkdown dark className="[&_p]:!text-xs [&_p]:!mb-1 [&_li]:!text-xs [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-xs">
+                                                        {note.body_markdown.length > 300 ? note.body_markdown.slice(0, 300) + "..." : note.body_markdown}
+                                                    </MathMarkdown>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-indigo-300/40 text-center py-2">Notes will appear here</p>
+                            )}
+                        </div>
+
+                        {/* 2x2 action button grid */}
+                        <div className="grid grid-cols-2 gap-2">
                             <button
                                 onClick={() => {
                                     const topic = selectedTopic;
                                     setSelectedTopic(null);
                                     onStartLearning(topic);
                                 }}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
+                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
                             >
                                 <Play className="w-5 h-5" />
-                                <div className="flex-1 text-left">
-                                    <div>Start Learning</div>
-                                    <div className="text-xs font-normal text-indigo-200/70 mt-0.5">Learn, flashcards, then quiz</div>
-                                </div>
+                                <span>Learn</span>
+                                <span className="text-[10px] font-normal text-indigo-200/70">Info cards first</span>
                             </button>
                             <button
-                                onClick={() => handleFetchNotes(selectedTopic)}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
+                                onClick={() => {
+                                    const topic = selectedTopic;
+                                    setSelectedTopic(null);
+                                    onFlashcardsOnly(topic);
+                                }}
+                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
                             >
-                                <BookOpen className="w-5 h-5" />
-                                <div className="flex-1 text-left">
-                                    <div>Concept Review</div>
-                                    <div className="text-xs font-normal text-indigo-300/50 mt-0.5">Spot gaps in your knowledge</div>
-                                </div>
+                                <Layers className="w-5 h-5" />
+                                <span>Flashcards</span>
+                                <span className="text-[10px] font-normal text-indigo-300/50">Skip to cards</span>
                             </button>
                             <button
                                 onClick={() => {
@@ -506,13 +555,19 @@ export function SkillTree({
                                     setSelectedTopic(null);
                                     onQuizOnly(topic);
                                 }}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
+                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
                             >
                                 <Zap className="w-5 h-5" />
-                                <div className="flex-1 text-left">
-                                    <div>Quiz Only</div>
-                                    <div className="text-xs font-normal text-indigo-300/50 mt-0.5">Skip straight to questions</div>
-                                </div>
+                                <span>Quiz</span>
+                                <span className="text-[10px] font-normal text-indigo-300/50">Straight to questions</span>
+                            </button>
+                            <button
+                                onClick={() => handleFetchNotes(selectedTopic)}
+                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
+                            >
+                                <BookOpen className="w-5 h-5" />
+                                <span>Review</span>
+                                <span className="text-[10px] font-normal text-indigo-300/50">Full study notes</span>
                             </button>
                         </div>
 
@@ -591,8 +646,8 @@ export function SkillTree({
                                             className="bg-indigo-950/40 border border-indigo-400/15 rounded-xl px-4 py-3"
                                         >
                                             <h4 className="text-sm font-semibold text-white mb-2">{note.title}</h4>
-                                            <div className="text-sm text-indigo-100/80 leading-relaxed whitespace-pre-wrap">
-                                                {note.body_markdown}
+                                            <div className="text-sm leading-relaxed">
+                                                <MathMarkdown dark>{note.body_markdown}</MathMarkdown>
                                             </div>
                                             {note.key_takeaway && (
                                                 <div className="mt-3 pt-2 border-t border-indigo-400/10">

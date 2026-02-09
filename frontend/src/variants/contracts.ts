@@ -55,6 +55,7 @@ export interface SkillTreeProps {
     onStartLearning: (topic: SyllabusTopic) => void;
     onStudyNotes: (topic: SyllabusTopic) => Promise<ApiResult<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>>;
     onQuizOnly: (topic: SyllabusTopic) => void;
+    onFlashcardsOnly: (topic: SyllabusTopic) => void;
     recentSessions: Array<{ id: string; topic: string; phase: string; questions_answered: number; questions_correct: number; accuracy: number; started_at: string | null; ended_at: string | null }>;
     onBack: () => void;
     onUploadResource: (files: FileList) => void;

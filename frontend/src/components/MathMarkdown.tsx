@@ -8,6 +8,7 @@ import "katex/dist/katex.min.css";
 interface MathMarkdownProps {
     children: string;
     className?: string;
+    dark?: boolean;
 }
 
 /**
@@ -19,7 +20,7 @@ interface MathMarkdownProps {
  *
  * Styled for light-theme learn pages (unlike Markdown.tsx which is dark-theme).
  */
-export function MathMarkdown({ children, className = "" }: MathMarkdownProps) {
+export function MathMarkdown({ children, className = "", dark = false }: MathMarkdownProps) {
     // Extract math into placeholders before markdown parsing
     const mathBlocks: { id: string; html: string }[] = [];
     let processed = children;
@@ -105,80 +106,81 @@ export function MathMarkdown({ children, className = "" }: MathMarkdownProps) {
     }
 
     return (
-        <div className={`prose prose-sm max-w-none ${className}`}>
+        <div className={`prose prose-sm max-w-none ${dark ? "prose-invert" : ""} ${className}`}>
             <ReactMarkdown
                 components={{
                     h1: ({ children }) => (
-                        <h1 className="text-xl font-bold text-gray-900 mb-3">{children}</h1>
+                        <h1 className={`text-xl font-bold mb-3 ${dark ? "text-white" : "text-gray-900"}`}>{children}</h1>
                     ),
                     h2: ({ children }) => (
-                        <h2 className="text-lg font-bold text-gray-900 mb-2">{children}</h2>
+                        <h2 className={`text-lg font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>{children}</h2>
                     ),
                     h3: ({ children }) => (
-                        <h3 className="text-base font-semibold text-gray-800 mb-2">{children}</h3>
+                        <h3 className={`text-base font-semibold mb-2 ${dark ? "text-indigo-200" : "text-gray-800"}`}>{children}</h3>
                     ),
                     p: ({ children }) => {
-                        // Check if children contain math placeholders
+                        const cls = `mb-3 leading-relaxed ${dark ? "text-indigo-100/80" : "text-gray-700"}`;
                         if (typeof children === "string") {
                             const restored = restoreMath(children);
-                            return <p className="text-gray-700 mb-3 leading-relaxed">{restored}</p>;
+                            return <p className={cls}>{restored}</p>;
                         }
-                        return <p className="text-gray-700 mb-3 leading-relaxed">{children}</p>;
+                        return <p className={cls}>{children}</p>;
                     },
                     strong: ({ children }) => (
-                        <strong className="font-semibold text-gray-900">{children}</strong>
+                        <strong className={`font-semibold ${dark ? "text-white" : "text-gray-900"}`}>{children}</strong>
                     ),
                     em: ({ children }) => (
-                        <em className="italic text-gray-700">{children}</em>
+                        <em className={`italic ${dark ? "text-indigo-200" : "text-gray-700"}`}>{children}</em>
                     ),
                     code: ({ className: codeClassName, children }) => {
                         const isInline = !codeClassName;
                         if (isInline) {
                             return (
-                                <code className="bg-gray-100 text-indigo-700 px-1.5 py-0.5 rounded text-sm font-mono">
+                                <code className={`px-1.5 py-0.5 rounded text-sm font-mono ${dark ? "bg-indigo-900/50 text-indigo-200" : "bg-gray-100 text-indigo-700"}`}>
                                     {children}
                                 </code>
                             );
                         }
                         return (
                             <code
-                                className={`block bg-gray-50 text-gray-800 p-3 rounded-lg text-sm font-mono overflow-x-auto ${codeClassName || ""}`}
+                                className={`block p-3 rounded-lg text-sm font-mono overflow-x-auto ${dark ? "bg-gray-900 text-gray-300" : "bg-gray-50 text-gray-800"} ${codeClassName || ""}`}
                             >
                                 {children}
                             </code>
                         );
                     },
                     pre: ({ children }) => (
-                        <pre className="bg-gray-50 rounded-lg p-4 my-3 overflow-x-auto">
+                        <pre className={`rounded-lg p-4 my-3 overflow-x-auto ${dark ? "bg-gray-900" : "bg-gray-50"}`}>
                             {children}
                         </pre>
                     ),
                     ul: ({ children }) => (
-                        <ul className="list-disc list-inside text-gray-700 mb-3 space-y-1">
+                        <ul className={`list-disc list-inside mb-3 space-y-1 ${dark ? "text-indigo-100/80" : "text-gray-700"}`}>
                             {children}
                         </ul>
                     ),
                     ol: ({ children }) => (
-                        <ol className="list-decimal list-inside text-gray-700 mb-3 space-y-1">
+                        <ol className={`list-decimal list-inside mb-3 space-y-1 ${dark ? "text-indigo-100/80" : "text-gray-700"}`}>
                             {children}
                         </ol>
                     ),
                     li: ({ children }) => {
+                        const cls = dark ? "text-indigo-100/80" : "text-gray-700";
                         if (typeof children === "string") {
                             const restored = restoreMath(children);
-                            return <li className="text-gray-700">{restored}</li>;
+                            return <li className={cls}>{restored}</li>;
                         }
-                        return <li className="text-gray-700">{children}</li>;
+                        return <li className={cls}>{children}</li>;
                     },
                     blockquote: ({ children }) => (
-                        <blockquote className="border-l-4 border-indigo-300 pl-4 italic text-gray-600 my-3">
+                        <blockquote className={`border-l-4 pl-4 italic my-3 ${dark ? "border-indigo-400/30 text-indigo-200/60" : "border-indigo-300 text-gray-600"}`}>
                             {children}
                         </blockquote>
                     ),
                     a: ({ href, children }) => (
                         <a
                             href={href}
-                            className="text-indigo-600 hover:text-indigo-500 underline"
+                            className={`underline ${dark ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-500"}`}
                             target="_blank"
                             rel="noopener noreferrer"
                         >

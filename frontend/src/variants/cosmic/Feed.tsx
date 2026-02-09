@@ -124,6 +124,7 @@ function CosmicFeed() {
                     onStartLearning={skillTree.handleStartLearning}
                     onStudyNotes={skillTree.handleStudyNotes}
                     onQuizOnly={skillTree.handleQuizOnly}
+                    onFlashcardsOnly={skillTree.handleFlashcardsOnly}
                     recentSessions={skillTree.recentSessions}
                     onBack={() => store.clearSyllabus()}
                     onUploadResource={skillTree.handleUploadResource}

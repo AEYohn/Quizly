@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { syllabusApi, learnApi, resourcesApi, assessmentApi, curatedResourcesApi } from "~/lib/api";
+import { scrollApi, syllabusApi, learnApi, resourcesApi, assessmentApi, curatedResourcesApi } from "~/lib/api";
 import { useAuth, getStudentName } from "~/lib/auth";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
 
-export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>) {
+export function useSkillTree(handleQuickStart: (topic: string, opts?: { mode?: 'structured' | 'mixed'; topicMeta?: { name: string; concepts: string[] } }) => Promise<void>) {
     const auth = useAuth();
     const store = useScrollSessionStore();
 
@@ -16,6 +16,7 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
     const [topicResources, setTopicResources] = useState<Record<string, Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>>>({});
     const [showAssessment, setShowAssessment] = useState(false);
     const [showAnalysis, setShowAnalysis] = useState(false);
+    const [recentSessions, setRecentSessions] = useState<Array<{ id: string; topic: string; phase: string; questions_answered: number; questions_correct: number; accuracy: number; started_at: string | null; ended_at: string | null }>>([]);
     const curationTriggeredRef = useRef<string | null>(null);
 
     // Resource upload
@@ -98,6 +99,60 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
         await handleQuickStart(topic.name);
     }, [store, handleQuickStart]);
 
+    // Start learning: structured mode
+    const handleStartLearning = useCallback(async (topic: SyllabusTopic) => {
+        if (store.isLoading) return;
+        store.setActiveSyllabusNode(topic.id);
+        store.setTopicInput(topic.name);
+        await handleQuickStart(topic.name, { mode: 'structured', topicMeta: topic });
+    }, [store, handleQuickStart]);
+
+    // Study notes: fetch and display topic notes
+    const handleStudyNotes = useCallback(async (topic: SyllabusTopic) => {
+        // Fetch notes via the API — caller (SkillTree) handles display
+        const res = await learnApi.getTopicNotes(topic.name, topic.concepts);
+        return res;
+    }, []);
+
+    // Quiz only: start structured session then skip to quiz phase
+    const handleQuizOnly = useCallback(async (topic: SyllabusTopic) => {
+        if (store.isLoading) return;
+        store.setActiveSyllabusNode(topic.id);
+        store.setTopicInput(topic.name);
+        await handleQuickStart(topic.name, { mode: 'structured', topicMeta: topic });
+        // After session starts, skip to quiz phase
+        if (store.sessionId) {
+            try {
+                const skipRes = await scrollApi.skipPhase(store.sessionId, 'quiz');
+                if (skipRes.success) {
+                    store.setCards(skipRes.data.cards);
+                    store.setCurrentIdx(0);
+                    store.setStats(skipRes.data.stats);
+                }
+            } catch {
+                // Session still works, just won't skip phase
+            }
+        }
+    }, [store, handleQuickStart]);
+
+    // Flashcards only: start structured session then skip to flashcards phase
+    const handleFlashcardsOnly = useCallback(async (topic: SyllabusTopic) => {
+        if (store.isLoading) return;
+        store.setActiveSyllabusNode(topic.id);
+        store.setTopicInput(topic.name);
+        await handleQuickStart(topic.name, { mode: 'structured', topicMeta: topic });
+        if (store.sessionId) {
+            try {
+                const skipRes = await scrollApi.skipPhase(store.sessionId, 'flashcards');
+                if (skipRes.success) {
+                    store.setCards(skipRes.data.cards);
+                    store.setCurrentIdx(0);
+                    store.setStats(skipRes.data.stats);
+                }
+            } catch { }
+        }
+    }, [store, handleQuickStart]);
+
     // Mastery fetch + recommended path
     const fetchMastery = useCallback(async () => {
         if (!store.syllabus) return;
@@ -121,6 +176,9 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
                 }
             }
             store.setMastery(masteryMap);
+            if (res.data.recent_sessions) {
+                setRecentSessions(res.data.recent_sessions);
+            }
         }
 
         if (store.selectedSubject) {
@@ -242,6 +300,11 @@ export function useSkillTree(handleQuickStart: (topic: string) => Promise<void>)
         handleDeleteResource,
         handleRegenerateSyllabus,
         handleNodeTap,
+        handleStartLearning,
+        handleStudyNotes,
+        handleQuizOnly,
+        handleFlashcardsOnly,
+        recentSessions,
         topicResources,
         showAssessment,
         setShowAssessment,
