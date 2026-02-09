@@ -11,6 +11,8 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { FeedHeader } from "@/components/feed/FeedHeader";
 import { CardRenderer } from "@/components/feed/CardRenderer";
 import { SocraticHelpSheet } from "@/components/feed/SocraticHelpSheet";
+import { SessionAnalyticsSheet } from "@/components/feed/SessionAnalyticsSheet";
+import { FeedTuneSheet } from "@/components/feed/FeedTuneSheet";
 import { SkeletonCard } from "@/components/feed/SkeletonCard";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -22,6 +24,9 @@ export default function FeedScreen() {
   const { answerStartTime } = useHomeScreen();
   const {
     isPrefetching,
+    sessionAnalytics,
+    showAnalytics,
+    setShowAnalytics,
     handleAnswer,
     handleNext,
     handleSkip,
@@ -213,6 +218,21 @@ export default function FeedScreen() {
           onClose={() => store.setShowHelp(false)}
         />
       )}
+
+      {/* Session Analytics Modal */}
+      {showAnalytics && sessionAnalytics && (
+        <SessionAnalyticsSheet
+          visible={showAnalytics}
+          analytics={sessionAnalytics}
+          onClose={() => setShowAnalytics(false)}
+        />
+      )}
+
+      {/* Feed Tune Modal */}
+      <FeedTuneSheet
+        visible={showTuneSheet}
+        onClose={() => setShowTuneSheet(false)}
+      />
     </SafeAreaView>
   );
 }
