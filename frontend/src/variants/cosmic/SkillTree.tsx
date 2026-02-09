@@ -469,73 +469,33 @@ export function SkillTree({
                 open={!!selectedTopic}
                 onClose={() => setSelectedTopic(null)}
                 title={selectedTopic?.name}
+                tall
             >
                 {selectedTopic && (
-                    <div className="space-y-5">
+                    <div className="flex flex-col gap-4 h-full">
                         {/* Topic header with mastery ring */}
-                        <div className="flex items-center gap-4">
-                            <MasteryRing mastery={mastery[selectedTopic.id] ?? 0} size={56} />
+                        <div className="flex items-center gap-3 shrink-0">
+                            <MasteryRing mastery={mastery[selectedTopic.id] ?? 0} size={48} />
                             <div className="flex-1 min-w-0">
-                                <h3 className="text-lg font-bold text-white truncate">{selectedTopic.name}</h3>
-                                <p className="text-sm text-indigo-300/60 mt-0.5">
+                                <h3 className="text-base font-bold text-white truncate">{selectedTopic.name}</h3>
+                                <p className="text-xs text-indigo-300/60 mt-0.5">
                                     {selectedTopic.concepts.length} concepts &middot; ~{selectedTopic.estimated_minutes}m
                                 </p>
                             </div>
                         </div>
 
-                        {/* Concept chips */}
-                        <div className="overflow-x-auto -mx-5 px-5">
-                            <div className="flex gap-2 pb-1">
-                                {selectedTopic.concepts.map((concept) => (
-                                    <span
-                                        key={concept}
-                                        className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-indigo-950/60 border border-indigo-400/20 text-indigo-200"
-                                    >
-                                        {concept}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Inline notes preview */}
-                        <div className="rounded-xl bg-indigo-950/40 border border-indigo-400/15 px-4 py-3 max-h-40 overflow-y-auto">
-                            {inlineNotesLoading ? (
-                                <div className="flex items-center justify-center py-4">
-                                    <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-                                </div>
-                            ) : inlineNotesData && inlineNotesData.total_notes > 0 ? (
-                                <div className="space-y-2">
-                                    {Object.entries(inlineNotesData.notes_by_concept).slice(0, 2).map(([concept, notes]) => (
-                                        <div key={concept}>
-                                            <h4 className="text-xs font-bold text-indigo-300 mb-1">{concept}</h4>
-                                            {notes.slice(0, 1).map((note) => (
-                                                <div key={note.id} className="text-xs">
-                                                    <MathMarkdown dark className="[&_p]:!text-xs [&_p]:!mb-1 [&_li]:!text-xs [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-xs">
-                                                        {note.body_markdown.length > 300 ? note.body_markdown.slice(0, 300) + "..." : note.body_markdown}
-                                                    </MathMarkdown>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-indigo-300/40 text-center py-2">Notes will appear here</p>
-                            )}
-                        </div>
-
-                        {/* 2x2 action button grid */}
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Action buttons — horizontal row, always visible */}
+                        <div className="flex gap-2 shrink-0">
                             <button
                                 onClick={() => {
                                     const topic = selectedTopic;
                                     setSelectedTopic(null);
                                     onStartLearning(topic);
                                 }}
-                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
                             >
-                                <Play className="w-5 h-5" />
+                                <Play className="w-4 h-4" />
                                 <span>Learn</span>
-                                <span className="text-[10px] font-normal text-indigo-200/70">Info cards first</span>
                             </button>
                             <button
                                 onClick={() => {
@@ -543,11 +503,10 @@ export function SkillTree({
                                     setSelectedTopic(null);
                                     onFlashcardsOnly(topic);
                                 }}
-                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-medium text-sm transition-colors"
                             >
-                                <Layers className="w-5 h-5" />
-                                <span>Flashcards</span>
-                                <span className="text-[10px] font-normal text-indigo-300/50">Skip to cards</span>
+                                <Layers className="w-4 h-4" />
+                                <span>Cards</span>
                             </button>
                             <button
                                 onClick={() => {
@@ -555,66 +514,89 @@ export function SkillTree({
                                     setSelectedTopic(null);
                                     onQuizOnly(topic);
                                 }}
-                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-medium text-sm transition-colors"
                             >
-                                <Zap className="w-5 h-5" />
+                                <Zap className="w-4 h-4" />
                                 <span>Quiz</span>
-                                <span className="text-[10px] font-normal text-indigo-300/50">Straight to questions</span>
-                            </button>
-                            <button
-                                onClick={() => handleFetchNotes(selectedTopic)}
-                                className="flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl bg-indigo-950/60 border border-indigo-400/20 hover:bg-indigo-950/80 text-indigo-100 font-semibold text-sm transition-colors"
-                            >
-                                <BookOpen className="w-5 h-5" />
-                                <span>Review</span>
-                                <span className="text-[10px] font-normal text-indigo-300/50">Full study notes</span>
                             </button>
                         </div>
 
-                        {/* Resource chips for this topic */}
-                        {(topicResources?.[selectedTopic.id]?.length ?? 0) > 0 && (
-                            <div>
-                                <h4 className="text-xs font-semibold text-indigo-300/60 uppercase tracking-wider mb-2">Resources</h4>
-                                <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                    {topicResources![selectedTopic.id]!.map((r, idx) => (
-                                        <ResourceChip key={idx} title={r.title} url={r.url} sourceType={r.source_type} />
-                                    ))}
+                        {/* Study notes — main scrollable content area */}
+                        <div className="flex-1 min-h-0 overflow-y-auto rounded-xl bg-indigo-950/30 border border-indigo-400/10">
+                            {inlineNotesLoading ? (
+                                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                    <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                                    <p className="text-xs text-indigo-300/50">Generating study notes...</p>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Recent history */}
-                        {topicSessions.length > 0 && (
-                            <div>
-                                <h4 className="text-xs font-semibold text-indigo-300/60 uppercase tracking-wider mb-2">Recent Sessions</h4>
-                                <div className="space-y-2">
-                                    {topicSessions.map((session) => (
-                                        <div
-                                            key={session.id}
-                                            className="flex items-center gap-3 bg-indigo-950/40 border border-indigo-400/10 rounded-lg px-3 py-2.5"
-                                        >
-                                            <CheckCircle2 className={cn(
-                                                "w-4 h-4 shrink-0",
-                                                session.accuracy >= 80 ? "text-emerald-400" :
-                                                session.accuracy >= 50 ? "text-indigo-400" :
-                                                "text-indigo-400/40",
-                                            )} />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-xs text-white font-medium">
-                                                    {session.questions_correct}/{session.questions_answered} correct
-                                                    <span className="text-indigo-300/50 ml-1">({Math.round(session.accuracy)}%)</span>
+                            ) : inlineNotesData && inlineNotesData.total_notes > 0 ? (
+                                <div className="px-4 py-4 space-y-5">
+                                    {Object.entries(inlineNotesData.notes_by_concept).map(([concept, notes]) => (
+                                        <div key={concept}>
+                                            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">{concept}</h4>
+                                            {notes.map((note) => (
+                                                <div key={note.id} className="mb-3">
+                                                    <MathMarkdown dark className="[&_p]:!text-[13px] [&_p]:!leading-relaxed [&_li]:!text-[13px] [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-[13px]">
+                                                        {note.body_markdown}
+                                                    </MathMarkdown>
+                                                    {note.key_takeaway && (
+                                                        <div className="mt-2 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-400/15">
+                                                            <p className="text-xs text-indigo-200/80 leading-relaxed">
+                                                                <span className="font-semibold text-indigo-300">Key takeaway:</span> {note.key_takeaway}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="text-[10px] text-indigo-300/40 mt-0.5 flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    {timeAgo(session.ended_at || session.started_at)}
-                                                </div>
-                                            </div>
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300/60 font-medium">
-                                                {session.phase}
-                                            </span>
+                                            ))}
                                         </div>
                                     ))}
                                 </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-12 gap-2">
+                                    <BookOpen className="w-5 h-5 text-indigo-400/30" />
+                                    <p className="text-xs text-indigo-300/40">Study notes will load here</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Resource chips + recent sessions — compact footer */}
+                        {((topicResources?.[selectedTopic.id]?.length ?? 0) > 0 || topicSessions.length > 0) && (
+                            <div className="shrink-0 space-y-3 pt-1 border-t border-indigo-400/10">
+                                {(topicResources?.[selectedTopic.id]?.length ?? 0) > 0 && (
+                                    <div>
+                                        <h4 className="text-[10px] font-semibold text-indigo-300/50 uppercase tracking-wider mb-1.5">Resources</h4>
+                                        <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                            {topicResources![selectedTopic.id]!.map((r, idx) => (
+                                                <ResourceChip key={idx} title={r.title} url={r.url} sourceType={r.source_type} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {topicSessions.length > 0 && (
+                                    <div>
+                                        <h4 className="text-[10px] font-semibold text-indigo-300/50 uppercase tracking-wider mb-1.5">Recent</h4>
+                                        <div className="flex gap-2 overflow-x-auto">
+                                            {topicSessions.slice(0, 3).map((session) => (
+                                                <div
+                                                    key={session.id}
+                                                    className="shrink-0 flex items-center gap-2 bg-indigo-950/40 border border-indigo-400/10 rounded-lg px-2.5 py-1.5"
+                                                >
+                                                    <CheckCircle2 className={cn(
+                                                        "w-3 h-3 shrink-0",
+                                                        session.accuracy >= 80 ? "text-emerald-400" :
+                                                        session.accuracy >= 50 ? "text-indigo-400" :
+                                                        "text-indigo-400/40",
+                                                    )} />
+                                                    <span className="text-[11px] text-white font-medium">
+                                                        {Math.round(session.accuracy)}%
+                                                    </span>
+                                                    <span className="text-[10px] text-indigo-300/40">
+                                                        {timeAgo(session.ended_at || session.started_at)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

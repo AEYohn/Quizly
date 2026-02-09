@@ -8,10 +8,11 @@ interface BottomSheetProps {
     open: boolean;
     onClose: () => void;
     title?: string;
+    tall?: boolean;
     children: React.ReactNode;
 }
 
-export function BottomSheet({ open, onClose, title, children }: BottomSheetProps) {
+export function BottomSheet({ open, onClose, title, tall, children }: BottomSheetProps) {
     const sheetRef = useRef<HTMLDivElement>(null);
     const startY = useRef(0);
     const currentY = useRef(0);
@@ -60,6 +61,7 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
                 ref={sheetRef}
                 className={cn(
                     "relative bg-gray-950 rounded-t-3xl border-t border-gray-800/60 max-h-[85vh] flex flex-col",
+                    tall && "h-[85vh]",
                     "transition-transform duration-200 ease-out",
                 )}
                 onTouchStart={handleTouchStart}
