@@ -170,6 +170,7 @@ export default function FeedScreen() {
             onSettingsTap={() => setShowTuneSheet(true)}
             onAnalyticsTap={handleAnalyticsTap}
             analyticsLoading={analyticsLoading}
+            onSkipPhase={handleSkipPhase}
           />
         </View>
       </View>

@@ -1,5 +1,5 @@
-import { View, Text, Pressable, Linking, Image, Alert } from "react-native";
-import { ExternalLink, Play, FileText, Globe } from "lucide-react-native";
+import { View, Text, Pressable, Linking, Image, ScrollView, Alert } from "react-native";
+import { ExternalLink, Play, FileText, Globe, ArrowRight } from "lucide-react-native";
 import { useHaptics } from "@/hooks/useHaptics";
 import type { ScrollCard } from "@/types/learn";
 
@@ -51,7 +51,8 @@ export function ResourceCard({ card, onNext }: ResourceCardProps) {
         </View>
       </View>
 
-      <View className="flex-1 justify-center">
+      {/* Scrollable content */}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Thumbnail */}
         {card.resource_thumbnail && (
           <View className="bg-gray-100 rounded-xl overflow-hidden mb-4 aspect-video">
@@ -63,8 +64,8 @@ export function ResourceCard({ card, onNext }: ResourceCardProps) {
           </View>
         )}
 
-        {/* Resource info */}
-        <View className="bg-gray-50 rounded-xl p-4 mb-4">
+        {/* Resource info card */}
+        <View className="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-4">
           <View className="flex-row items-center gap-2 mb-2">
             {typeIcon()}
             <Text className="text-xs font-medium text-gray-500 uppercase tracking-wide">
@@ -72,7 +73,7 @@ export function ResourceCard({ card, onNext }: ResourceCardProps) {
             </Text>
             {card.resource_duration && (
               <Text className="text-xs text-gray-400">
-                {card.resource_duration}
+                · {card.resource_duration}
               </Text>
             )}
           </View>
@@ -94,30 +95,34 @@ export function ResourceCard({ card, onNext }: ResourceCardProps) {
           )}
 
           {card.resource_domain && (
-            <Text className="text-xs text-gray-400 mt-2">
-              {card.resource_domain}
-            </Text>
+            <View className="flex-row items-center gap-1 mt-3 pt-3 border-t border-gray-200">
+              <Globe size={12} color="#9CA3AF" />
+              <Text className="text-xs text-gray-400">
+                {card.resource_domain}
+              </Text>
+            </View>
           )}
         </View>
-      </View>
+      </ScrollView>
 
       {/* Actions */}
       <View className="flex-row gap-3">
         <Pressable
           onPress={handleOpen}
-          className="flex-1 flex-row items-center justify-center bg-indigo-600 rounded-xl py-3 gap-2 active:bg-indigo-700"
+          className="flex-1 flex-row items-center justify-center bg-indigo-600 rounded-xl py-3.5 gap-2 active:bg-indigo-700"
         >
           <ExternalLink size={16} color="#FFFFFF" />
-          <Text className="text-white font-semibold">Open</Text>
+          <Text className="text-white font-semibold">Open Resource</Text>
         </Pressable>
         <Pressable
           onPress={() => {
             haptics.medium();
             onNext();
           }}
-          className="flex-row items-center justify-center border border-gray-200 rounded-xl py-3 px-6"
+          className="flex-row items-center justify-center border border-gray-200 rounded-xl py-3.5 px-5 active:bg-gray-50"
         >
           <Text className="text-gray-600 font-medium">Skip</Text>
+          <ArrowRight size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
         </Pressable>
       </View>
     </View>
