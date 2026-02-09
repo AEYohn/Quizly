@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { ArrowLeft, BarChart3, Sparkles, FileUp, RefreshCw, Trash2, FileText, Loader2, Users, X, Play, BookOpen, Zap, Layers, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, BarChart3, Sparkles, FileUp, RefreshCw, Trash2, FileText, Loader2, Users, X, Play, BookOpen, Zap, Layers, Clock, CheckCircle2, ExternalLink } from "lucide-react";
 import { MathMarkdown } from "~/components/MathMarkdown";
 import { cn } from "~/lib/utils";
 import { BottomSheet } from "~/components/feed/BottomSheet";
@@ -114,7 +114,7 @@ export function SkillTree({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [hintDismissed, setHintDismissed] = useState(false);
     const [selectedTopic, setSelectedTopic] = useState<SyllabusTopic | null>(null);
-    const [notesData, setNotesData] = useState<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> } | null>(null);
+    const [notesData, setNotesData] = useState<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string; sources?: Array<{ title: string; url: string }> }>> } | null>(null);
     const [notesLoading, setNotesLoading] = useState(false);
     const [showNotesSheet, setShowNotesSheet] = useState(false);
     const store = useScrollSessionStore();
@@ -545,6 +545,23 @@ export function SkillTree({
                                                             </p>
                                                         </div>
                                                     )}
+                                                    {note.sources && note.sources.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                                            {note.sources.map((src, i) => (
+                                                                <a
+                                                                    key={i}
+                                                                    href={src.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-400/15 text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/20 transition-colors"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <ExternalLink className="w-3 h-3" />
+                                                                    {src.title}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -636,6 +653,22 @@ export function SkillTree({
                                                     <p className="text-xs text-indigo-300/70">
                                                         <span className="font-semibold text-indigo-300">Key takeaway:</span> {note.key_takeaway}
                                                     </p>
+                                                </div>
+                                            )}
+                                            {note.sources && note.sources.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                                    {note.sources.map((src, i) => (
+                                                        <a
+                                                            key={i}
+                                                            href={src.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-400/15 text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/20 transition-colors"
+                                                        >
+                                                            <ExternalLink className="w-3 h-3" />
+                                                            {src.title}
+                                                        </a>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>

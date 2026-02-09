@@ -1044,14 +1044,21 @@ async def get_topic_notes(
     topic: str = Query(..., min_length=1),
     concepts: str = Query(""),
     generate: bool = Query(False),
+    comprehensive: bool = Query(False),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return info_card content grouped by concept for study notes."""
+    """Return content grouped by concept for study notes.
+
+    When comprehensive=True, returns in-depth study notes with Google Search
+    grounding, mermaid diagrams, and source URLs. Otherwise returns short info cards.
+    """
     from ..db_models_content_pool import ContentItem
+
+    content_type = "study_note" if comprehensive else "info_card"
 
     conditions = [
         ContentItem.topic == topic,
-        ContentItem.content_type == "info_card",
+        ContentItem.content_type == content_type,
         ContentItem.is_active.is_(True),
     ]
 
@@ -1078,46 +1085,50 @@ async def get_topic_notes(
         concept = item.concept
         if concept not in notes_by_concept:
             notes_by_concept[concept] = []
-        notes_by_concept[concept].append({
+        note_entry: Dict[str, Any] = {
             "id": str(item.id),
             "concept": concept,
             "title": cj.get("title", ""),
             "body_markdown": body,
             "key_takeaway": cj.get("key_takeaway", ""),
             "style": cj.get("style", ""),
-        })
+        }
+        if comprehensive:
+            note_entry["sources"] = cj.get("sources", [])
+        notes_by_concept[concept].append(note_entry)
 
     total_notes = sum(len(notes) for notes in notes_by_concept.values())
 
     # Auto-generate notes if none exist and generation requested
     if total_notes == 0 and generate and concept_list:
-        from ..ai_agents.info_card_generator import InfoCardGenerator
-        gen = InfoCardGenerator()
-        for concept_name in concept_list[:5]:
-            concept_dict = {
-                "id": concept_name.lower().replace(" ", "_"),
-                "name": concept_name,
-                "topics": [],
-                "misconceptions": [],
-            }
-            for style in ["key_insight", "summary"]:
-                card = await gen.generate_info_card(concept_dict, style=style)
-                if card.get("llm_required"):
+        if comprehensive:
+            from ..ai_agents.study_notes_generator import StudyNotesGenerator
+            gen = StudyNotesGenerator()
+            for concept_name in concept_list[:5]:
+                concept_dict = {
+                    "id": concept_name.lower().replace(" ", "_"),
+                    "name": concept_name,
+                    "topics": [],
+                    "misconceptions": [],
+                }
+                note = await gen.generate_comprehensive_note(concept_dict, context=topic)
+                if note.get("llm_required"):
                     continue
                 content_json = {
-                    "title": card.get("title", ""),
-                    "body_markdown": card.get("body_markdown", ""),
-                    "key_takeaway": card.get("key_takeaway", ""),
-                    "style": card.get("style", style),
+                    "title": note.get("title", ""),
+                    "body_markdown": note.get("body_markdown", ""),
+                    "key_takeaway": note.get("key_takeaway", ""),
+                    "style": note.get("style", "comprehensive"),
+                    "sources": note.get("sources", []),
                 }
                 item = ContentItem(
                     topic=topic,
                     concept=concept_name,
-                    content_type="info_card",
+                    content_type="study_note",
                     difficulty=0.3,
                     content_json=content_json,
-                    generator_agent="info_card_generator",
-                    quality_score=0.5,
+                    generator_agent="study_notes_generator",
+                    quality_score=0.7,
                 )
                 db.add(item)
                 notes_by_concept.setdefault(concept_name, []).append({
@@ -1127,7 +1138,46 @@ async def get_topic_notes(
                     "body_markdown": content_json["body_markdown"],
                     "key_takeaway": content_json["key_takeaway"],
                     "style": content_json["style"],
+                    "sources": content_json["sources"],
                 })
+        else:
+            from ..ai_agents.info_card_generator import InfoCardGenerator
+            gen = InfoCardGenerator()
+            for concept_name in concept_list[:5]:
+                concept_dict = {
+                    "id": concept_name.lower().replace(" ", "_"),
+                    "name": concept_name,
+                    "topics": [],
+                    "misconceptions": [],
+                }
+                for style in ["key_insight", "summary"]:
+                    card = await gen.generate_info_card(concept_dict, style=style)
+                    if card.get("llm_required"):
+                        continue
+                    content_json = {
+                        "title": card.get("title", ""),
+                        "body_markdown": card.get("body_markdown", ""),
+                        "key_takeaway": card.get("key_takeaway", ""),
+                        "style": card.get("style", style),
+                    }
+                    item = ContentItem(
+                        topic=topic,
+                        concept=concept_name,
+                        content_type="info_card",
+                        difficulty=0.3,
+                        content_json=content_json,
+                        generator_agent="info_card_generator",
+                        quality_score=0.5,
+                    )
+                    db.add(item)
+                    notes_by_concept.setdefault(concept_name, []).append({
+                        "id": str(item.id),
+                        "concept": concept_name,
+                        "title": content_json["title"],
+                        "body_markdown": content_json["body_markdown"],
+                        "key_takeaway": content_json["key_takeaway"],
+                        "style": content_json["style"],
+                    })
         await db.commit()
         total_notes = sum(len(n) for n in notes_by_concept.values())
 

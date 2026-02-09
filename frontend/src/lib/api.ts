@@ -1379,8 +1379,8 @@ export const learnApi = {
         fetchApiAuth<{ session_id: string; items: QuestionHistoryItem[] }>(`/learn/question-history/session/${sessionId}`),
 
     getTopicNotes: (topic: string, concepts?: string[]) =>
-        fetchApiAuth<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>(
-            `/learn/content/topic-notes?topic=${encodeURIComponent(topic)}&generate=true${concepts?.length ? `&concepts=${encodeURIComponent(concepts.join(','))}` : ''}`
+        fetchApiAuth<{ topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string; sources?: Array<{ title: string; url: string }> }>> }>(
+            `/learn/content/topic-notes?topic=${encodeURIComponent(topic)}&generate=true&comprehensive=true${concepts?.length ? `&concepts=${encodeURIComponent(concepts.join(','))}` : ''}`
         ),
 };
 

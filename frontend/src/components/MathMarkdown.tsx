@@ -4,6 +4,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 interface MathMarkdownProps {
     children: string;
@@ -134,6 +135,12 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
                     ),
                     code: ({ className: codeClassName, children }) => {
                         const isInline = !codeClassName;
+                        const language = codeClassName?.replace("language-", "");
+
+                        if (language === "mermaid") {
+                            return <MermaidDiagram chart={String(children)} className="my-3" />;
+                        }
+
                         if (isInline) {
                             return (
                                 <code className={`px-1.5 py-0.5 rounded text-sm font-mono ${dark ? "bg-indigo-900/50 text-indigo-200" : "bg-gray-100 text-indigo-700"}`}>
