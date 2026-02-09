@@ -144,7 +144,7 @@ export function SkillTree({
 
     useEffect(() => {
         if (!selectedTopic) { setInlineNotesData(null); return; }
-        const cached = store.topicNotesCache?.[selectedTopic.id];
+        const cached = useScrollSessionStore.getState().topicNotesCache?.[selectedTopic.id];
         if (cached) { setInlineNotesData(cached); return; }
         let cancelled = false;
         setInlineNotesLoading(true);
@@ -152,12 +152,12 @@ export function SkillTree({
             if (cancelled) return;
             if (res.success) {
                 setInlineNotesData(res.data);
-                store.setTopicNotes(selectedTopic.id, res.data);
+                useScrollSessionStore.getState().setTopicNotes(selectedTopic.id, res.data);
             }
             setInlineNotesLoading(false);
         }).catch(() => { if (!cancelled) setInlineNotesLoading(false); });
         return () => { cancelled = true; };
-    }, [selectedTopic, store, onStudyNotes]);
+    }, [selectedTopic, onStudyNotes]);
 
     const timeAgo = useCallback((iso: string | null) => {
         if (!iso) return "";
