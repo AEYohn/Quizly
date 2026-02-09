@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import { useHomeScreen, useSkillTree, useActiveFeed } from "~/hooks/feed";
 import { HomeScreen } from "./HomeScreen";
@@ -7,6 +8,44 @@ import { SkillTree } from "./SkillTree";
 import { ActiveFeed } from "./ActiveFeed";
 import { SkillTreeAnalysis } from "~/components/feed/SkillTreeAnalysis";
 import { useAuth, getStudentName } from "~/lib/auth";
+
+function StaleSessionGuard({ onReset }: { onReset: () => void }) {
+    const [showButton, setShowButton] = useState(false);
+
+    useEffect(() => {
+        const buttonTimer = setTimeout(() => setShowButton(true), 3000);
+        const autoReset = setTimeout(() => onReset(), 10000);
+        return () => { clearTimeout(buttonTimer); clearTimeout(autoReset); };
+    }, [onReset]);
+
+    return (
+        <div className="h-full bg-[#050510] flex items-center justify-center">
+            <div className="text-center space-y-3">
+                <div className="relative w-12 h-12 mx-auto">
+                    <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping" />
+                    <div className="relative w-12 h-12 flex items-center justify-center">
+                        <svg
+                            className="w-6 h-6 text-indigo-400 animate-pulse"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                        >
+                            <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.7L16.18 19.24 12 15.77l-4.18 3.47 1.09-6.27-5.09-3.7 6.09-1.01z" />
+                        </svg>
+                    </div>
+                </div>
+                <p className="text-indigo-300/60 text-sm">Loading next cards...</p>
+                {showButton && (
+                    <button
+                        onClick={onReset}
+                        className="mt-4 px-5 py-2 rounded-xl border border-indigo-400/30 bg-indigo-500/10 text-sm font-medium text-indigo-200 hover:bg-indigo-500/20 transition-all"
+                    >
+                        Start Over
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
 
 function CosmicFeed() {
     const auth = useAuth();
@@ -19,26 +58,7 @@ function CosmicFeed() {
     if (store.sessionId) {
         const currentCard = store.cards[store.currentIdx];
         if (!currentCard) {
-            return (
-                <div className="h-full bg-[#050510] flex items-center justify-center">
-                    <div className="text-center space-y-3">
-                        <div className="relative w-12 h-12 mx-auto">
-                            {/* Pulsing star icon */}
-                            <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping" />
-                            <div className="relative w-12 h-12 flex items-center justify-center">
-                                <svg
-                                    className="w-6 h-6 text-indigo-400 animate-pulse"
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                >
-                                    <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.7L16.18 19.24 12 15.77l-4.18 3.47 1.09-6.27-5.09-3.7 6.09-1.01z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <p className="text-indigo-300/60 text-sm">Loading next cards...</p>
-                    </div>
-                </div>
-            );
+            return <StaleSessionGuard onReset={() => store.reset()} />;
         }
 
         return (
