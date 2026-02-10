@@ -135,7 +135,7 @@ export default function PdfUploadScreen() {
             )}
 
             <Text className="text-xs text-gray-400 text-center mt-2">
-              PDF files up to 10MB supported.{"\n"}
+              PDF files up to 50MB supported.{"\n"}
               Your material will be analyzed to create a personalized skill
               tree.
             </Text>

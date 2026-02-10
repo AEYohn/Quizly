@@ -155,13 +155,13 @@ export function useHomeScreen() {
     }, [store, auth.user?.id]);
 
     // PDF upload → extract topic → generate syllabus
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB — matches backend limit
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — matches backend limit
     const handlePdfUpload = useCallback(async (files: FileList) => {
         // Client-side file size validation
         const oversized = Array.from(files).find((f) => f.size > MAX_FILE_SIZE);
         if (oversized) {
             const sizeMB = (oversized.size / (1024 * 1024)).toFixed(1);
-            store.setError(`"${oversized.name}" is ${sizeMB}MB — max file size is 10MB`);
+            store.setError(`"${oversized.name}" is ${sizeMB}MB — max file size is 50MB`);
             return;
         }
 

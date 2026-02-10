@@ -202,10 +202,10 @@ export default function CreateQuizScreen() {
 
       const file = result.assets[0];
 
-      // Check file size (limit to 10MB)
+      // Check file size (limit to 50MB)
       const fileInfo = await FileSystem.getInfoAsync(file.uri);
-      if (fileInfo.exists && 'size' in fileInfo && fileInfo.size && fileInfo.size > 10 * 1024 * 1024) {
-        Alert.alert("File Too Large", "Please select a PDF under 10MB");
+      if (fileInfo.exists && 'size' in fileInfo && fileInfo.size && fileInfo.size > 50 * 1024 * 1024) {
+        Alert.alert("File Too Large", "Please select a PDF under 50MB");
         return;
       }
 
