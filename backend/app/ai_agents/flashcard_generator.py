@@ -32,6 +32,7 @@ class FlashcardGenerator:
         concept: Dict[str, Any],
         difficulty: float = 0.5,
         context: Optional[str] = None,
+        rich_context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a single flashcard for a concept.
@@ -40,6 +41,7 @@ class FlashcardGenerator:
             concept: Dict with id, name, topics, misconceptions
             difficulty: 0.0-1.0
             context: Optional notes/topic context
+            rich_context: Optional extended context (up to 5000 chars) from resources/notes
 
         Returns:
             {front, back, hint, concept, difficulty}
@@ -55,7 +57,13 @@ class FlashcardGenerator:
             "hard": "Ask an application or analysis question. 'When would you choose X over Y?' or 'What happens if X fails?'",
         }[difficulty_label]
 
-        context_line = f"\nCONTEXT: {context[:500]}" if context else ""
+        # Use rich_context if available, otherwise fall back to truncated context
+        if rich_context:
+            context_line = f"\nSOURCE MATERIAL:\n{rich_context[:5000]}"
+        elif context:
+            context_line = f"\nCONTEXT: {context[:500]}"
+        else:
+            context_line = ""
 
         prompt = f"""You are creating a study flashcard for a student.
 

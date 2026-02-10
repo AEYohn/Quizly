@@ -94,6 +94,10 @@ interface ScrollSessionState {
     // Topic notes cache (transient)
     topicNotesCache: Record<string, { topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>;
 
+    // Content generation from resources
+    isGeneratingContent: boolean;
+    generationProgress: { step: string; progress: number; message: string } | null;
+
     // Assessment (transient)
     assessmentPhase: 'none' | 'self_rating' | 'diagnostic' | 'complete';
 
@@ -149,6 +153,9 @@ interface ScrollSessionState {
     removeSubjectResource: (id: string) => void;
     // Topic notes actions
     setTopicNotes: (topicId: string, data: { topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }) => void;
+    // Content generation actions
+    setIsGeneratingContent: (v: boolean) => void;
+    setGenerationProgress: (p: { step: string; progress: number; message: string } | null) => void;
     // History actions
     setHistory: (subjects: SubjectHistory[], overall: LearningHistoryResponse["overall"]) => void;
     setHistoryLoading: (loading: boolean) => void;
@@ -205,6 +212,8 @@ const initialState = {
     isUploadingResource: false,
     // Topic notes cache (transient)
     topicNotesCache: {} as Record<string, { topic: string; total_notes: number; notes_by_concept: Record<string, Array<{ id: string; concept: string; title: string; body_markdown: string; key_takeaway: string }>> }>,
+    isGeneratingContent: false,
+    generationProgress: null as { step: string; progress: number; message: string } | null,
     // Assessment (transient)
     assessmentPhase: 'none' as const,
     // Codebase (transient)
@@ -311,6 +320,9 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
             setTopicNotes: (topicId, data) => set((state) => ({
                 topicNotesCache: { ...state.topicNotesCache, [topicId]: data },
             })),
+            // Content generation actions
+            setIsGeneratingContent: (v) => set({ isGeneratingContent: v }),
+            setGenerationProgress: (p) => set({ generationProgress: p }),
             // History actions
             setHistory: (subjects, overall) => set({ history: subjects, historyOverall: overall }),
             setHistoryLoading: (loading) => set({ historyLoading: loading }),
@@ -351,6 +363,8 @@ export const useScrollSessionStore = create<ScrollSessionState>()(
                 historyOverall: state.historyOverall,
                 mastery: state.mastery,
                 suggestions: state.suggestions.slice(-50),
+                // Cache study notes so revisiting a topic doesn't re-fetch
+                topicNotesCache: state.topicNotesCache,
             }),
         }
     )

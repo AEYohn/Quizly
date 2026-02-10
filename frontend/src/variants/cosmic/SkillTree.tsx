@@ -110,6 +110,9 @@ export function SkillTree({
     onCloseResourceSheet,
     topicResources,
     onOpenAnalysis,
+    onGenerateFromResources,
+    isGeneratingContent,
+    generationProgress,
 }: SkillTreeProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [hintDismissed, setHintDismissed] = useState(false);
@@ -403,6 +406,39 @@ export function SkillTree({
                                 </button>
                             </div>
                         ))
+                    )}
+
+                    {/* Generate content from resources */}
+                    {subjectResources.length > 0 && onGenerateFromResources && (
+                        <div className="pt-2 border-t border-indigo-400/10">
+                            {generationProgress && generationProgress.step !== "complete" && generationProgress.step !== "error" ? (
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-xs text-indigo-200/70">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                                        {generationProgress.message}
+                                    </div>
+                                    <div className="h-1.5 bg-indigo-900/50 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                                            style={{ width: `${Math.round(generationProgress.progress * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            ) : generationProgress?.step === "complete" ? (
+                                <p className="text-xs text-emerald-400 text-center py-1">{generationProgress.message}</p>
+                            ) : generationProgress?.step === "error" ? (
+                                <p className="text-xs text-red-400 text-center py-1">{generationProgress.message}</p>
+                            ) : (
+                                <button
+                                    onClick={onGenerateFromResources}
+                                    disabled={isGeneratingContent}
+                                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                                >
+                                    <Sparkles className="w-4 h-4" />
+                                    Generate Notes, Cards &amp; Quiz
+                                </button>
+                            )}
+                        </div>
                     )}
                 </div>
             </BottomSheet>

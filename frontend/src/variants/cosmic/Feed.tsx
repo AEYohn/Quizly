@@ -137,6 +137,9 @@ function CosmicFeed() {
                     assessmentPhase={store.assessmentPhase}
                     topicResources={skillTree.topicResources}
                     onOpenAnalysis={() => skillTree.setShowAnalysis(true)}
+                    onGenerateFromResources={skillTree.handleGenerateFromResources}
+                    isGeneratingContent={store.isGeneratingContent}
+                    generationProgress={store.generationProgress}
                 />
                 <SkillTreeAnalysis
                     open={skillTree.showAnalysis}

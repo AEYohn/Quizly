@@ -271,6 +271,54 @@ export function useSkillTree(handleQuickStart: (topic: string, opts?: { mode?: '
     //     return () => clearTimeout(timer);
     // }, [store.selectedSubject, store.syllabus, fetchCuratedResources]);
 
+    // Generate content from uploaded resources
+    const handleGenerateFromResources = useCallback(async () => {
+        if (!store.selectedSubject || !store.syllabus) return;
+        store.setIsGeneratingContent(true);
+        store.setGenerationProgress(null);
+
+        try {
+            // Gather all concepts from the syllabus
+            const allConcepts = store.syllabus.units
+                .flatMap((u) => u.topics.flatMap((t) => t.concepts))
+                .slice(0, 15);
+
+            const summary = await resourcesApi.generateFromResourcesStream(
+                store.selectedSubject,
+                (event) => {
+                    store.setGenerationProgress({
+                        step: event.step,
+                        progress: event.progress,
+                        message: event.message,
+                    });
+                },
+                undefined, // topic — let backend use first syllabus topic
+                allConcepts,
+                auth.user?.id,
+            );
+
+            // Clear cached notes so fresh content is fetched on next visit
+            // Re-use the clearSyllabus pattern but only for notes
+            store.setTopicNotes("__clear_all__", { topic: "", total_notes: 0, notes_by_concept: {} });
+
+            if (summary) {
+                store.setGenerationProgress({
+                    step: "complete",
+                    progress: 1,
+                    message: `Generated ${summary.notes} notes, ${summary.flashcards} flashcards, ${summary.quiz} quiz questions`,
+                });
+            }
+        } catch {
+            store.setGenerationProgress({
+                step: "error",
+                progress: 0,
+                message: "Content generation failed. Please try again.",
+            });
+        } finally {
+            store.setIsGeneratingContent(false);
+        }
+    }, [store, auth.user?.id]);
+
     // Start assessment flow
     const handleStartAssessment = useCallback(async () => {
         if (!store.selectedSubject || !store.syllabus) return;
@@ -309,6 +357,7 @@ export function useSkillTree(handleQuickStart: (topic: string, opts?: { mode?: '
         showAssessment,
         setShowAssessment,
         handleStartAssessment,
+        handleGenerateFromResources,
         showAnalysis,
         setShowAnalysis,
     };

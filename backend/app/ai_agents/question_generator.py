@@ -134,6 +134,7 @@ class QuestionBankGenerator:
         target_misconception: Optional[str] = None,
         question_type: str = "conceptual",
         context: Optional[str] = None,
+        rich_context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a single question for a concept using LLM.
@@ -144,6 +145,8 @@ class QuestionBankGenerator:
             previous_prompts: List of previous question prompts to avoid repetition
             target_misconception: Specific misconception to target (for adaptive remediation)
             question_type: Type of question - "conceptual", "application", "analysis", "transfer"
+            context: Optional short context string
+            rich_context: Optional extended context (up to 10000 chars) from resources/notes
 
         Returns:
             Question dict with prompt, options, correct_answer, explanation
@@ -174,9 +177,14 @@ The question scenario should make the misconception seem plausible."""
             "transfer": "Present a novel context where the concept applies in an unexpected way."
         }.get(question_type, "Test understanding of the concept.")
         
-        # Optional source material block
+        # Optional source material block — prefer rich_context over truncated context
         context_block = ""
-        if context and context.strip():
+        if rich_context and rich_context.strip():
+            context_block = f"""
+SOURCE MATERIAL (use this to ground your question in the actual course content):
+{rich_context[:10000]}
+"""
+        elif context and context.strip():
             context_block = f"""
 SOURCE MATERIAL (use this to ground your question in the actual course content):
 {context[:2000]}

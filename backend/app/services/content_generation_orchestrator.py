@@ -74,8 +74,7 @@ class ContentGenerationOrchestrator:
             result = await self.db.execute(query)
             resources = result.scalars().all()
             if resources:
-                parts = [r.key_content for r in resources if r.key_content]
-                return "\n".join(parts)[:2000] if parts else None
+                return self._build_resource_text(resources)
 
         # Try exact topic match
         query = select(SubjectResource).where(
@@ -94,8 +93,17 @@ class ContentGenerationOrchestrator:
 
         if not resources:
             return None
-        parts = [r.key_content for r in resources if r.key_content]
-        return "\n".join(parts)[:2000] if parts else None
+        return self._build_resource_text(resources)
+
+    @staticmethod
+    def _build_resource_text(resources) -> Optional[str]:
+        """Combine resource content, preferring full_content over key_content."""
+        parts = []
+        for r in resources:
+            content = getattr(r, "full_content", None) or r.key_content
+            if content:
+                parts.append(content[:5000])
+        return "\n\n".join(parts)[:20000] if parts else None
 
     async def generate_content_for_topic(
         self,

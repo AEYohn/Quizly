@@ -1379,6 +1379,8 @@ async def upload_resources(
                 concepts_json=doc.concepts,
                 objectives_json=doc.objectives or [],
                 key_content=key_content,
+                full_content=doc.full_text[:200_000] if doc.full_text else "",
+                page_count=doc.num_pages,
             )
             db.add(resource)
             total_concepts += len(doc.concepts)
@@ -1415,6 +1417,8 @@ async def upload_resources(
                 concepts_json=doc.concepts,
                 objectives_json=doc.objectives or [],
                 key_content=key_content,
+                full_content=doc.full_text[:200_000] if doc.full_text else "",
+                page_count=doc.num_pages,
             )
             db.add(resource)
             total_concepts += len(doc.concepts)
@@ -1485,6 +1489,179 @@ async def delete_resource(
     )
     await db.commit()
     return {"ok": True}
+
+
+# ── Chained content generation from resources ──
+
+class GenerateFromResourcesRequest(BaseModel):
+    subject: str = Field(..., min_length=1)
+    topic: Optional[str] = None
+    concepts: Optional[List[str]] = None
+    student_id: Optional[str] = None
+
+
+@router.post("/resources/generate-content")
+async def generate_content_from_resources(
+    request: GenerateFromResourcesRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger chained content generation from uploaded resources.
+
+    Returns immediately; generation runs in a background task.
+    Use the SSE streaming endpoint for real-time progress.
+    """
+    from ..services.chained_content_generator import ChainedContentGenerator
+
+    # Resolve topic & concepts from syllabus if not provided
+    topic = request.topic
+    concepts = request.concepts
+
+    if not topic or not concepts:
+        cache = await db.execute(
+            select(SyllabusCache).where(
+                SyllabusCache.subject == request.subject
+            ).limit(1)
+        )
+        syllabus_row = cache.scalars().first()
+        if syllabus_row and syllabus_row.tree_json:
+            units = syllabus_row.tree_json.get("units", [])
+            if not topic and units:
+                topic = units[0].get("topics", [{}])[0].get("name", request.subject)
+            if not concepts:
+                concepts = []
+                for unit in units:
+                    for t in unit.get("topics", []):
+                        if topic and t.get("name") == topic:
+                            concepts = t.get("concepts", [])
+                            break
+
+    topic = topic or request.subject
+    concepts = concepts or [topic]
+
+    async def _run():
+        from ..database import async_session
+        async with async_session() as bg_db:
+            gen = ChainedContentGenerator(bg_db)
+            try:
+                result = await gen.generate_from_resources(
+                    subject=request.subject,
+                    topic=topic,
+                    concepts=concepts[:10],
+                    student_id=request.student_id,
+                )
+                logger.info("chained_generation_complete", topic=topic, **result)
+            except Exception as e:
+                capture_exception(e, context={
+                    "service": "learn_routes",
+                    "operation": "generate_from_resources",
+                    "topic": topic,
+                })
+                log_error(logger, "chained_generation failed", topic=topic, error=str(e))
+
+    background_tasks.add_task(_run)
+    return {"status": "generating", "topic": topic, "concepts": concepts}
+
+
+@router.post("/resources/generate-content/stream")
+async def generate_content_stream(
+    request: GenerateFromResourcesRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """SSE stream for chained content generation progress."""
+    import json as _json
+    import asyncio
+    from fastapi.responses import StreamingResponse
+    from ..services.chained_content_generator import ChainedContentGenerator
+
+    # Resolve topic & concepts
+    topic = request.topic
+    concepts = request.concepts
+
+    if not topic or not concepts:
+        cache = await db.execute(
+            select(SyllabusCache).where(
+                SyllabusCache.subject == request.subject
+            ).limit(1)
+        )
+        syllabus_row = cache.scalars().first()
+        if syllabus_row and syllabus_row.tree_json:
+            units = syllabus_row.tree_json.get("units", [])
+            if not topic and units:
+                topic = units[0].get("topics", [{}])[0].get("name", request.subject)
+            if not concepts:
+                for unit in units:
+                    for t in unit.get("topics", []):
+                        if topic and t.get("name") == topic:
+                            concepts = t.get("concepts", [])
+                            break
+
+    topic = topic or request.subject
+    concepts = concepts or [topic]
+
+    progress_queue: asyncio.Queue = asyncio.Queue()
+
+    async def on_progress(step: str, pct: float, message: str):
+        await progress_queue.put({
+            "step": step,
+            "progress": round(pct, 2),
+            "message": message,
+        })
+
+    async def event_generator():
+        from ..database import async_session
+
+        async def run_generation():
+            async with async_session() as bg_db:
+                gen = ChainedContentGenerator(bg_db)
+                try:
+                    result = await gen.generate_from_resources(
+                        subject=request.subject,
+                        topic=topic,
+                        concepts=concepts[:10],
+                        student_id=request.student_id,
+                        on_progress=on_progress,
+                    )
+                    await progress_queue.put({
+                        "step": "complete",
+                        "progress": 1.0,
+                        "message": "Generation complete",
+                        "summary": result,
+                    })
+                except Exception as e:
+                    capture_exception(e, context={
+                        "service": "learn_routes",
+                        "operation": "generate_content_stream",
+                    })
+                    await progress_queue.put({
+                        "step": "error",
+                        "progress": 0,
+                        "message": str(e),
+                    })
+                finally:
+                    await progress_queue.put(None)  # sentinel
+
+        task = asyncio.create_task(run_generation())
+
+        try:
+            while True:
+                event = await progress_queue.get()
+                if event is None:
+                    break
+                yield f"data: {_json.dumps(event)}\n\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 class SyllabusRegenerateRequest(BaseModel):

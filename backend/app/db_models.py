@@ -654,6 +654,8 @@ class SubjectResource(Base):
     concepts_json: Mapped[dict] = mapped_column(JSON, default=list)  # ["concept1", ...]
     objectives_json: Mapped[dict] = mapped_column(JSON, default=list)  # ["Students will..."]
     key_content: Mapped[str] = mapped_column(Text, default="")  # Truncated for LLM injection (~1000 chars)
+    full_content: Mapped[str] = mapped_column(Text, default="")  # Complete extracted text (up to ~200KB)
+    page_count: Mapped[int] = mapped_column(Integer, default=0)  # For UI display
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

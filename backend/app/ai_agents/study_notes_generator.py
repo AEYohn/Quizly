@@ -127,7 +127,8 @@ class StudyNotesGenerator:
         return max(scores, key=lambda k: scores[k])
 
     async def generate_comprehensive_note(
-        self, concept: Dict, context: Optional[str] = None
+        self, concept: Dict, context: Optional[str] = None,
+        resource_content: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a comprehensive study note for a concept.
@@ -135,6 +136,8 @@ class StudyNotesGenerator:
         Args:
             concept: Dict with at least 'name', optionally 'topics', 'misconceptions'
             context: Optional topic/subject context string
+            resource_content: Optional uploaded resource text — when provided, used as
+                PRIMARY source (skips Google Search)
 
         Returns:
             {title, body_markdown, key_takeaway, sources, style: "comprehensive"}
@@ -158,10 +161,24 @@ class StudyNotesGenerator:
         if category != "general" and category in SUBJECT_CATEGORIES:
             formatting_line = f"\n\n{SUBJECT_CATEGORIES[category]['emphasis']}"
 
-        prompt = f"""You are creating comprehensive study notes for a student learning about a concept.
-Use your search capabilities to find accurate, up-to-date information.
+        # Resource-first mode: use uploaded materials as primary source
+        resource_block = ""
+        use_search = True
+        if resource_content and resource_content.strip():
+            use_search = False
+            resource_block = f"""
 
-CONCEPT: {concept_name}{topics_line}{misconceptions_line}{context_line}{formatting_line}
+SOURCE MATERIAL (use ONLY the provided material below as your primary source):
+---
+{resource_content[:30000]}
+---
+IMPORTANT: Base your notes on the SOURCE MATERIAL above. Do NOT use external search.
+Synthesize and explain the material clearly for a student."""
+
+        prompt = f"""You are creating comprehensive study notes for a student learning about a concept.
+{"Use your search capabilities to find accurate, up-to-date information." if use_search else ""}
+
+CONCEPT: {concept_name}{topics_line}{misconceptions_line}{context_line}{formatting_line}{resource_block}
 
 Create thorough study notes with:
 1. A clear, descriptive title
@@ -189,9 +206,10 @@ Do NOT wrap the response in any outer code fence. Start directly with ===TITLE==
         try:
             from google.genai import types as genai_types
 
+            tools = [genai_types.Tool(google_search=genai_types.GoogleSearch())] if use_search else None
             response = await call_gemini_with_timeout(
                 prompt,
-                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                tools=tools,
                 timeout=45,
                 context={
                     "agent": "study_notes_generator",

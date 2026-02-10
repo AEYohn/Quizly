@@ -35,16 +35,26 @@ mermaid.initialize({
 });
 
 /**
- * Sanitize mermaid chart syntax by quoting node labels that contain
- * special characters (colons, parentheses, pipes, etc.) which would
- * otherwise confuse the parser.
+ * Sanitize mermaid chart syntax so it works with mermaid v11+.
+ *
+ * LLMs frequently generate mermaid that uses unquoted special characters,
+ * HTML entities, or markdown artefacts that choke the parser.
  */
 function sanitizeMermaidChart(raw: string): string {
-    let s = raw;
+    let s = raw.trim();
+
+    // Strip wrapping ```mermaid / ``` fences the LLM sometimes double-wraps
+    s = s.replace(/^```mermaid\s*\n?/i, "").replace(/\n?```\s*$/, "");
+
+    // Remove zero-width spaces, BOM, and non-breaking spaces
+    s = s.replace(/[\u200B\uFEFF\u00A0]/g, " ");
+
+    // Replace HTML entities that LLMs sometimes emit
+    s = s.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
 
     // Quote labels inside [...] that contain special chars and aren't already quoted
     s = s.replace(/(\w+)\[([^\]"]+)\]/g, (match, nodeId, label) => {
-        if (/[:()|{}]/.test(label)) return `${nodeId}["${label}"]`;
+        if (/[:()|{}#;&]/.test(label)) return `${nodeId}["${label}"]`;
         return match;
     });
 
@@ -52,13 +62,26 @@ function sanitizeMermaidChart(raw: string): string {
     s = s.replace(/(\w+)\(([^)"]+)\)/g, (match, nodeId, label) => {
         // Skip arrow syntax like -->
         if (/^-/.test(nodeId)) return match;
-        if (/[:|{}[\]]/.test(label)) return `${nodeId}("${label}")`;
+        if (/[:|{}[\]#;&]/.test(label)) return `${nodeId}("${label}")`;
         return match;
     });
 
     // Quote labels inside {...} that contain special chars and aren't already quoted
     s = s.replace(/(\w+)\{([^}"]+)\}/g, (match, nodeId, label) => {
-        if (/[:()|[\]]/.test(label)) return `${nodeId}{"${label}"}`;
+        if (/[:()|[\]#;&]/.test(label)) return `${nodeId}{"${label}"}`;
+        return match;
+    });
+
+    // Quote unquoted edge labels: -- text --> or -- text ---
+    // Mermaid v11 requires edge labels be quoted when they contain special chars
+    s = s.replace(/--\s+([^-|>"'\n][^->\n]*?)\s+(-->|---)/g, (match, label, arrow) => {
+        if (label.startsWith('"') || label.startsWith("|")) return match;
+        return `-- "${label.trim()}" ${arrow}`;
+    });
+
+    // Quote pipe-delimited edge labels that contain special chars: |text|
+    s = s.replace(/\|([^|"]+)\|/g, (match, label) => {
+        if (/[:()"{}#;&]/.test(label)) return `|"${label}"|`;
         return match;
     });
 
@@ -72,32 +95,35 @@ export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
     const id = useId().replace(/:/g, "_");
 
     useEffect(() => {
+        let cancelled = false;
         const renderDiagram = async () => {
             if (!chart.trim()) {
                 setError("Empty diagram");
                 return;
             }
 
+            const sanitized = sanitizeMermaidChart(chart);
+
             try {
-                // Try rendering with sanitized labels first
-                const sanitized = sanitizeMermaidChart(chart.trim());
                 const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}`, sanitized);
-                setSvg(renderedSvg);
-                setError(null);
+                if (!cancelled) { setSvg(renderedSvg); setError(null); }
             } catch {
                 // If sanitized version fails, try raw as fallback
                 try {
-                    const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}-raw`, chart.trim());
-                    setSvg(renderedSvg);
-                    setError(null);
+                    const raw = chart.trim()
+                        .replace(/^```mermaid\s*\n?/i, "")
+                        .replace(/\n?```\s*$/, "");
+                    const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}-raw`, raw);
+                    if (!cancelled) { setSvg(renderedSvg); setError(null); }
                 } catch (err2) {
-                    console.error("Mermaid rendering error:", err2);
-                    setError(err2 instanceof Error ? err2.message : "Failed to render diagram");
+                    console.warn("Mermaid rendering error:", err2);
+                    if (!cancelled) setError(err2 instanceof Error ? err2.message : "Failed to render diagram");
                 }
             }
         };
 
         renderDiagram();
+        return () => { cancelled = true; };
     }, [chart, id]);
 
     if (error) {

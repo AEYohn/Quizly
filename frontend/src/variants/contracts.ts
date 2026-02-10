@@ -70,6 +70,10 @@ export interface SkillTreeProps {
     topicResources?: Record<string, Array<{ title: string; url: string; source_type: string; thumbnail_url?: string }>>;
     // Analysis
     onOpenAnalysis?: () => void;
+    // Content generation from resources
+    onGenerateFromResources?: () => void;
+    isGeneratingContent?: boolean;
+    generationProgress?: { step: string; progress: number; message: string } | null;
 }
 
 // Active feed props

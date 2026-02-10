@@ -33,6 +33,7 @@ class ProcessedDocument:
     extracted_questions: List[Dict] = None  # Questions found in the material
     num_pages: int = 0
     chunks: List[str] = None
+    full_text: str = ""  # Complete extracted text in markdown format
     
     def __post_init__(self):
         if self.objectives is None:
@@ -143,7 +144,34 @@ For objectives: Use action verbs like "explain", "implement", "compare", "analyz
                 raise RuntimeError("Gemini call returned None")
 
             result = self._parse_json_response(response.text)
-            
+
+            # Second call: extract complete text content for storage
+            full_text = ""
+            try:
+                extract_prompt = """Extract the COMPLETE text content of this PDF document in clean markdown format.
+
+Preserve:
+- All headers (use # ## ### markdown headings)
+- All paragraphs (full text, not summaries)
+- All formulas (use LaTeX: $$...$$ for display, $...$ for inline)
+- All lists and bullet points
+- Table content (use markdown tables)
+- Code blocks if any
+
+Do NOT summarize or shorten — output the full content as-is in markdown.
+Start directly with the content, no preamble."""
+
+                extract_response = await call_gemini_with_timeout(
+                    [pdf_part, extract_prompt],
+                    context={"agent": "document_processor", "operation": "extract_full_text"},
+                    generation_config={"max_output_tokens": 65536},
+                )
+                if extract_response is not None:
+                    full_text = extract_response.text.strip()
+            except Exception:
+                # Non-critical — we still have the analysis result
+                pass
+
             return ProcessedDocument(
                 source=file_name,
                 file_type="pdf",
@@ -152,9 +180,10 @@ For objectives: Use action verbs like "explain", "implement", "compare", "analyz
                 objectives=result.get("objectives", []),
                 extracted_questions=result.get("extracted_questions", []),
                 summary=result.get("summary", ""),
-                num_pages=0
+                num_pages=0,
+                full_text=full_text,
             )
-            
+
         except Exception as e:
             from .sentry_config import capture_exception as _cap
             from .logging_config import get_logger as _gl, log_error as _le
@@ -259,7 +288,8 @@ CRITICAL RULES:
                 concepts=result.get("concepts", []),
                 objectives=result.get("objectives", []),
                 extracted_questions=result.get("extracted_questions", []),
-                summary=result.get("summary", "")
+                summary=result.get("summary", ""),
+                full_text=text,  # Store raw text directly
             )
             
         except Exception as e:

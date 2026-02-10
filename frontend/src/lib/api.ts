@@ -1691,6 +1691,67 @@ export const resourcesApi = {
             return { success: false, error: error instanceof Error ? error.message : 'Network error' };
         }
     },
+
+    generateFromResources: (subject: string, topic?: string, concepts?: string[], studentId?: string) =>
+        fetchApiAuth<{ status: string; topic: string; concepts: string[] }>('/learn/resources/generate-content', {
+            method: 'POST',
+            body: JSON.stringify({ subject, topic, concepts, student_id: studentId }),
+        }),
+
+    /**
+     * Stream SSE progress events for chained content generation.
+     * Calls onEvent for each progress update, returns final summary.
+     */
+    generateFromResourcesStream: async (
+        subject: string,
+        onEvent: (event: { step: string; progress: number; message: string; summary?: { notes: number; flashcards: number; quiz: number } }) => void,
+        topic?: string,
+        concepts?: string[],
+        studentId?: string,
+    ): Promise<{ notes: number; flashcards: number; quiz: number } | null> => {
+        try {
+            let authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+            try {
+                const token = await window.Clerk?.session?.getToken();
+                if (token) authHeaders.Authorization = `Bearer ${token}`;
+            } catch {}
+
+            const response = await fetch(`${API_BASE}/learn/resources/generate-content/stream`, {
+                method: 'POST',
+                headers: authHeaders,
+                body: JSON.stringify({ subject, topic, concepts, student_id: studentId }),
+            });
+
+            if (!response.ok || !response.body) return null;
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finalSummary: { notes: number; flashcards: number; quiz: number } | null = null;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const event = JSON.parse(line.slice(6));
+                        onEvent(event);
+                        if (event.summary) finalSummary = event.summary;
+                    } catch {}
+                }
+            }
+
+            return finalSummary;
+        } catch {
+            return null;
+        }
+    },
 };
 
 export const scrollApi = {
