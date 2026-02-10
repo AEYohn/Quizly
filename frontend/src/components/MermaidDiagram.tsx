@@ -34,6 +34,37 @@ mermaid.initialize({
     securityLevel: "loose",
 });
 
+/**
+ * Sanitize mermaid chart syntax by quoting node labels that contain
+ * special characters (colons, parentheses, pipes, etc.) which would
+ * otherwise confuse the parser.
+ */
+function sanitizeMermaidChart(raw: string): string {
+    let s = raw;
+
+    // Quote labels inside [...] that contain special chars and aren't already quoted
+    s = s.replace(/(\w+)\[([^\]"]+)\]/g, (match, nodeId, label) => {
+        if (/[:()|{}]/.test(label)) return `${nodeId}["${label}"]`;
+        return match;
+    });
+
+    // Quote labels inside (...) that contain special chars and aren't already quoted
+    s = s.replace(/(\w+)\(([^)"]+)\)/g, (match, nodeId, label) => {
+        // Skip arrow syntax like -->
+        if (/^-/.test(nodeId)) return match;
+        if (/[:|{}[\]]/.test(label)) return `${nodeId}("${label}")`;
+        return match;
+    });
+
+    // Quote labels inside {...} that contain special chars and aren't already quoted
+    s = s.replace(/(\w+)\{([^}"]+)\}/g, (match, nodeId, label) => {
+        if (/[:()|[\]]/.test(label)) return `${nodeId}{"${label}"}`;
+        return match;
+    });
+
+    return s;
+}
+
 export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [svg, setSvg] = useState<string>("");
@@ -48,13 +79,21 @@ export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
             }
 
             try {
-                // Validate and render
-                const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}`, chart.trim());
+                // Try rendering with sanitized labels first
+                const sanitized = sanitizeMermaidChart(chart.trim());
+                const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}`, sanitized);
                 setSvg(renderedSvg);
                 setError(null);
-            } catch (err) {
-                console.error("Mermaid rendering error:", err);
-                setError(err instanceof Error ? err.message : "Failed to render diagram");
+            } catch {
+                // If sanitized version fails, try raw as fallback
+                try {
+                    const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}-raw`, chart.trim());
+                    setSvg(renderedSvg);
+                    setError(null);
+                } catch (err2) {
+                    console.error("Mermaid rendering error:", err2);
+                    setError(err2 instanceof Error ? err2.message : "Failed to render diagram");
+                }
             }
         };
 

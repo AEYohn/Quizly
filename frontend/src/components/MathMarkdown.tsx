@@ -86,7 +86,7 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
         return id;
     });
 
-    // Restore math placeholders in rendered text nodes
+    // Restore math placeholders in a single text string
     function restoreMath(text: string): (string | React.ReactElement)[] {
         const parts: (string | React.ReactElement)[] = [];
         let remaining = text;
@@ -106,32 +106,57 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
         return parts.length > 0 ? parts : [text];
     }
 
+    // Recursively walk React children tree and restore math in every string node
+    function restoreMathInChildren(node: React.ReactNode): React.ReactNode {
+        if (typeof node === "string") {
+            if (!node.includes("%%MATH_")) return node;
+            const parts = restoreMath(node);
+            return parts.length === 1 ? parts[0] : <React.Fragment>{parts}</React.Fragment>;
+        }
+        if (Array.isArray(node)) {
+            return node.map((child, i) => {
+                if (typeof child === "string") {
+                    if (!child.includes("%%MATH_")) return child;
+                    const parts = restoreMath(child);
+                    return parts.length === 1 ? parts[0] : <React.Fragment key={`m${i}`}>{parts}</React.Fragment>;
+                }
+                if (React.isValidElement(child)) {
+                    const el = child as React.ReactElement<{ children?: React.ReactNode }>;
+                    return React.cloneElement(el, { key: el.key ?? i } as Record<string, unknown>, restoreMathInChildren(el.props.children));
+                }
+                return child;
+            });
+        }
+        if (React.isValidElement(node)) {
+            const el = node as React.ReactElement<{ children?: React.ReactNode }>;
+            return React.cloneElement(el, {} as Record<string, unknown>, restoreMathInChildren(el.props.children));
+        }
+        return node;
+    }
+
+    const m = (node: React.ReactNode) => restoreMathInChildren(node);
+
     return (
         <div className={`prose prose-sm max-w-none ${dark ? "prose-invert" : ""} ${className}`}>
             <ReactMarkdown
                 components={{
                     h1: ({ children }) => (
-                        <h1 className={`text-xl font-bold mb-3 ${dark ? "text-white" : "text-gray-900"}`}>{children}</h1>
+                        <h1 className={`text-xl font-bold mb-3 ${dark ? "text-white" : "text-gray-900"}`}>{m(children)}</h1>
                     ),
                     h2: ({ children }) => (
-                        <h2 className={`text-lg font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>{children}</h2>
+                        <h2 className={`text-lg font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>{m(children)}</h2>
                     ),
                     h3: ({ children }) => (
-                        <h3 className={`text-base font-semibold mb-2 ${dark ? "text-indigo-200" : "text-gray-800"}`}>{children}</h3>
+                        <h3 className={`text-base font-semibold mb-2 ${dark ? "text-indigo-200" : "text-gray-800"}`}>{m(children)}</h3>
                     ),
-                    p: ({ children }) => {
-                        const cls = `mb-3 leading-relaxed ${dark ? "text-indigo-100/80" : "text-gray-700"}`;
-                        if (typeof children === "string") {
-                            const restored = restoreMath(children);
-                            return <p className={cls}>{restored}</p>;
-                        }
-                        return <p className={cls}>{children}</p>;
-                    },
+                    p: ({ children }) => (
+                        <p className={`mb-3 leading-relaxed ${dark ? "text-indigo-100/80" : "text-gray-700"}`}>{m(children)}</p>
+                    ),
                     strong: ({ children }) => (
-                        <strong className={`font-semibold ${dark ? "text-white" : "text-gray-900"}`}>{children}</strong>
+                        <strong className={`font-semibold ${dark ? "text-white" : "text-gray-900"}`}>{m(children)}</strong>
                     ),
                     em: ({ children }) => (
-                        <em className={`italic ${dark ? "text-indigo-200" : "text-gray-700"}`}>{children}</em>
+                        <em className={`italic ${dark ? "text-indigo-200" : "text-gray-700"}`}>{m(children)}</em>
                     ),
                     code: ({ className: codeClassName, children }) => {
                         const isInline = !codeClassName;
@@ -171,17 +196,12 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
                             {children}
                         </ol>
                     ),
-                    li: ({ children }) => {
-                        const cls = dark ? "text-indigo-100/80" : "text-gray-700";
-                        if (typeof children === "string") {
-                            const restored = restoreMath(children);
-                            return <li className={cls}>{restored}</li>;
-                        }
-                        return <li className={cls}>{children}</li>;
-                    },
+                    li: ({ children }) => (
+                        <li className={dark ? "text-indigo-100/80" : "text-gray-700"}>{m(children)}</li>
+                    ),
                     blockquote: ({ children }) => (
                         <blockquote className={`border-l-4 pl-4 italic my-3 ${dark ? "border-indigo-400/30 text-indigo-200/60" : "border-indigo-300 text-gray-600"}`}>
-                            {children}
+                            {m(children)}
                         </blockquote>
                     ),
                     a: ({ href, children }) => (
@@ -191,7 +211,7 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            {children}
+                            {m(children)}
                         </a>
                     ),
                 }}
