@@ -266,6 +266,15 @@ def run_migrations(conn):
         except Exception as e:
             print(f"   Migration warning for module_items.{col_name}: {e}", flush=True)
 
+    # Column to add to subject_resources table (full document text)
+    try:
+        if not column_exists("subject_resources", "full_content"):
+            alter_sql = text("ALTER TABLE subject_resources ADD COLUMN full_content TEXT DEFAULT ''")
+            conn.execute(alter_sql)
+            print("   Added column 'subject_resources.full_content'", flush=True)
+    except Exception as e:
+        print(f"   Migration warning for subject_resources.full_content: {e}", flush=True)
+
     print("✅ Migrations complete", flush=True)
 
 
