@@ -1,85 +1,103 @@
 "use client";
 
-import { useEffect, useRef, useState, useId } from "react";
+import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 
 interface MermaidDiagramProps {
     chart: string;
+    dark?: boolean;
     className?: string;
 }
 
-// Initialize mermaid with dark theme
+const darkThemeVars = {
+    primaryColor: "#00B8D4",
+    primaryTextColor: "#fff",
+    primaryBorderColor: "#26C6DA",
+    lineColor: "#6b7280",
+    secondaryColor: "#1E1E1E",
+    tertiaryColor: "#2A2A2A",
+    background: "#171717",
+    mainBkg: "#1E1E1E",
+    nodeBorder: "#26C6DA",
+    clusterBkg: "#2A2A2A",
+    clusterBorder: "#333333",
+    titleColor: "#F5F5F5",
+    edgeLabelBackground: "#1E1E1E",
+};
+
+const lightThemeVars = {
+    primaryColor: "#00838F",
+    primaryTextColor: "#1a1a1a",
+    primaryBorderColor: "#00B8D4",
+    lineColor: "#9ca3af",
+    secondaryColor: "#f3f4f6",
+    tertiaryColor: "#e5e7eb",
+    background: "#ffffff",
+    mainBkg: "#f9fafb",
+    nodeBorder: "#00B8D4",
+    clusterBkg: "#f3f4f6",
+    clusterBorder: "#d1d5db",
+    titleColor: "#111827",
+    edgeLabelBackground: "#f9fafb",
+};
+
+// Initialize with dark defaults
 mermaid.initialize({
     startOnLoad: false,
-    theme: "dark",
-    themeVariables: {
-        primaryColor: "#3b82f6",
-        primaryTextColor: "#fff",
-        primaryBorderColor: "#60a5fa",
-        lineColor: "#6b7280",
-        secondaryColor: "#1f2937",
-        tertiaryColor: "#374151",
-        background: "#111827",
-        mainBkg: "#1f2937",
-        nodeBorder: "#60a5fa",
-        clusterBkg: "#374151",
-        clusterBorder: "#4b5563",
-        titleColor: "#f3f4f6",
-        edgeLabelBackground: "#1f2937",
-    },
-    flowchart: {
-        htmlLabels: true,
-        curve: "basis",
-    },
+    theme: "base",
+    themeVariables: darkThemeVars,
+    flowchart: { htmlLabels: true, curve: "basis" },
     securityLevel: "loose",
 });
 
+// Module-level cache: "dark|light:chart" → rendered SVG
+const svgCache = new Map<string, string>();
+let idCounter = 0;
+let currentThemeIsDark = true;
+
+function applyTheme(dark: boolean) {
+    if (currentThemeIsDark === dark) return;
+    currentThemeIsDark = dark;
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: "base",
+        themeVariables: dark ? darkThemeVars : lightThemeVars,
+        flowchart: { htmlLabels: true, curve: "basis" },
+        securityLevel: "loose",
+    });
+}
+
 /**
  * Sanitize mermaid chart syntax so it works with mermaid v11+.
- *
- * LLMs frequently generate mermaid that uses unquoted special characters,
- * HTML entities, or markdown artefacts that choke the parser.
  */
 function sanitizeMermaidChart(raw: string): string {
     let s = raw.trim();
 
-    // Strip wrapping ```mermaid / ``` fences the LLM sometimes double-wraps
     s = s.replace(/^```mermaid\s*\n?/i, "").replace(/\n?```\s*$/, "");
-
-    // Remove zero-width spaces, BOM, and non-breaking spaces
     s = s.replace(/[\u200B\uFEFF\u00A0]/g, " ");
-
-    // Replace HTML entities that LLMs sometimes emit
     s = s.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
 
-    // Quote labels inside [...] that contain special chars and aren't already quoted
     s = s.replace(/(\w+)\[([^\]"]+)\]/g, (match, nodeId, label) => {
         if (/[:()|{}#;&]/.test(label)) return `${nodeId}["${label}"]`;
         return match;
     });
 
-    // Quote labels inside (...) that contain special chars and aren't already quoted
     s = s.replace(/(\w+)\(([^)"]+)\)/g, (match, nodeId, label) => {
-        // Skip arrow syntax like -->
         if (/^-/.test(nodeId)) return match;
         if (/[:|{}[\]#;&]/.test(label)) return `${nodeId}("${label}")`;
         return match;
     });
 
-    // Quote labels inside {...} that contain special chars and aren't already quoted
     s = s.replace(/(\w+)\{([^}"]+)\}/g, (match, nodeId, label) => {
         if (/[:()|[\]#;&]/.test(label)) return `${nodeId}{"${label}"}`;
         return match;
     });
 
-    // Quote unquoted edge labels: -- text --> or -- text ---
-    // Mermaid v11 requires edge labels be quoted when they contain special chars
     s = s.replace(/--\s+([^-|>"'\n][^->\n]*?)\s+(-->|---)/g, (match, label, arrow) => {
         if (label.startsWith('"') || label.startsWith("|")) return match;
         return `-- "${label.trim()}" ${arrow}`;
     });
 
-    // Quote pipe-delimited edge labels that contain special chars: |text|
     s = s.replace(/\|([^|"]+)\|/g, (match, label) => {
         if (/[:()"{}#;&]/.test(label)) return `|"${label}"|`;
         return match;
@@ -88,33 +106,50 @@ function sanitizeMermaidChart(raw: string): string {
     return s;
 }
 
-export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
+export function MermaidDiagram({ chart, dark = true, className = "" }: MermaidDiagramProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [svg, setSvg] = useState<string>("");
+    const cacheKey = `${dark ? "d" : "l"}:${chart.trim()}`;
+    const [svg, setSvg] = useState<string>(() => svgCache.get(cacheKey) ?? "");
     const [error, setError] = useState<string | null>(null);
-    const id = useId().replace(/:/g, "_");
 
     useEffect(() => {
+        if (svgCache.has(cacheKey)) {
+            setSvg(svgCache.get(cacheKey)!);
+            setError(null);
+            return;
+        }
+
         let cancelled = false;
+        const thisId = `mermaid-${++idCounter}`;
+
         const renderDiagram = async () => {
-            if (!chart.trim()) {
+            const trimmed = chart.trim();
+            if (!trimmed) {
                 setError("Empty diagram");
                 return;
             }
 
-            const sanitized = sanitizeMermaidChart(chart);
+            applyTheme(dark);
+            const sanitized = sanitizeMermaidChart(trimmed);
 
             try {
-                const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}`, sanitized);
-                if (!cancelled) { setSvg(renderedSvg); setError(null); }
+                const { svg: renderedSvg } = await mermaid.render(thisId, sanitized);
+                if (!cancelled) {
+                    svgCache.set(cacheKey, renderedSvg);
+                    setSvg(renderedSvg);
+                    setError(null);
+                }
             } catch {
-                // If sanitized version fails, try raw as fallback
                 try {
-                    const raw = chart.trim()
+                    const raw = trimmed
                         .replace(/^```mermaid\s*\n?/i, "")
                         .replace(/\n?```\s*$/, "");
-                    const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}-raw`, raw);
-                    if (!cancelled) { setSvg(renderedSvg); setError(null); }
+                    const { svg: renderedSvg } = await mermaid.render(`${thisId}-raw`, raw);
+                    if (!cancelled) {
+                        svgCache.set(cacheKey, renderedSvg);
+                        setSvg(renderedSvg);
+                        setError(null);
+                    }
                 } catch (err2) {
                     console.warn("Mermaid rendering error:", err2);
                     if (!cancelled) setError(err2 instanceof Error ? err2.message : "Failed to render diagram");
@@ -124,7 +159,7 @@ export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
 
         renderDiagram();
         return () => { cancelled = true; };
-    }, [chart, id]);
+    }, [chart, dark, cacheKey]);
 
     if (error) {
         return (
@@ -137,8 +172,8 @@ export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
 
     if (!svg) {
         return (
-            <div className={`bg-gray-800 rounded-lg p-4 animate-pulse ${className}`}>
-                <div className="h-32 flex items-center justify-center text-gray-500">
+            <div className={`${dark ? "bg-neutral-800" : "bg-gray-100"} rounded-lg p-4 animate-pulse ${className}`}>
+                <div className={`h-32 flex items-center justify-center ${dark ? "text-gray-500" : "text-gray-400"}`}>
                     Loading diagram...
                 </div>
             </div>
@@ -148,7 +183,7 @@ export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
     return (
         <div
             ref={containerRef}
-            className={`mermaid-container bg-gray-900/50 rounded-lg p-4 overflow-x-auto ${className}`}
+            className={`mermaid-container ${dark ? "bg-neutral-900/50" : "bg-gray-50"} rounded-lg p-4 overflow-x-auto ${className}`}
             dangerouslySetInnerHTML={{ __html: svg }}
         />
     );

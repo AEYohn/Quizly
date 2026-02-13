@@ -163,7 +163,7 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
                         const language = codeClassName?.replace("language-", "");
 
                         if (language === "mermaid") {
-                            return <MermaidDiagram chart={String(children)} className="my-3" />;
+                            return <MermaidDiagram chart={String(children)} dark={dark} className="my-3" />;
                         }
 
                         if (isInline) {
