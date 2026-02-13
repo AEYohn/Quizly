@@ -26,6 +26,9 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
     const mathBlocks: { id: string; html: string }[] = [];
     let processed = children;
 
+    // Unescape \$ → $ (Gemini escapes dollar signs in currency contexts)
+    processed = processed.replace(/\\\$/g, '$');
+
     // Replace $$...$$ (display math)
     processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, latex) => {
         const id = `%%MATH_${mathBlocks.length}%%`;

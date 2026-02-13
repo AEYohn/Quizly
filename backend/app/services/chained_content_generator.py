@@ -5,8 +5,7 @@ Each step uses output from previous steps as context, producing
 content tightly grounded in the user's uploaded materials.
 """
 
-import asyncio
-from typing import Dict, Any, Optional, List, Callable, Awaitable
+from typing import Dict, Optional, List, Callable, Awaitable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, update
@@ -16,8 +15,7 @@ from ..db_models_content_pool import ContentItem
 from ..ai_agents.study_notes_generator import StudyNotesGenerator
 from ..ai_agents.flashcard_generator import FlashcardGenerator
 from ..ai_agents.question_generator import QuestionBankGenerator
-from ..logging_config import get_logger, log_error
-from ..sentry_config import capture_exception
+from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 

@@ -229,7 +229,7 @@ async def start_session(
     result = await orchestrator.start_session(
         student_name=student_name,
         topic=request.topic,
-        student_id=request.student_id,
+        student_id=str(user.id) if user else None,
     )
     return result
 
@@ -671,7 +671,7 @@ async def scroll_start(
     result = await engine.start_feed(
         student_name=student_name,
         topic=request.topic,
-        student_id=request.student_id,
+        student_id=str(user.id) if user else None,
         notes=request.notes,
         preferences=prefs_dict,
         mode=feed_mode,
