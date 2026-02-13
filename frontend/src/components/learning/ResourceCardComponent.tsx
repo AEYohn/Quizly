@@ -77,7 +77,7 @@ export function ResourceCardComponent({
         },
     }[resourceType] ?? {
         label: "Resource",
-        color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+        color: "text-teal-400 bg-teal-500/10 border-teal-500/20",
         Icon: Globe,
     };
 
@@ -114,7 +114,7 @@ export function ResourceCardComponent({
                         />
                         {/* Play overlay */}
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center transition-colors group-hover:bg-black/30">
-                            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-lg shadow-teal-500/20">
                                 <Play className="w-6 h-6 text-white fill-white ml-0.5" />
                             </div>
                         </div>
@@ -127,11 +127,11 @@ export function ResourceCardComponent({
                     </button>
                 ) : (
                     /* Article / Tutorial header with domain */
-                    <div className="rounded-2xl border border-indigo-500/15 bg-gradient-to-br from-indigo-500/5 to-violet-500/5 p-5 shrink-0">
+                    <div className="rounded-2xl border border-teal-500/15 bg-gradient-to-br from-teal-500/5 to-teal-500/5 p-5 shrink-0">
                         {domain && (
                             <div className="flex items-center gap-1.5 mb-3">
-                                <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                                <span className="text-xs font-medium text-indigo-400 truncate">
+                                <Globe className="w-3.5 h-3.5 text-teal-400" />
+                                <span className="text-xs font-medium text-teal-400 truncate">
                                     {domain}
                                 </span>
                             </div>
@@ -189,15 +189,15 @@ export function ResourceCardComponent({
                     className={cn(
                         "w-full py-3.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98]",
                         opened
-                            ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
-                            : "bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20",
+                            ? "bg-teal-500/15 text-teal-300 border border-teal-500/30"
+                            : "bg-teal-600 text-white hover:bg-teal-500 shadow-lg shadow-teal-500/20",
                     )}
                 >
                     <span className="flex items-center justify-center gap-2">
                         <ExternalLink className="w-4 h-4" />
                         {opened ? "Opened" : `Open ${typeBadge.label}`}
                         {!opened && (
-                            <span className="text-[10px] text-indigo-200/70 font-normal">
+                            <span className="text-[10px] text-teal-200/70 font-normal">
                                 +{XP_OPEN} XP
                             </span>
                         )}

@@ -72,25 +72,12 @@ export function ActiveFeed({
     const hasNotes = notesData && notesData.total_notes > 0;
 
     return (
-        <div className="h-full flex flex-col bg-[#0a0820] relative">
-            {/* Subtle star dust background */}
-            <div
-                className="absolute inset-0 pointer-events-none opacity-50"
-                style={{
-                    background: `
-                        radial-gradient(1px 1px at 15% 20%, rgba(165,180,252,0.3) 50%, transparent 100%),
-                        radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.15) 50%, transparent 100%),
-                        radial-gradient(1px 1px at 75% 35%, rgba(165,180,252,0.2) 50%, transparent 100%),
-                        radial-gradient(1px 1px at 90% 80%, rgba(110,231,183,0.15) 50%, transparent 100%)
-                    `,
-                }}
-            />
-
+        <div className="h-full flex flex-col bg-[#131313] relative">
             {/* Header */}
-            <div className="relative z-10 shrink-0 flex items-center justify-between px-4 py-3 border-b border-indigo-500/10">
+            <div className="relative z-10 shrink-0 flex items-center justify-between px-4 py-3 border-b border-teal-500/10">
                 <button
                     onClick={onReset}
-                    className="p-2 -ml-2 rounded-xl hover:bg-indigo-500/10 text-indigo-300 transition-colors"
+                    className="p-2 -ml-2 rounded-xl hover:bg-teal-500/10 text-teal-300 transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -123,8 +110,8 @@ export function ActiveFeed({
                             className={cn(
                                 "p-2 rounded-xl transition-colors",
                                 showNotesPanel
-                                    ? "bg-indigo-500/20 text-indigo-200"
-                                    : "hover:bg-indigo-500/10 text-indigo-300/60",
+                                    ? "bg-teal-500/20 text-teal-200"
+                                    : "hover:bg-teal-500/10 text-teal-300/60",
                             )}
                         >
                             <BookOpen className="w-4 h-4" />
@@ -132,24 +119,24 @@ export function ActiveFeed({
                     )}
                     <button
                         onClick={onShowAnalytics}
-                        className="p-2 rounded-xl hover:bg-indigo-500/10 text-indigo-300/60 transition-colors"
+                        className="p-2 rounded-xl hover:bg-teal-500/10 text-teal-300/60 transition-colors"
                     >
                         <BarChart3 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={onOpenTuneSheet}
-                        className="p-2 rounded-xl hover:bg-indigo-500/10 text-indigo-300/60 transition-colors"
+                        className="p-2 rounded-xl hover:bg-teal-500/10 text-teal-300/60 transition-colors"
                     >
                         <Settings2 className="w-4 h-4" />
                     </button>
                 </div>
             </div>
 
-            {/* Card container with indigo vignette */}
+            {/* Card container with teal vignette */}
             <div className="relative z-10 flex-1 min-h-0 overflow-hidden">
-                {/* Indigo vignette edges */}
+                {/* Subtle vignette edges */}
                 <div className="absolute inset-0 pointer-events-none z-20" style={{
-                    background: "radial-gradient(ellipse at center, transparent 60%, rgba(49,46,129,0.15) 100%)",
+                    background: "radial-gradient(ellipse at center, transparent 60%, rgba(30,30,30,0.15) 100%)",
                 }} />
 
                 <div className="h-full">
@@ -188,11 +175,11 @@ export function ActiveFeed({
             </div>
 
             {/* Bottom bar: Signal X / Y+ . Frequency Level Z% */}
-            <div className="relative z-10 shrink-0 px-5 py-2.5 border-t border-indigo-500/10 flex items-center justify-between">
-                <span className="text-[11px] text-indigo-300/40 font-medium">
+            <div className="relative z-10 shrink-0 px-5 py-2.5 border-t border-teal-500/10 flex items-center justify-between">
+                <span className="text-[11px] text-teal-300/40 font-medium">
                     Card {currentIdx + 1} / {totalCards}+
                 </span>
-                <span className="text-[11px] text-indigo-300/40 font-medium">
+                <span className="text-[11px] text-teal-300/40 font-medium">
                     Level {difficultyPercent}%
                 </span>
             </div>
@@ -231,7 +218,7 @@ export function ActiveFeed({
             >
                 {notesLoading ? (
                     <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                        <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
                     </div>
                 ) : hasNotes ? (
                     <div className="space-y-6">
@@ -242,8 +229,8 @@ export function ActiveFeed({
                                     key={concept}
                                     ref={isCurrent ? currentConceptRef : undefined}
                                 >
-                                    <h3 className="text-sm font-bold text-indigo-200 mb-3 flex items-center gap-2">
-                                        <BookOpen className="w-4 h-4 text-indigo-400" />
+                                    <h3 className="text-sm font-bold text-teal-200 mb-3 flex items-center gap-2">
+                                        <BookOpen className="w-4 h-4 text-teal-400" />
                                         {concept}
                                         {isCurrent && (
                                             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/30 text-amber-200">
@@ -255,16 +242,16 @@ export function ActiveFeed({
                                         {notes.map((note) => (
                                             <div
                                                 key={note.id}
-                                                className="bg-indigo-950/40 border border-indigo-400/15 rounded-xl px-4 py-3"
+                                                className="bg-neutral-900/40 border border-teal-400/15 rounded-xl px-4 py-3"
                                             >
                                                 <h4 className="text-sm font-semibold text-white mb-2">{note.title}</h4>
-                                                <div className="text-sm text-indigo-100/80 leading-relaxed whitespace-pre-wrap">
+                                                <div className="text-sm text-teal-100/80 leading-relaxed whitespace-pre-wrap">
                                                     {note.body_markdown}
                                                 </div>
                                                 {note.key_takeaway && (
-                                                    <div className="mt-3 pt-2 border-t border-indigo-400/10">
-                                                        <p className="text-xs text-indigo-300/70">
-                                                            <span className="font-semibold text-indigo-300">Key takeaway:</span> {note.key_takeaway}
+                                                    <div className="mt-3 pt-2 border-t border-teal-400/10">
+                                                        <p className="text-xs text-teal-300/70">
+                                                            <span className="font-semibold text-teal-300">Key takeaway:</span> {note.key_takeaway}
                                                         </p>
                                                     </div>
                                                 )}
@@ -277,8 +264,8 @@ export function ActiveFeed({
                     </div>
                 ) : (
                     <div className="text-center py-12">
-                        <BookOpen className="w-10 h-10 text-indigo-400/30 mx-auto mb-3" />
-                        <p className="text-sm text-indigo-200/60">No study notes available for this topic yet.</p>
+                        <BookOpen className="w-10 h-10 text-teal-400/30 mx-auto mb-3" />
+                        <p className="text-sm text-teal-200/60">No study notes available for this topic yet.</p>
                     </div>
                 )}
             </BottomSheet>

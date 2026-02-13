@@ -147,16 +147,16 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
                         <h2 className={`text-lg font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>{m(children)}</h2>
                     ),
                     h3: ({ children }) => (
-                        <h3 className={`text-base font-semibold mb-2 ${dark ? "text-indigo-200" : "text-gray-800"}`}>{m(children)}</h3>
+                        <h3 className={`text-base font-semibold mb-2 ${dark ? "text-teal-200" : "text-gray-800"}`}>{m(children)}</h3>
                     ),
                     p: ({ children }) => (
-                        <p className={`mb-3 leading-relaxed ${dark ? "text-indigo-100/80" : "text-gray-700"}`}>{m(children)}</p>
+                        <p className={`mb-3 leading-relaxed ${dark ? "text-teal-100/80" : "text-gray-700"}`}>{m(children)}</p>
                     ),
                     strong: ({ children }) => (
                         <strong className={`font-semibold ${dark ? "text-white" : "text-gray-900"}`}>{m(children)}</strong>
                     ),
                     em: ({ children }) => (
-                        <em className={`italic ${dark ? "text-indigo-200" : "text-gray-700"}`}>{m(children)}</em>
+                        <em className={`italic ${dark ? "text-teal-200" : "text-gray-700"}`}>{m(children)}</em>
                     ),
                     code: ({ className: codeClassName, children }) => {
                         const isInline = !codeClassName;
@@ -168,7 +168,7 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
 
                         if (isInline) {
                             return (
-                                <code className={`px-1.5 py-0.5 rounded text-sm font-mono ${dark ? "bg-indigo-900/50 text-indigo-200" : "bg-gray-100 text-indigo-700"}`}>
+                                <code className={`px-1.5 py-0.5 rounded text-sm font-mono ${dark ? "bg-teal-900/50 text-teal-200" : "bg-gray-100 text-teal-700"}`}>
                                     {children}
                                 </code>
                             );
@@ -187,27 +187,27 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
                         </pre>
                     ),
                     ul: ({ children }) => (
-                        <ul className={`list-disc list-inside mb-3 space-y-1 ${dark ? "text-indigo-100/80" : "text-gray-700"}`}>
+                        <ul className={`list-disc list-inside mb-3 space-y-1 ${dark ? "text-teal-100/80" : "text-gray-700"}`}>
                             {children}
                         </ul>
                     ),
                     ol: ({ children }) => (
-                        <ol className={`list-decimal list-inside mb-3 space-y-1 ${dark ? "text-indigo-100/80" : "text-gray-700"}`}>
+                        <ol className={`list-decimal list-inside mb-3 space-y-1 ${dark ? "text-teal-100/80" : "text-gray-700"}`}>
                             {children}
                         </ol>
                     ),
                     li: ({ children }) => (
-                        <li className={dark ? "text-indigo-100/80" : "text-gray-700"}>{m(children)}</li>
+                        <li className={dark ? "text-teal-100/80" : "text-gray-700"}>{m(children)}</li>
                     ),
                     blockquote: ({ children }) => (
-                        <blockquote className={`border-l-4 pl-4 italic my-3 ${dark ? "border-indigo-400/30 text-indigo-200/60" : "border-indigo-300 text-gray-600"}`}>
+                        <blockquote className={`border-l-4 pl-4 italic my-3 ${dark ? "border-teal-400/30 text-teal-200/60" : "border-teal-300 text-gray-600"}`}>
                             {m(children)}
                         </blockquote>
                     ),
                     a: ({ href, children }) => (
                         <a
                             href={href}
-                            className={`underline ${dark ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-500"}`}
+                            className={`underline ${dark ? "text-teal-400 hover:text-teal-300" : "text-teal-600 hover:text-teal-500"}`}
                             target="_blank"
                             rel="noopener noreferrer"
                         >

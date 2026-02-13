@@ -415,7 +415,7 @@ export default function GameResultsPage() {
                 {!showInsights ? (
                     <div className="mb-8 rounded-2xl bg-gray-900 border border-gray-800 p-6 text-center">
                         <div className="mb-4 flex justify-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-500">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-teal-500">
                                 <Sparkles className="h-8 w-8 text-white" />
                             </div>
                         </div>
@@ -484,8 +484,8 @@ export default function GameResultsPage() {
 
                         {/* Calibration Analysis */}
                         {comprehensiveInsights.calibration && (
-                            <div className="rounded-2xl bg-indigo-500/10 border border-indigo-500/30 p-6">
-                                <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-indigo-400">
+                            <div className="rounded-2xl bg-teal-500/10 border border-teal-500/30 p-6">
+                                <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-teal-400">
                                     <BarChart2 className="h-5 w-5" />
                                     Confidence Calibration
                                 </h3>
@@ -511,7 +511,7 @@ export default function GameResultsPage() {
                                 </div>
                                 {comprehensiveInsights.calibration.flagged_responses.length > 0 && (
                                     <div className="mt-4">
-                                        <h4 className="text-sm font-medium text-indigo-300 mb-2">Students Needing Attention</h4>
+                                        <h4 className="text-sm font-medium text-teal-300 mb-2">Students Needing Attention</h4>
                                         <div className="space-y-2">
                                             {comprehensiveInsights.calibration.flagged_responses.slice(0, 3).map((r, idx) => (
                                                 <div key={idx} className="flex items-center justify-between text-sm p-2 rounded bg-gray-800">
@@ -533,8 +533,8 @@ export default function GameResultsPage() {
 
                         {/* Misconceptions */}
                         {comprehensiveInsights.misconceptions && comprehensiveInsights.misconceptions.most_common_mistakes.length > 0 && (
-                            <div className="rounded-2xl bg-purple-500/10 border border-purple-500/30 p-6">
-                                <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-purple-400">
+                            <div className="rounded-2xl bg-teal-500/10 border border-teal-500/30 p-6">
+                                <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-teal-400">
                                     <Lightbulb className="h-5 w-5" />
                                     Common Mistakes & Misconceptions
                                 </h3>
@@ -558,14 +558,14 @@ export default function GameResultsPage() {
                                     ))}
                                 </div>
                                 {comprehensiveInsights.misconceptions.misconception_clusters.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-purple-500/30">
-                                        <h4 className="text-sm font-medium text-purple-300 mb-2">Identified Misconception Patterns</h4>
+                                    <div className="mt-4 pt-4 border-t border-teal-500/30">
+                                        <h4 className="text-sm font-medium text-teal-300 mb-2">Identified Misconception Patterns</h4>
                                         {comprehensiveInsights.misconceptions.misconception_clusters.map((cluster, idx) => (
                                             <div key={idx} className="mb-2 p-3 rounded-lg bg-gray-800">
-                                                <div className="font-medium text-purple-300">{cluster.label}</div>
+                                                <div className="font-medium text-teal-300">{cluster.label}</div>
                                                 <div className="text-sm text-gray-400">{cluster.description}</div>
                                                 {cluster.suggested_intervention && (
-                                                    <div className="mt-1 text-sm text-purple-400 flex items-start gap-1">
+                                                    <div className="mt-1 text-sm text-teal-400 flex items-start gap-1">
                                                         <ArrowRight className="h-4 w-4 mt-0.5 flex-shrink-0" />
                                                         {cluster.suggested_intervention}
                                                     </div>
@@ -753,7 +753,7 @@ export default function GameResultsPage() {
                 <div className="flex justify-center gap-4">
                     <button
                         onClick={() => router.push(`/teacher/game/${gameId}/insights`)}
-                        className="flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-purple-700"
+                        className="flex items-center gap-2 rounded-full bg-teal-600 px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-teal-700"
                     >
                         <Brain className="h-5 w-5" />
                         View Misconception Insights

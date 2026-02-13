@@ -687,7 +687,7 @@ function NewQuizPageContent() {
                                 onClick={() => setShowSettings(!showSettings)}
                                 className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors border ${
                                     showSettings
-                                        ? "bg-purple-500/20 text-purple-400 border-purple-500/50"
+                                        ? "bg-teal-500/20 text-teal-400 border-teal-500/50"
                                         : "text-gray-400 border-gray-700 hover:bg-gray-800 hover:text-white"
                                 }`}
                             >
@@ -821,7 +821,7 @@ function NewQuizPageContent() {
                             {/* Question Behavior */}
                             <div className="space-y-4">
                                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                                    <Shuffle className="h-4 w-4 text-purple-400" />
+                                    <Shuffle className="h-4 w-4 text-teal-400" />
                                     Question Behavior
                                 </h3>
                                 <label className="flex items-center justify-between">
@@ -829,7 +829,7 @@ function NewQuizPageContent() {
                                     <button
                                         onClick={() => setQuizSettings(s => ({ ...s, shuffle_questions: !s.shuffle_questions }))}
                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                            quizSettings.shuffle_questions ? "bg-purple-500" : "bg-gray-600"
+                                            quizSettings.shuffle_questions ? "bg-teal-500" : "bg-gray-600"
                                         }`}
                                     >
                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -842,7 +842,7 @@ function NewQuizPageContent() {
                                     <button
                                         onClick={() => setQuizSettings(s => ({ ...s, shuffle_answers: !s.shuffle_answers }))}
                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                            quizSettings.shuffle_answers ? "bg-purple-500" : "bg-gray-600"
+                                            quizSettings.shuffle_answers ? "bg-teal-500" : "bg-gray-600"
                                         }`}
                                     >
                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -855,7 +855,7 @@ function NewQuizPageContent() {
                                     <button
                                         onClick={() => setQuizSettings(s => ({ ...s, allow_retries: !s.allow_retries }))}
                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                            quizSettings.allow_retries ? "bg-purple-500" : "bg-gray-600"
+                                            quizSettings.allow_retries ? "bg-teal-500" : "bg-gray-600"
                                         }`}
                                     >
                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -1034,7 +1034,7 @@ function NewQuizPageContent() {
                         <div className="flex-1 py-6 space-y-4 overflow-y-auto">
                             {messages.length === 0 && (
                                 <div className="text-center py-12">
-                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500">
+                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-teal-500">
                                         <Sparkles className="h-8 w-8 text-white" />
                                     </div>
                                     <h2 className="text-xl font-semibold text-white mb-2">

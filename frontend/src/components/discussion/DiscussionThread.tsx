@@ -34,7 +34,7 @@ export function DiscussionThread({
         <div className="bg-gray-800/30 border border-gray-700 rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
                 <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-indigo-500/30 flex items-center justify-center text-xs text-indigo-400 font-bold">
+                    <div className="w-6 h-6 rounded-full bg-teal-500/30 flex items-center justify-center text-xs text-teal-400 font-bold">
                         {peerName[0]}
                     </div>
                     <span className="text-sm font-medium text-gray-200">{peerName}</span>

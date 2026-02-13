@@ -91,7 +91,7 @@ export function CalibrationChart({ buckets, brierScore, overconfidenceIndex, tot
                     <path
                         d={pathD}
                         fill="none"
-                        stroke="#a78bfa"
+                        stroke="#26C6DA"
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -104,7 +104,7 @@ export function CalibrationChart({ buckets, brierScore, overconfidenceIndex, tot
                     <circle
                         key={i}
                         cx={p.x} cy={p.y} r="3.5"
-                        fill="#a78bfa"
+                        fill="#26C6DA"
                         stroke="#1e1b2e"
                         strokeWidth="1.5"
                     />
@@ -141,7 +141,7 @@ export function CalibrationChart({ buckets, brierScore, overconfidenceIndex, tot
             {/* Summary stats */}
             <div className="flex items-center justify-center gap-4 text-[11px]">
                 <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
                     <span className="text-gray-500">Brier</span>
                     <span className={cn(
                         "font-bold tabular-nums",

@@ -64,14 +64,14 @@ export function ProfilePanel() {
         <div className="h-full flex flex-col bg-gray-950 max-w-lg mx-auto w-full overflow-y-auto">
             {/* Header */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800/40 shrink-0">
-                <User className="w-5 h-5 text-violet-400" />
+                <User className="w-5 h-5 text-teal-400" />
                 <h1 className="text-lg font-bold text-gray-100 tracking-tight">Profile</h1>
             </div>
 
             <div className="flex-1 p-4 space-y-6">
                 {/* Avatar + name */}
                 <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-violet-500/20 border-2 border-violet-500/30 flex items-center justify-center text-2xl font-bold text-violet-300">
+                    <div className="w-16 h-16 rounded-full bg-teal-500/20 border-2 border-teal-500/30 flex items-center justify-center text-2xl font-bold text-teal-300">
                         {initial}
                     </div>
                     <div>
@@ -100,7 +100,7 @@ export function ProfilePanel() {
                             <div className="flex items-center gap-1.5 mb-2">
                                 <span className="text-[11px] text-gray-500 uppercase tracking-wide font-medium">Level</span>
                             </div>
-                            <div className="text-2xl font-bold text-violet-300 tabular-nums">{level}</div>
+                            <div className="text-2xl font-bold text-teal-300 tabular-nums">{level}</div>
                         </div>
                         <div className="p-4 rounded-2xl bg-gray-900/60 border border-gray-800/40">
                             <div className="flex items-center gap-1.5 mb-2">

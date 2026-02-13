@@ -129,7 +129,7 @@ function JoinGameContent() {
     };
 
     return (
-        <div className="flex min-h-dvh flex-col items-center justify-center bg-[#030712] p-6">
+        <div className="flex min-h-dvh flex-col items-center justify-center bg-[#0A0A0A] p-6">
             {/* Logo */}
             <div className="mb-8 text-center">
                 <div className="mb-4 flex items-center justify-center gap-3">
@@ -163,7 +163,7 @@ function JoinGameContent() {
                         <button
                             type="submit"
                             disabled={loading || gameCode.length < 4}
-                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 p-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-600 to-teal-600 p-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                         >
                             {loading ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -232,7 +232,7 @@ function JoinGameContent() {
 export default function JoinGamePage() {
     return (
         <Suspense fallback={
-            <div className="flex min-h-dvh items-center justify-center bg-[#030712]">
+            <div className="flex min-h-dvh items-center justify-center bg-[#0A0A0A]">
                 <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
             </div>
         }>

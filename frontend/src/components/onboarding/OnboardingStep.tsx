@@ -35,7 +35,7 @@ export function OnboardingStep({
                     isComplete
                         ? "bg-green-500/10 border-green-500/30"
                         : isCurrent
-                        ? "bg-indigo-500/10 border-indigo-500/50 shadow-lg shadow-indigo-500/10"
+                        ? "bg-teal-500/10 border-teal-500/50 shadow-lg shadow-teal-500/10"
                         : "bg-gray-800/50 border-gray-700/50 opacity-60"
                 }
             `}
@@ -49,7 +49,7 @@ export function OnboardingStep({
                             isComplete
                                 ? "bg-green-500/20"
                                 : isCurrent
-                                ? "bg-indigo-500/20"
+                                ? "bg-teal-500/20"
                                 : "bg-gray-700/50"
                         }
                     `}
@@ -59,7 +59,7 @@ export function OnboardingStep({
                     ) : (
                         <Icon
                             className={`w-5 h-5 ${
-                                isCurrent ? "text-indigo-400" : "text-gray-500"
+                                isCurrent ? "text-teal-400" : "text-gray-500"
                             }`}
                         />
                     )}
@@ -107,7 +107,7 @@ export function OnboardingStep({
                             onClick={action.onClick}
                             className="
                                 mt-3 inline-flex items-center gap-2 px-4 py-2
-                                bg-indigo-600 hover:bg-indigo-500
+                                bg-teal-600 hover:bg-teal-500
                                 text-white text-sm font-medium
                                 rounded-lg transition-colors
                             "

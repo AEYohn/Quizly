@@ -55,7 +55,7 @@ export function GuestConversionModal({ exitTicket, onClose, onSignUp }: GuestCon
                 </button>
 
                 {/* Gradient header */}
-                <div className="bg-gradient-to-br from-sky-600 via-purple-600 to-pink-600 p-6 text-center">
+                <div className="bg-gradient-to-br from-sky-600 via-teal-600 to-pink-600 p-6 text-center">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-4">
                         <Sparkles className="w-8 h-8 text-white" />
                     </div>
@@ -94,8 +94,8 @@ export function GuestConversionModal({ exitTicket, onClose, onSignUp }: GuestCon
 
                         {flashcardCount > 0 && (
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800 border border-gray-700">
-                                <div className="p-2 rounded-lg bg-purple-500/20">
-                                    <Layers className="w-5 h-5 text-purple-400" />
+                                <div className="p-2 rounded-lg bg-teal-500/20">
+                                    <Layers className="w-5 h-5 text-teal-400" />
                                 </div>
                                 <div>
                                     <p className="font-medium text-white">{flashcardCount} Flashcards</p>
@@ -121,7 +121,7 @@ export function GuestConversionModal({ exitTicket, onClose, onSignUp }: GuestCon
                     <div className="space-y-3">
                         <button
                             onClick={handleSignUp}
-                            className="w-full py-4 bg-gradient-to-r from-sky-600 to-purple-600 hover:from-sky-500 hover:to-purple-500 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-500 hover:to-teal-500 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2"
                         >
                             Save My Progress
                             <ArrowRight className="w-5 h-5" />

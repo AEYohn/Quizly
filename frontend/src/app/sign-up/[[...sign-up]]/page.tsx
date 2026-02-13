@@ -52,11 +52,11 @@ export default function SignUpPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <button
                             onClick={() => setSelectedRole("teacher")}
-                            className="group p-6 bg-gray-900 border border-gray-800 rounded-xl hover:border-violet-500 hover:bg-gray-800/50 transition-all duration-200"
+                            className="group p-6 bg-gray-900 border border-gray-800 rounded-xl hover:border-teal-500 hover:bg-gray-800/50 transition-all duration-200"
                         >
                             <div className="flex flex-col items-center text-center">
-                                <div className="w-16 h-16 bg-violet-600/20 rounded-full flex items-center justify-center mb-4 group-hover:bg-violet-600/30 transition-colors">
-                                    <GraduationCap className="w-8 h-8 text-violet-400" />
+                                <div className="w-16 h-16 bg-teal-600/20 rounded-full flex items-center justify-center mb-4 group-hover:bg-teal-600/30 transition-colors">
+                                    <GraduationCap className="w-8 h-8 text-teal-400" />
                                 </div>
                                 <h2 className="text-xl font-semibold text-white mb-2">I'm a Teacher</h2>
                                 <p className="text-gray-400 text-sm">
@@ -83,7 +83,7 @@ export default function SignUpPage() {
 
                     <p className="text-center text-gray-500 text-sm mt-6">
                         Already have an account?{" "}
-                        <a href="/sign-in" className="text-violet-400 hover:text-violet-300">
+                        <a href="/sign-in" className="text-teal-400 hover:text-teal-300">
                             Sign in
                         </a>
                     </p>
@@ -131,13 +131,13 @@ export default function SignUpPage() {
                             formFieldLabel: "text-gray-300",
                             formFieldInput: "bg-gray-800 border-gray-700 text-white",
                             formButtonPrimary: selectedRole === "teacher"
-                                ? "bg-violet-600 hover:bg-violet-700"
+                                ? "bg-teal-600 hover:bg-teal-700"
                                 : "bg-emerald-600 hover:bg-emerald-700",
-                            footerActionLink: "text-violet-400 hover:text-violet-300",
-                            identityPreviewEditButton: "text-violet-400",
+                            footerActionLink: "text-teal-400 hover:text-teal-300",
+                            identityPreviewEditButton: "text-teal-400",
                         },
                         variables: {
-                            colorPrimary: selectedRole === "teacher" ? "#7c3aed" : "#059669",
+                            colorPrimary: selectedRole === "teacher" ? "#00838F" : "#059669",
                             colorBackground: "#111827",
                             colorText: "#ffffff",
                             colorTextSecondary: "#9ca3af",

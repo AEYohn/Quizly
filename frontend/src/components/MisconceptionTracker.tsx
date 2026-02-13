@@ -29,7 +29,7 @@ const SEVERITY_CONFIG = {
 };
 
 const CATEGORY_CONFIG: Record<string, { icon: typeof AlertTriangle; color: string }> = {
-    conceptual: { icon: Target, color: "text-purple-400" },
+    conceptual: { icon: Target, color: "text-teal-400" },
     procedural: { icon: AlertTriangle, color: "text-blue-400" },
     careless: { icon: AlertTriangle, color: "text-yellow-400" },
     incomplete: { icon: AlertTriangle, color: "text-orange-400" },

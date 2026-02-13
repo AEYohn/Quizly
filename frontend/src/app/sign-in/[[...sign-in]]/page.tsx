@@ -30,12 +30,12 @@ export default function SignInPage() {
                             dividerText: "text-gray-500",
                             formFieldLabel: "text-gray-300",
                             formFieldInput: "bg-gray-800 border-gray-700 text-white",
-                            formButtonPrimary: "bg-violet-600 hover:bg-violet-700",
-                            footerActionLink: "text-violet-400 hover:text-violet-300",
-                            identityPreviewEditButton: "text-violet-400",
+                            formButtonPrimary: "bg-teal-600 hover:bg-teal-700",
+                            footerActionLink: "text-teal-400 hover:text-teal-300",
+                            identityPreviewEditButton: "text-teal-400",
                         },
                         variables: {
-                            colorPrimary: "#7c3aed",
+                            colorPrimary: "#00838F",
                             colorBackground: "#111827",
                             colorText: "#ffffff",
                             colorTextSecondary: "#9ca3af",
@@ -50,7 +50,7 @@ export default function SignInPage() {
                 />
                 <p className="text-center text-gray-500 text-sm mt-6">
                     Don't have an account?{" "}
-                    <a href="/sign-up" className="text-violet-400 hover:text-violet-300">
+                    <a href="/sign-up" className="text-teal-400 hover:text-teal-300">
                         Sign up
                     </a>
                 </p>

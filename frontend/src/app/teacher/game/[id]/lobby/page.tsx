@@ -317,7 +317,7 @@ export default function GameLobbyPage() {
                                     className="flex items-center gap-3 rounded-xl bg-gray-800 p-3 animate-in fade-in slide-in-from-bottom-2"
                                     style={{ animationDelay: `${index * 50}ms` }}
                                 >
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 text-lg font-bold text-white">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-teal-500 text-lg font-bold text-white">
                                         {player.avatar || player.nickname?.[0]?.toUpperCase() || "?"}
                                     </div>
                                     <span className="truncate font-medium text-white">

@@ -166,10 +166,10 @@ export function PeerMatchingCard({ data, className, onAssignPair }: PeerMatching
         <Card className={className}>
             <div className="mb-4 flex items-center justify-between">
                 <h3 className="flex items-center gap-2 font-semibold text-gray-900">
-                    <Users className="h-5 w-5 text-indigo-600" />
+                    <Users className="h-5 w-5 text-teal-600" />
                     Smart Peer Pairs
                 </h3>
-                <Badge variant="purple">{pairs.length} pairs</Badge>
+                <Badge variant="teal">{pairs.length} pairs</Badge>
             </div>
 
             {pairs.length === 0 ? (
@@ -183,7 +183,7 @@ export function PeerMatchingCard({ data, className, onAssignPair }: PeerMatching
                             key={i}
                             className={clsx(
                                 "rounded-lg border p-3",
-                                pair.priority === "high" ? "border-indigo-200 bg-indigo-50" : "border-gray-200 bg-gray-50"
+                                pair.priority === "high" ? "border-teal-200 bg-teal-50" : "border-gray-200 bg-gray-50"
                             )}
                         >
                             <div className="flex items-center justify-between">
@@ -287,7 +287,7 @@ interface SessionPulseProps {
 export function SessionPulseCard({ data, className }: SessionPulseProps) {
     const actionColors = {
         move_on: "success",
-        peer_discuss: "purple",
+        peer_discuss: "teal",
         reteach: "danger",
         clarify: "warning",
         waiting: "default",
@@ -305,7 +305,7 @@ export function SessionPulseCard({ data, className }: SessionPulseProps) {
         <Card className={className}>
             <div className="mb-4 flex items-center justify-between">
                 <h3 className="flex items-center gap-2 font-semibold text-gray-900">
-                    <TrendingUp className="h-5 w-5 text-indigo-600" />
+                    <TrendingUp className="h-5 w-5 text-teal-600" />
                     Class Pulse
                 </h3>
                 <Badge variant={actionColors[data.recommended_action]} dot pulse>
@@ -347,11 +347,11 @@ export function SessionPulseCard({ data, className }: SessionPulseProps) {
                         return (
                             <div
                                 key={answer}
-                                className="flex-1 rounded-lg bg-indigo-100 p-2 text-center"
+                                className="flex-1 rounded-lg bg-teal-100 p-2 text-center"
                                 style={{ opacity: 0.3 + percentage / 100 * 0.7 }}
                             >
-                                <div className="text-sm font-bold text-indigo-700">{answer}</div>
-                                <div className="text-xs text-indigo-600">{count}</div>
+                                <div className="text-sm font-bold text-teal-700">{answer}</div>
+                                <div className="text-xs text-teal-600">{count}</div>
                             </div>
                         );
                     })}
@@ -391,7 +391,7 @@ export function DiscussionQualityCard({ data, className }: DiscussionQualityProp
         <Card className={className}>
             <div className="mb-4 flex items-center justify-between">
                 <h3 className="flex items-center gap-2 font-semibold text-gray-900">
-                    <MessageCircle className="h-5 w-5 text-indigo-600" />
+                    <MessageCircle className="h-5 w-5 text-teal-600" />
                     Discussion Quality
                 </h3>
                 <Badge variant={qualityColors[data.quality_level]}>
@@ -413,7 +413,7 @@ export function DiscussionQualityCard({ data, className }: DiscussionQualityProp
                         <span className="text-gray-500">Engagement</span>
                         <span className="font-medium">{Math.round(data.engagement_score * 100)}%</span>
                     </div>
-                    <Progress value={data.engagement_score * 100} color="purple" size="sm" />
+                    <Progress value={data.engagement_score * 100} color="teal" size="sm" />
                 </div>
             </div>
 
@@ -428,7 +428,7 @@ export function DiscussionQualityCard({ data, className }: DiscussionQualityProp
                         <Badge variant="success">📝 Examples ({data.learning_signals.gave_example})</Badge>
                     )}
                     {data.learning_signals.self_corrected > 0 && (
-                        <Badge variant="purple">🔄 Self-Corrected ({data.learning_signals.self_corrected})</Badge>
+                        <Badge variant="teal">🔄 Self-Corrected ({data.learning_signals.self_corrected})</Badge>
                     )}
                     {data.learning_signals.expressed_insight > 0 && (
                         <Badge variant="warning">💡 Aha! ({data.learning_signals.expressed_insight})</Badge>

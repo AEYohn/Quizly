@@ -10,7 +10,7 @@
  * - Animated gradient mesh background (CSS only)
  * - Glassmorphism panels with backdrop-blur
  * - Outfit font (geometric, modern, clean)
- * - Teal/cyan accent on deep purple-black
+ * - Teal/cyan accent on deep teal-black
  * - Generous whitespace, centered layout
  * - Shimmer CTA button
  */
@@ -112,7 +112,7 @@ export default function DesignAPage() {
         <div className={cn(outfit.variable, "min-h-screen relative overflow-hidden")} style={{ fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
             {/* Animated mesh gradient background */}
             <div className="fixed inset-0 -z-10">
-                <div className="absolute inset-0 bg-[#060918]" />
+                <div className="absolute inset-0 bg-[#111111]" />
                 <div
                     className="absolute inset-0 opacity-60"
                     style={{

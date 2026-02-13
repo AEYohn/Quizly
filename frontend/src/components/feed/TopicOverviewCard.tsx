@@ -15,8 +15,8 @@ export function TopicOverviewCard({ card, onStart }: TopicOverviewCardProps) {
     return (
         <div className="flex flex-col items-center justify-center h-full px-6 py-12">
             {/* Icon */}
-            <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center mb-5">
-                <BookOpen className="w-8 h-8 text-indigo-500" />
+            <div className="w-16 h-16 rounded-2xl bg-teal-100 flex items-center justify-center mb-5">
+                <BookOpen className="w-8 h-8 text-teal-500" />
             </div>
 
             {/* Topic name */}
@@ -50,7 +50,7 @@ export function TopicOverviewCard({ card, onStart }: TopicOverviewCardProps) {
             {/* Start button */}
             <button
                 onClick={onStart}
-                className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-sm px-6 py-3 rounded-xl transition-colors"
+                className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white font-semibold text-sm px-6 py-3 rounded-xl transition-colors"
             >
                 Start Learning
                 <ArrowRight className="w-4 h-4" />

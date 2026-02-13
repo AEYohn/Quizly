@@ -570,7 +570,7 @@ export default function StudentDashboard() {
 
             <main className="mx-auto max-w-6xl px-6 py-8">
                 {/* Join with Code */}
-                <div className="mb-8 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 p-6 text-white shadow-xl">
+                <div className="mb-8 rounded-2xl bg-gradient-to-r from-sky-600 to-teal-600 p-6 text-white shadow-xl">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h2 className="text-xl font-bold mb-1">Join a Live Game</h2>
@@ -920,7 +920,7 @@ export default function StudentDashboard() {
                                 className="w-full mb-4 flex items-center justify-between text-left"
                             >
                                 <h2 className="flex items-center gap-2 text-lg font-bold text-white">
-                                    <BarChart3 className="h-5 w-5 text-purple-400" />
+                                    <BarChart3 className="h-5 w-5 text-teal-400" />
                                     My Progress
                                 </h2>
                                 <div className="flex items-center gap-2 text-gray-400">
@@ -961,7 +961,7 @@ export default function StudentDashboard() {
                                             </p>
                                         </div>
                                         <div className="rounded-xl bg-gray-800/50 border border-gray-700 p-4">
-                                            <div className="flex items-center gap-2 text-purple-400 mb-1">
+                                            <div className="flex items-center gap-2 text-teal-400 mb-1">
                                                 <Trophy className="h-4 w-4" />
                                                 <span className="text-xs font-medium">Quizzes</span>
                                             </div>

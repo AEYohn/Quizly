@@ -192,7 +192,7 @@ export default function GameResultsPage() {
 
                 {/* Player's Result Highlight */}
                 {playerEntry && (
-                    <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-sky-500/20 to-indigo-500/20 border border-sky-500/30">
+                    <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-sky-500/20 to-teal-500/20 border border-sky-500/30">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="p-3 bg-sky-500/30 rounded-xl">

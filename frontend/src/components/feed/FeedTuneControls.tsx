@@ -123,7 +123,7 @@ export function FeedTuneControls({ mode }: FeedTuneControlsProps) {
                         className={cn(
                             "text-[11px] font-medium px-2 py-0.5 rounded-full transition-colors",
                             isAutoMode
-                                ? "bg-violet-500/10 text-violet-400 border border-violet-500/20"
+                                ? "bg-teal-500/10 text-teal-400 border border-teal-500/20"
                                 : "bg-gray-800 text-gray-500 border border-gray-700",
                         )}
                     >
@@ -138,7 +138,7 @@ export function FeedTuneControls({ mode }: FeedTuneControlsProps) {
                             max={100}
                             value={Math.round((preferences.difficulty ?? 0.5) * 100)}
                             onChange={(e) => setPreferences({ difficulty: parseInt(e.target.value) / 100 })}
-                            className="w-full accent-violet-500 h-1.5"
+                            className="w-full accent-teal-500 h-1.5"
                         />
                         <div className="flex justify-between text-[10px] text-gray-600">
                             <span>Easy</span>
@@ -160,7 +160,7 @@ export function FeedTuneControls({ mode }: FeedTuneControlsProps) {
                             className={cn(
                                 "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors border",
                                 (activePreset === key && key !== "CUSTOM") || (key === "CUSTOM" && showCustomSliders)
-                                    ? "bg-violet-500/10 text-violet-300 border-violet-500/30"
+                                    ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
                                     : "bg-gray-800/60 text-gray-400 border-gray-700/50 hover:border-gray-600",
                             )}
                         >
@@ -173,7 +173,7 @@ export function FeedTuneControls({ mode }: FeedTuneControlsProps) {
                 {(showCustomSliders || activePreset === "CUSTOM") && (
                     <div className="mt-3 space-y-2.5">
                         {([
-                            { key: "mcq" as const, label: "Quiz Questions", color: "accent-violet-500" },
+                            { key: "mcq" as const, label: "Quiz Questions", color: "accent-teal-500" },
                             { key: "flashcard" as const, label: "Flashcards", color: "accent-amber-500" },
                             { key: "info_card" as const, label: "Info Cards", color: "accent-sky-500" },
                         ]).map(({ key, label, color }) => (
@@ -207,7 +207,7 @@ export function FeedTuneControls({ mode }: FeedTuneControlsProps) {
                             className={cn(
                                 "px-3 py-1.5 rounded-xl text-xs font-medium transition-colors border",
                                 preferences.questionStyle === value
-                                    ? "bg-violet-500/10 text-violet-300 border-violet-500/30"
+                                    ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
                                     : "bg-gray-800/60 text-gray-400 border-gray-700/50 hover:border-gray-600",
                             )}
                         >

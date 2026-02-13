@@ -44,7 +44,7 @@ export function StudentNav() {
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-2">
                         <span className="text-2xl">🎓</span>
-                        <span className="text-lg font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                        <span className="text-lg font-bold bg-gradient-to-r from-teal-400 to-teal-400 bg-clip-text text-transparent">
                             Quizly
                         </span>
                     </Link>
@@ -59,7 +59,7 @@ export function StudentNav() {
                                     href={item.href}
                                     className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                                         isActive(item.href)
-                                            ? "bg-indigo-500/20 text-indigo-400"
+                                            ? "bg-teal-500/20 text-teal-400"
                                             : "text-gray-400 hover:bg-gray-800 hover:text-white"
                                     }`}
                                 >
@@ -150,7 +150,7 @@ export function StudentNav() {
                                     href={item.href}
                                     className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                                         isActive(item.href)
-                                            ? "bg-indigo-500/20 text-indigo-400"
+                                            ? "bg-teal-500/20 text-teal-400"
                                             : "text-gray-400 hover:bg-gray-800 hover:text-white"
                                     }`}
                                     onClick={() => setIsMenuOpen(false)}

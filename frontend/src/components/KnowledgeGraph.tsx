@@ -280,10 +280,10 @@ export function KnowledgeGraph({ concepts, className = "" }: KnowledgeGraphProps
 
             {/* Recommendations */}
             {recommendations.length > 0 && (
-                <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/30">
+                <div className="p-4 rounded-lg bg-teal-500/10 border border-teal-500/30">
                     <div className="flex items-center gap-2 mb-3">
-                        <Lightbulb className="h-4 w-4 text-purple-400" />
-                        <span className="text-sm font-medium text-purple-400">Recommended Focus Areas</span>
+                        <Lightbulb className="h-4 w-4 text-teal-400" />
+                        <span className="text-sm font-medium text-teal-400">Recommended Focus Areas</span>
                     </div>
                     <div className="space-y-2">
                         {recommendations.map(concept => (

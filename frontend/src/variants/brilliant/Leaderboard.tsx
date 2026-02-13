@@ -36,17 +36,17 @@ export function Leaderboard({
         `${e.rank}-${e.student_name}-${idx ?? 0}`;
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-[#050510] via-[#0a0820] to-[#050515] relative overflow-y-auto">
+        <div className="h-full flex flex-col bg-gradient-to-b from-[#0F0F0F] via-[#131313] to-[#0F0F0F] relative overflow-y-auto">
             {/* Star field background */}
             <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                     background: `
                         radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.3) 50%, transparent 100%),
-                        radial-gradient(1px 1px at 30% 55%, rgba(165,180,252,0.25) 50%, transparent 100%),
+                        radial-gradient(1px 1px at 30% 55%, rgba(77,208,225,0.25) 50%, transparent 100%),
                         radial-gradient(1px 1px at 55% 25%, rgba(255,255,255,0.2) 50%, transparent 100%),
                         radial-gradient(1px 1px at 75% 65%, rgba(251,191,36,0.15) 50%, transparent 100%),
-                        radial-gradient(1px 1px at 90% 35%, rgba(165,180,252,0.2) 50%, transparent 100%),
+                        radial-gradient(1px 1px at 90% 35%, rgba(77,208,225,0.2) 50%, transparent 100%),
                         radial-gradient(1px 1px at 45% 85%, rgba(255,255,255,0.15) 50%, transparent 100%)
                     `,
                 }}
@@ -57,12 +57,12 @@ export function Leaderboard({
                 <div className="text-center space-y-1">
                     <div className="flex items-center justify-center gap-2">
                         <Trophy className="w-5 h-5 text-amber-400" />
-                        <h1 className="text-xl font-bold text-gray-100">Star Rankings</h1>
+                        <h1 className="text-xl font-bold text-gray-100">Leaderboard</h1>
                     </div>
-                    <p className="text-xs text-indigo-300/40">{totalPlayers} explorers competing</p>
+                    <p className="text-xs text-teal-300/40">{totalPlayers} learners active</p>
                 </div>
 
-                {/* Period tabs with indigo active state */}
+                {/* Period tabs with teal active state */}
                 <div className="flex gap-2 justify-center">
                     {(["weekly", "alltime"] as const).map((p) => (
                         <button
@@ -71,8 +71,8 @@ export function Leaderboard({
                             className={cn(
                                 "px-5 py-2 rounded-xl text-sm font-medium transition-all border",
                                 period === p
-                                    ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-                                    : "bg-transparent text-indigo-300/40 border-indigo-500/10 hover:border-indigo-500/20",
+                                    ? "bg-teal-500/15 text-teal-300 border-teal-500/30 shadow-[0_0_15px_rgba(0,184,212,0.15)]"
+                                    : "bg-transparent text-teal-300/40 border-teal-500/10 hover:border-teal-500/20",
                             )}
                         >
                             {PERIOD_LABELS[p]}
@@ -82,7 +82,7 @@ export function Leaderboard({
 
                 {isLoading ? (
                     <div className="flex items-center justify-center py-16">
-                        <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                        <Loader2 className="w-6 h-6 text-teal-400 animate-spin" />
                     </div>
                 ) : (
                     <>
@@ -151,22 +151,22 @@ export function Leaderboard({
                                         className={cn(
                                             "flex items-center gap-3 px-4 py-3 rounded-xl border transition-all",
                                             entry.is_current_user
-                                                ? "bg-indigo-500/10 border-indigo-500/20"
-                                                : "bg-[#0d0b25]/60 border-indigo-500/5",
+                                                ? "bg-teal-500/10 border-teal-500/20"
+                                                : "bg-[#1A1A1A]/60 border-teal-500/5",
                                         )}
                                     >
-                                        <span className="text-sm font-bold text-indigo-300/40 w-8 text-center shrink-0">
+                                        <span className="text-sm font-bold text-teal-300/40 w-8 text-center shrink-0">
                                             {entry.rank}
                                         </span>
-                                        <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-sm font-bold text-indigo-300 shrink-0">
+                                        <div className="w-8 h-8 rounded-full bg-teal-500/10 border border-teal-500/15 flex items-center justify-center text-sm font-bold text-teal-300 shrink-0">
                                             {entry.student_name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm font-medium text-gray-200 truncate">
                                                 {entry.student_name}
                                             </div>
-                                            <div className="text-[10px] text-indigo-300/30">
-                                                {entry.sessions_played} voyages &middot; {entry.accuracy}% accuracy
+                                            <div className="text-[10px] text-teal-300/30">
+                                                {entry.sessions_played} sessions &middot; {entry.accuracy}% accuracy
                                             </div>
                                         </div>
                                         <span className="text-sm font-bold text-amber-400/80 shrink-0">{entry.total_xp}</span>
@@ -177,11 +177,11 @@ export function Leaderboard({
 
                         {/* Current user footer if not in visible list */}
                         {currentUserEntry && !entries.find((e) => e.is_current_user) && (
-                            <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                                <span className="text-sm font-bold text-indigo-300 w-8 text-center shrink-0">
+                            <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-teal-500/10 border border-teal-500/20">
+                                <span className="text-sm font-bold text-teal-300 w-8 text-center shrink-0">
                                     {currentUserEntry.rank}
                                 </span>
-                                <div className="w-8 h-8 rounded-full bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-sm font-bold text-indigo-300 shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-sm font-bold text-teal-300 shrink-0">
                                     {currentUserEntry.student_name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -194,7 +194,7 @@ export function Leaderboard({
                         )}
 
                         {entries.length === 0 && (
-                            <div className="text-center py-12 text-indigo-300/30 text-sm">
+                            <div className="text-center py-12 text-teal-300/30 text-sm">
                                 No rankings yet. Be the first explorer!
                             </div>
                         )}

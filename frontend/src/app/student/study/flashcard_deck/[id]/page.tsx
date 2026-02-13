@@ -157,7 +157,7 @@ export default function FlashcardStudyPage() {
     if (loading || authLoading) {
         return (
             <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
             </div>
         );
     }
@@ -174,7 +174,7 @@ export default function FlashcardStudyPage() {
                     </p>
                     <Link
                         href="/student/library"
-                        className="text-purple-400 hover:text-purple-300"
+                        className="text-teal-400 hover:text-teal-300"
                     >
                         Back to Library
                     </Link>
@@ -211,7 +211,7 @@ export default function FlashcardStudyPage() {
                                 onClick={shuffleCards}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
                                     shuffled
-                                        ? "bg-purple-600 text-white"
+                                        ? "bg-teal-600 text-white"
                                         : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                                 }`}
                                 title="Shuffle cards"
@@ -270,7 +270,7 @@ export default function FlashcardStudyPage() {
                             </button>
                             <Link
                                 href="/student/library"
-                                className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium transition-colors"
+                                className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 rounded-xl font-medium transition-colors"
                             >
                                 Back to Library
                             </Link>
@@ -299,8 +299,8 @@ export default function FlashcardStudyPage() {
                                 </div>
 
                                 {/* Back of card */}
-                                <div className="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-purple-900/50 to-gray-900 border border-purple-700/50 rounded-2xl p-8 flex flex-col items-center justify-center shadow-2xl">
-                                    <span className="absolute top-4 left-4 text-xs font-medium text-purple-400 uppercase tracking-wider">
+                                <div className="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-teal-900/50 to-gray-900 border border-teal-700/50 rounded-2xl p-8 flex flex-col items-center justify-center shadow-2xl">
+                                    <span className="absolute top-4 left-4 text-xs font-medium text-teal-400 uppercase tracking-wider">
                                         Back
                                     </span>
                                     <p className="text-2xl md:text-3xl font-medium text-center leading-relaxed">
@@ -328,7 +328,7 @@ export default function FlashcardStudyPage() {
                             <button
                                 onClick={nextCard}
                                 disabled={isAtEnd}
-                                className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-medium transition-colors"
+                                className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-medium transition-colors"
                             >
                                 Next
                                 <ChevronRight className="w-5 h-5" />

@@ -322,7 +322,7 @@ export default function PublicPracticePage() {
                 <main className="max-w-3xl mx-auto px-4 py-8">
                     {/* Score Summary */}
                     <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-sky-600 to-purple-600 mb-4">
+                        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-sky-600 to-teal-600 mb-4">
                             <Trophy className="w-12 h-12 text-white" />
                         </div>
                         <h2 className="text-2xl font-bold mb-2">Great Job, {studentName}!</h2>

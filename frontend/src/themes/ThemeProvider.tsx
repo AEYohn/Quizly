@@ -7,15 +7,15 @@ interface ThemeContextType {
     variant: VariantName;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ variant: "cosmic" });
+const ThemeContext = createContext<ThemeContextType>({ variant: "brilliant" });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
-        document.documentElement.setAttribute("data-variant", "cosmic");
+        document.documentElement.setAttribute("data-variant", "brilliant");
     }, []);
 
     return (
-        <ThemeContext.Provider value={{ variant: "cosmic" }}>
+        <ThemeContext.Provider value={{ variant: "brilliant" }}>
             {children}
         </ThemeContext.Provider>
     );

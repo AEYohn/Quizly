@@ -232,7 +232,7 @@ function FilterChip({
             className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors",
                 active
-                    ? "bg-purple-600 text-white"
+                    ? "bg-teal-600 text-white"
                     : "bg-gray-800 text-gray-400 hover:bg-gray-700"
             )}
         >
@@ -352,7 +352,7 @@ export default function HistoryPage() {
     if (loading && !studentName) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-gray-950">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
             </div>
         );
     }
@@ -409,7 +409,7 @@ export default function HistoryPage() {
                     <div className="space-y-3">
                         {loading && sessions.length === 0 ? (
                             <div className="flex justify-center py-12">
-                                <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+                                <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
                             </div>
                         ) : sessions.length === 0 ? (
                             <div className="text-center py-12">
@@ -484,7 +484,7 @@ export default function HistoryPage() {
 
                         {loading && questions.length === 0 ? (
                             <div className="flex justify-center py-12">
-                                <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+                                <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
                             </div>
                         ) : questions.length === 0 ? (
                             <div className="text-center py-12">

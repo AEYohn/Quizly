@@ -395,7 +395,7 @@ export function ExitTicketCard({ ticket, onAnswer, compact = false }: ExitTicket
                                             <div className="space-y-4">
                                                 <div
                                                     onClick={() => setShowFlashcardBack(!showFlashcardBack)}
-                                                    className="cursor-pointer min-h-[150px] rounded-lg bg-gradient-to-br from-sky-600 to-purple-600 p-6 flex items-center justify-center text-center transition-transform hover:scale-[1.02]"
+                                                    className="cursor-pointer min-h-[150px] rounded-lg bg-gradient-to-br from-sky-600 to-teal-600 p-6 flex items-center justify-center text-center transition-transform hover:scale-[1.02]"
                                                 >
                                                     <div>
                                                         <p className="text-xs text-white/70 mb-2">

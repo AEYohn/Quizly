@@ -92,8 +92,8 @@ export default function PracticeRecommendations({
         <div className="max-w-lg mx-auto">
             {/* Header */}
             <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-purple-500/20 mb-3">
-                    <Target className="h-6 w-6 text-purple-400" />
+                <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-teal-500/20 mb-3">
+                    <Target className="h-6 w-6 text-teal-400" />
                 </div>
                 <h2 className="text-xl font-bold text-white mb-2">Practice Recommendations</h2>
                 <p className="text-sm text-gray-400">
@@ -124,7 +124,7 @@ export default function PracticeRecommendations({
                 </div>
                 <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div
-                        className="h-full bg-purple-500 rounded-full transition-all duration-300"
+                        className="h-full bg-teal-500 rounded-full transition-all duration-300"
                         style={{ width: `${((currentIndex + (showResult ? 1 : 0)) / questions.length) * 100}%` }}
                     />
                 </div>
@@ -134,7 +134,7 @@ export default function PracticeRecommendations({
             {currentQuestion && (
                 <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 mb-4">
                     <div className="mb-4">
-                        <span className="inline-block rounded-full bg-purple-500/20 px-2.5 py-1 text-xs text-purple-400 mb-3">
+                        <span className="inline-block rounded-full bg-teal-500/20 px-2.5 py-1 text-xs text-teal-400 mb-3">
                             {currentQuestion.concept}
                         </span>
                         <p className="text-white font-medium">{currentQuestion.question_text}</p>
@@ -162,8 +162,8 @@ export default function PracticeRecommendations({
                                     textColor = "text-red-400";
                                 }
                             } else if (isSelected) {
-                                bgColor = "bg-purple-500/20";
-                                borderColor = "border-purple-500";
+                                bgColor = "bg-teal-500/20";
+                                borderColor = "border-teal-500";
                             }
 
                             return (
@@ -214,7 +214,7 @@ export default function PracticeRecommendations({
                         <button
                             onClick={handleSubmit}
                             disabled={!selectedAnswer}
-                            className="flex-1 rounded-xl bg-purple-600 py-3 font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="flex-1 rounded-xl bg-teal-600 py-3 font-medium text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             Check Answer
                         </button>

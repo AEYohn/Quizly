@@ -70,20 +70,20 @@ function StatusIcon({ state }: { state: NodeState }) {
             );
         case "recommended":
             return (
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/15">
-                    <Sparkles className="w-3.5 h-3.5 text-violet-300" />
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-teal-500/15">
+                    <Sparkles className="w-3.5 h-3.5 text-teal-300" />
                 </div>
             );
         case "in_progress":
             return (
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/10">
-                    <Circle className="w-3.5 h-3.5 text-violet-400" strokeWidth={2.5} />
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-teal-500/10">
+                    <Circle className="w-3.5 h-3.5 text-teal-400" strokeWidth={2.5} />
                 </div>
             );
         default: // ready
             return (
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/10 border border-violet-500/20">
-                    <Circle className="w-3 h-3 text-violet-500" strokeWidth={2} />
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-teal-500/10 border border-teal-500/20">
+                    <Circle className="w-3 h-3 text-teal-500" strokeWidth={2} />
                 </div>
             );
     }
@@ -95,8 +95,8 @@ function StatusIcon({ state }: { state: NodeState }) {
 
 function masteryBarColor(state: NodeState, m: number): string {
     if (state === "mastered") return "bg-emerald-400";
-    if (state === "recommended") return "bg-violet-400";
-    if (m > 0) return "bg-violet-500";
+    if (state === "recommended") return "bg-teal-400";
+    if (m > 0) return "bg-teal-500";
     return "bg-gray-700";
 }
 
@@ -174,7 +174,7 @@ export function SkillTreePath({
             className="h-full flex flex-col overflow-hidden relative"
             style={{
                 background:
-                    "linear-gradient(180deg, #08070f 0%, #0d0b1a 30%, #0a0918 60%, #060510 100%)",
+                    "linear-gradient(180deg, #111111 0%, #171717 30%, #131313 60%, #060510 100%)",
             }}
         >
             {/* Atmospheric dot grid overlay */}
@@ -224,7 +224,7 @@ export function SkillTreePath({
                     {resourceCount > 0 && (
                         <button
                             onClick={onManageResources}
-                            className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/15 transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium text-teal-400 bg-teal-500/10 border border-teal-500/20 hover:bg-teal-500/15 transition-colors"
                         >
                             {resourceCount} {resourceCount === 1 ? "doc" : "docs"}
                         </button>
@@ -235,8 +235,8 @@ export function SkillTreePath({
                         className={cn(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors border",
                             isUploading
-                                ? "text-violet-400 border-violet-500/20 bg-violet-500/10 animate-pulse"
-                                : "text-violet-300 border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20",
+                                ? "text-teal-400 border-teal-500/20 bg-teal-500/10 animate-pulse"
+                                : "text-teal-300 border-teal-500/20 bg-teal-500/10 hover:bg-teal-500/20",
                         )}
                     >
                         {isUploading ? (
@@ -284,7 +284,7 @@ export function SkillTreePath({
                             background:
                                 totalMastery >= 80
                                     ? "linear-gradient(90deg, #059669, #34d399)"
-                                    : "linear-gradient(90deg, #6d28d9, #8b5cf6, #a78bfa)",
+                                    : "linear-gradient(90deg, #006064, #00B8D4, #26C6DA)",
                         }}
                     >
                         <div
@@ -302,15 +302,15 @@ export function SkillTreePath({
             {/* Hint banner when no resources uploaded */}
             {resourceCount === 0 && !hintDismissed && (
                 <div className="relative z-10 mx-5 mb-3 shrink-0">
-                    <div className="rounded-xl bg-violet-500/8 border border-violet-500/15 px-4 py-3 flex items-start gap-3">
-                        <Sparkles className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
+                    <div className="rounded-xl bg-teal-500/8 border border-teal-500/15 px-4 py-3 flex items-start gap-3">
+                        <Sparkles className="w-4 h-4 text-teal-400 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
-                            <p className="text-[12px] text-violet-200/80 leading-relaxed">
+                            <p className="text-[12px] text-teal-200/80 leading-relaxed">
                                 Upload your syllabus or notes to get questions tailored to your course
                             </p>
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-500 px-3 py-1.5 rounded-lg transition-colors"
+                                className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-white bg-teal-600 hover:bg-teal-500 px-3 py-1.5 rounded-lg transition-colors"
                             >
                                 <FileUp className="w-3.5 h-3.5" />
                                 Upload Materials
@@ -331,7 +331,7 @@ export function SkillTreePath({
                 className="h-px mx-5 shrink-0"
                 style={{
                     background:
-                        "linear-gradient(90deg, transparent, rgba(139,92,246,0.15), transparent)",
+                        "linear-gradient(90deg, transparent, rgba(0,184,212,0.15), transparent)",
                 }}
             />
 
@@ -395,7 +395,7 @@ export function SkillTreePath({
                                                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all",
                                                         "hover:bg-white/[0.03] active:scale-[0.98] cursor-pointer",
                                                         state === "recommended" &&
-                                                            "bg-violet-500/[0.06] border border-violet-500/15",
+                                                            "bg-teal-500/[0.06] border border-teal-500/15",
                                                     )}
                                                 >
                                                     {/* Status icon */}
@@ -410,14 +410,14 @@ export function SkillTreePath({
                                                                     state === "mastered"
                                                                         ? "text-emerald-300/80"
                                                                         : state === "recommended"
-                                                                          ? "text-violet-200"
+                                                                          ? "text-teal-200"
                                                                           : "text-gray-300",
                                                                 )}
                                                             >
                                                                 {topic.name}
                                                             </span>
                                                             {peers > 0 && (
-                                                                <span className="flex items-center gap-0.5 text-[9px] font-bold text-violet-400 bg-violet-500/15 px-1.5 py-0.5 rounded-full shrink-0">
+                                                                <span className="flex items-center gap-0.5 text-[9px] font-bold text-teal-400 bg-teal-500/15 px-1.5 py-0.5 rounded-full shrink-0">
                                                                     <Users className="w-2.5 h-2.5" />
                                                                     {peers}
                                                                 </span>
@@ -440,7 +440,7 @@ export function SkillTreePath({
                                                             {m > 0 && (
                                                                 <span className={cn(
                                                                     "text-[10px] font-bold tabular-nums shrink-0",
-                                                                    m >= 80 ? "text-emerald-400" : "text-violet-400",
+                                                                    m >= 80 ? "text-emerald-400" : "text-teal-400",
                                                                 )}>
                                                                     {m}%
                                                                 </span>
@@ -485,12 +485,12 @@ export function SkillTreePath({
                     className={cn(
                         "absolute bottom-6 right-4 z-30",
                         "flex items-center gap-2 px-4 py-2.5 rounded-full",
-                        "bg-gradient-to-r from-indigo-600 to-violet-600",
+                        "bg-gradient-to-r from-teal-600 to-teal-600",
                         "text-white text-sm font-bold shadow-xl",
-                        "hover:from-indigo-500 hover:to-violet-500 transition-all",
-                        "border border-indigo-400/30",
+                        "hover:from-teal-500 hover:to-teal-500 transition-all",
+                        "border border-teal-400/30",
                     )}
-                    style={{ boxShadow: "0 4px 24px rgba(99,102,241,0.4)" }}
+                    style={{ boxShadow: "0 4px 24px rgba(0,184,212,0.4)" }}
                 >
                     <BarChart3 className="w-4 h-4" />
                     Analysis

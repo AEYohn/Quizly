@@ -32,7 +32,7 @@ function StarBurst({ show }: { show: boolean }) {
                         key={i}
                         className="absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-full bg-amber-400"
                         style={{
-                            animation: `cosmic-burst 0.8s ${delay}ms ease-out forwards`,
+                            animation: `correct-burst 0.8s ${delay}ms ease-out forwards`,
                             transform: "translate(-50%, -50%)",
                             opacity: 0,
                             ["--tx" as string]: `${tx}px`,
@@ -42,7 +42,7 @@ function StarBurst({ show }: { show: boolean }) {
                 );
             })}
             <style>{`
-                @keyframes cosmic-burst {
+                @keyframes correct-burst {
                     0% { opacity: 1; transform: translate(-50%, -50%) scale(0); }
                     50% { opacity: 0.8; transform: translate(calc(-50% + var(--tx) / 2), calc(-50% + var(--ty) / 2)) scale(1.5); }
                     100% { opacity: 0; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.5); }
@@ -112,7 +112,7 @@ export function CosmicQuizCard({
 
             {/* Concept badge */}
             <div className="flex items-center gap-2 mb-4 shrink-0">
-                <span className="text-[11px] font-medium text-indigo-300/40 tracking-wide uppercase">
+                <span className="text-[11px] font-medium text-teal-300/40 tracking-wide uppercase">
                     {card.concept}
                 </span>
             </div>
@@ -139,10 +139,10 @@ export function CosmicQuizCard({
                             onClick={() => handleOptionSelect(option)}
                             disabled={isAnswered}
                             className={cn(
-                                "w-full text-left px-4 py-3.5 rounded-2xl border transition-all duration-300",
+                                "w-full text-left px-4 py-3.5 rounded-2xl border transition-all duration-300 overflow-hidden",
                                 "flex items-start gap-3",
-                                !isAnswered && !isSelected && "border-indigo-500/15 bg-[#0d0b25]/80 hover:border-indigo-500/30 hover:bg-indigo-500/5",
-                                !isAnswered && isSelected && "border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.15)]",
+                                !isAnswered && !isSelected && "border-teal-500/15 bg-[#1A1A1A]/80 hover:border-teal-500/30 hover:bg-teal-500/5",
+                                !isAnswered && isSelected && "border-teal-500/50 bg-teal-500/10 shadow-[0_0_20px_rgba(0,184,212,0.15)]",
                                 isCorrect && "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)]",
                                 isWrong && "border-red-500/40 bg-red-500/10",
                                 isAnswered && !isCorrect && !isWrong && "opacity-50",
@@ -151,8 +151,8 @@ export function CosmicQuizCard({
                             <span
                                 className={cn(
                                     "shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border transition-all",
-                                    !isAnswered && !isSelected && "border-indigo-500/20 text-indigo-400/60 bg-indigo-500/5",
-                                    !isAnswered && isSelected && "border-indigo-500/40 text-indigo-300 bg-indigo-500/15",
+                                    !isAnswered && !isSelected && "border-teal-500/20 text-teal-400/60 bg-teal-500/5",
+                                    !isAnswered && isSelected && "border-teal-500/40 text-teal-300 bg-teal-500/15",
                                     isCorrect && "border-emerald-500/40 text-emerald-300 bg-emerald-500/15",
                                     isWrong && "border-red-500/40 text-red-300 bg-red-500/15",
                                 )}
@@ -162,7 +162,7 @@ export function CosmicQuizCard({
                             <RichText
                                 text={stripPrefix(option)}
                                 className={cn(
-                                    "text-sm leading-relaxed pt-0.5",
+                                    "text-sm leading-relaxed pt-0.5 min-w-0 flex-1 break-words [overflow-wrap:anywhere]",
                                     !isAnswered && "text-gray-300",
                                     isCorrect && "text-emerald-200",
                                     isWrong && "text-red-200",
@@ -185,8 +185,8 @@ export function CosmicQuizCard({
                             className={cn(
                                 "w-full py-3.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.98]",
                                 selectedOption
-                                    ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.25)]"
-                                    : "bg-[#0d0b25] text-indigo-400/30 border border-indigo-500/10 cursor-not-allowed",
+                                    ? "bg-gradient-to-r from-teal-600 to-teal-500 text-white hover:from-teal-500 hover:to-teal-400 shadow-[0_0_20px_rgba(0,184,212,0.25)]"
+                                    : "bg-[#1A1A1A] text-teal-400/30 border border-teal-500/10 cursor-not-allowed",
                             )}
                         >
                             Check Answer
@@ -195,7 +195,7 @@ export function CosmicQuizCard({
                         {/* Help link */}
                         <button
                             onClick={onHelp}
-                            className="w-full flex items-center justify-center gap-1.5 text-xs text-indigo-400/40 hover:text-indigo-400/70 transition-colors py-1"
+                            className="w-full flex items-center justify-center gap-1.5 text-xs text-teal-400/40 hover:text-teal-400/70 transition-colors py-1"
                         >
                             <HelpCircle className="w-3.5 h-3.5" />
                             I don&apos;t know — help me think through it
@@ -220,7 +220,7 @@ export function CosmicQuizCard({
 
                         {/* Explanation panel */}
                         {card.explanation && (
-                            <div className="rounded-xl bg-[#0d0b25] border-l-2 border-indigo-500/40 px-4 py-3">
+                            <div className="rounded-xl bg-[#1A1A1A] border-l-2 border-teal-500/40 px-4 py-3">
                                 <Explanation text={card.explanation} />
                             </div>
                         )}
@@ -228,7 +228,7 @@ export function CosmicQuizCard({
                         {/* Continue button */}
                         <button
                             onClick={onNext}
-                            className="w-full py-3.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-500 hover:to-indigo-400 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(99,102,241,0.2)]"
+                            className="w-full py-3.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-teal-600 to-teal-500 text-white hover:from-teal-500 hover:to-teal-400 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(0,184,212,0.2)]"
                         >
                             <span className="flex items-center justify-center gap-2">
                                 Continue

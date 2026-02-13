@@ -228,7 +228,7 @@ function ParameterEditor({
                             onClick={() => onModeChange("ai")}
                             className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
                                 parameterMode === "ai"
-                                    ? "bg-purple-600 text-white"
+                                    ? "bg-teal-600 text-white"
                                     : "text-gray-400 hover:bg-gray-700"
                             }`}
                         >
@@ -250,7 +250,7 @@ function ParameterEditor({
                     {parameterMode === "ai" && (
                         <button
                             onClick={onDetectFromCode}
-                            className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-purple-400 hover:bg-purple-900/30 transition-colors"
+                            className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-teal-400 hover:bg-teal-900/30 transition-colors"
                         >
                             <Code2 className="h-3 w-3" />
                             Detect from Code
@@ -284,7 +284,7 @@ function ParameterEditor({
                                 onChange={(e) => updateParameter(index, "name", e.target.value)}
                                 placeholder="name"
                                 disabled={parameterMode === "ai"}
-                                className={`w-28 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs font-mono text-gray-200 focus:border-purple-400 focus:outline-none ${
+                                className={`w-28 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs font-mono text-gray-200 focus:border-teal-400 focus:outline-none ${
                                     parameterMode === "ai" ? "opacity-60 cursor-not-allowed" : ""
                                 }`}
                             />
@@ -292,7 +292,7 @@ function ParameterEditor({
                                 value={param.type}
                                 onChange={(e) => updateParameter(index, "type", e.target.value)}
                                 disabled={parameterMode === "ai"}
-                                className={`w-36 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-200 focus:border-purple-400 focus:outline-none ${
+                                className={`w-36 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-200 focus:border-teal-400 focus:outline-none ${
                                     parameterMode === "ai" ? "opacity-60 cursor-not-allowed" : ""
                                 }`}
                             >
@@ -308,7 +308,7 @@ function ParameterEditor({
                                 onChange={(e) => updateParameter(index, "description", e.target.value)}
                                 placeholder="Description (optional)"
                                 disabled={parameterMode === "ai"}
-                                className={`flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-200 focus:border-purple-400 focus:outline-none ${
+                                className={`flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-200 focus:border-teal-400 focus:outline-none ${
                                     parameterMode === "ai" ? "opacity-60 cursor-not-allowed" : ""
                                 }`}
                             />
@@ -418,7 +418,7 @@ function StructuredTestCaseEditor({
                                 value={getInputValue(param.name)}
                                 onChange={(e) => updateInput(param.name, e.target.value)}
                                 placeholder={param.type.startsWith("list") ? "e.g. [1, 2, 3]" : param.type === "int" ? "e.g. 42" : param.type === "string" ? 'e.g. "hello"' : "value"}
-                                className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none"
+                                className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 font-mono text-xs text-gray-200 focus:border-teal-400 focus:outline-none"
                             />
                             <span className="text-[10px] text-gray-500 w-20">{param.type}</span>
                         </div>
@@ -432,7 +432,7 @@ function StructuredTestCaseEditor({
                             value={testCase.expected_output}
                             onChange={(e) => onUpdate("expected_output", e.target.value)}
                             placeholder="Expected output"
-                            className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none"
+                            className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1.5 font-mono text-xs text-gray-200 focus:border-teal-400 focus:outline-none"
                         />
                     </div>
                 </div>
@@ -444,7 +444,7 @@ function StructuredTestCaseEditor({
                         <textarea
                             value={testCase.input_data}
                             onChange={(e) => onUpdate("input_data", e.target.value)}
-                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
+                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-teal-400 focus:outline-none resize-none"
                             rows={2}
                         />
                     </div>
@@ -453,7 +453,7 @@ function StructuredTestCaseEditor({
                         <textarea
                             value={testCase.expected_output}
                             onChange={(e) => onUpdate("expected_output", e.target.value)}
-                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
+                            className="w-full rounded border border-gray-700 bg-gray-800 p-2 font-mono text-xs text-gray-200 focus:border-teal-400 focus:outline-none resize-none"
                             rows={2}
                         />
                     </div>
@@ -919,11 +919,11 @@ export default function NewCodingProblemPage() {
         >
             {/* Drop overlay */}
             {dragOver && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-purple-600/90 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-teal-600/90 backdrop-blur-sm">
                     <div className="text-center text-white">
                         <Upload className="mx-auto h-16 w-16 mb-4 animate-bounce" />
                         <p className="text-2xl font-bold">Drop to add files</p>
-                        <p className="text-purple-200 mt-2">Images, PDFs, screenshots</p>
+                        <p className="text-teal-200 mt-2">Images, PDFs, screenshots</p>
                     </div>
                 </div>
             )}
@@ -940,7 +940,7 @@ export default function NewCodingProblemPage() {
                                 <ArrowLeft className="h-5 w-5" />
                             </button>
                             <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-pink-500">
                                     <Code2 className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
@@ -954,7 +954,7 @@ export default function NewCodingProblemPage() {
                             <select
                                 value={difficulty}
                                 onChange={(e) => setDifficulty(e.target.value)}
-                                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-400 focus:outline-none"
+                                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-none"
                             >
                                 <option value="easy">Easy</option>
                                 <option value="medium">Medium</option>
@@ -963,7 +963,7 @@ export default function NewCodingProblemPage() {
                             <select
                                 value={language}
                                 onChange={(e) => setLanguage(e.target.value)}
-                                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-400 focus:outline-none"
+                                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-none"
                             >
                                 <option value="python">Python</option>
                                 <option value="javascript">JavaScript</option>
@@ -975,7 +975,7 @@ export default function NewCodingProblemPage() {
                                 <button
                                     onClick={() => setMode("ai")}
                                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                                        mode === "ai" ? "bg-purple-600 text-white" : "text-gray-400 hover:bg-gray-700"
+                                        mode === "ai" ? "bg-teal-600 text-white" : "text-gray-400 hover:bg-gray-700"
                                     }`}
                                 >
                                     <Sparkles className="h-4 w-4" />
@@ -1014,7 +1014,7 @@ export default function NewCodingProblemPage() {
                         <div className="flex-1 py-6 space-y-4 overflow-y-auto">
                             {messages.length === 0 && (
                                 <div className="text-center py-12">
-                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-pink-500">
                                         <Code2 className="h-8 w-8 text-white" />
                                     </div>
                                     <h2 className="text-xl font-semibold text-white mb-2">
@@ -1034,7 +1034,7 @@ export default function NewCodingProblemPage() {
                                             <button
                                                 key={suggestion}
                                                 onClick={() => setChatInput(suggestion)}
-                                                className="rounded-full bg-gray-800 px-4 py-2 text-sm text-gray-300 border border-gray-700 hover:border-purple-500 hover:bg-gray-700 transition-colors"
+                                                className="rounded-full bg-gray-800 px-4 py-2 text-sm text-gray-300 border border-gray-700 hover:border-teal-500 hover:bg-gray-700 transition-colors"
                                             >
                                                 {suggestion}
                                             </button>
@@ -1064,7 +1064,7 @@ export default function NewCodingProblemPage() {
                                         )}
                                         <div className={`rounded-2xl px-4 py-3 ${
                                             msg.role === "user"
-                                                ? "bg-purple-600 text-white"
+                                                ? "bg-teal-600 text-white"
                                                 : "bg-gray-800 border border-gray-700 text-gray-200"
                                         }`}>
                                             {msg.content}
@@ -1137,7 +1137,7 @@ export default function NewCodingProblemPage() {
                                 <button
                                     onClick={handleSubmit}
                                     disabled={generating || (!chatInput.trim() && pendingFiles.length === 0)}
-                                    className="rounded-xl bg-purple-600 p-2.5 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    className="rounded-xl bg-teal-600 p-2.5 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     <Send className="h-5 w-5" />
                                 </button>
@@ -1164,7 +1164,7 @@ export default function NewCodingProblemPage() {
                             </p>
                             <button
                                 onClick={addManualProblem}
-                                className="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 font-medium text-white hover:bg-purple-700 transition-colors mx-auto"
+                                className="flex items-center gap-2 rounded-xl bg-teal-600 px-6 py-3 font-medium text-white hover:bg-teal-700 transition-colors mx-auto"
                             >
                                 <Plus className="h-5 w-5" />
                                 Add Coding Problem
@@ -1244,7 +1244,7 @@ export default function NewCodingProblemPage() {
                                                     <textarea
                                                         value={problem.description}
                                                         onChange={(e) => updateProblem(problem.id, { description: e.target.value })}
-                                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:border-purple-400 focus:outline-none resize-none font-mono"
+                                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:border-teal-400 focus:outline-none resize-none font-mono"
                                                         rows={6}
                                                         placeholder="Describe the problem, include examples..."
                                                     />
@@ -1256,7 +1256,7 @@ export default function NewCodingProblemPage() {
                                                     <textarea
                                                         value={problem.constraints}
                                                         onChange={(e) => updateProblem(problem.id, { constraints: e.target.value })}
-                                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:border-purple-400 focus:outline-none resize-none"
+                                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:border-teal-400 focus:outline-none resize-none"
                                                         rows={2}
                                                         placeholder="e.g., 1 <= n <= 10^5"
                                                     />
@@ -1327,7 +1327,7 @@ export default function NewCodingProblemPage() {
                                                         ))}
                                                         <button
                                                             onClick={() => addTestCase(problem.id)}
-                                                            className="w-full rounded-lg border-2 border-dashed border-gray-700 py-2 text-sm text-gray-500 hover:border-purple-500 hover:text-purple-400 transition-colors"
+                                                            className="w-full rounded-lg border-2 border-dashed border-gray-700 py-2 text-sm text-gray-500 hover:border-teal-500 hover:text-teal-400 transition-colors"
                                                         >
                                                             <Plus className="inline h-4 w-4 mr-1" />
                                                             Add Test Case

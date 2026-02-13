@@ -138,17 +138,17 @@ export function FamiliarityAssessment({
 
     if (phase === "self_rating") {
         return (
-            <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#050510] to-[#0a0820] overflow-y-auto">
+            <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#0F0F0F] to-[#131313] overflow-y-auto">
                 <div className="min-h-full flex flex-col items-center px-4 py-8">
                     {/* Header */}
                     <div className="text-center mb-8 max-w-lg">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 mb-4">
-                            <Brain className="w-7 h-7 text-indigo-400" />
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-teal-500/15 border border-teal-400/20 mb-4">
+                            <Brain className="w-7 h-7 text-teal-400" />
                         </div>
                         <h1 className="text-2xl font-bold text-white mb-2">
                             How familiar are you with {subject}?
                         </h1>
-                        <p className="text-sm text-indigo-300/70">
+                        <p className="text-sm text-teal-300/70">
                             Rate your familiarity with each concept so we can personalize your
                             learning path.
                         </p>
@@ -156,7 +156,7 @@ export function FamiliarityAssessment({
 
                     {/* Progress Bar */}
                     <div className="w-full max-w-lg mb-6">
-                        <div className="flex items-center justify-between text-xs text-indigo-300/60 mb-2">
+                        <div className="flex items-center justify-between text-xs text-teal-300/60 mb-2">
                             <span>
                                 {ratedCount} of {totalConcepts} rated
                             </span>
@@ -167,9 +167,9 @@ export function FamiliarityAssessment({
                                 %
                             </span>
                         </div>
-                        <div className="h-1.5 bg-indigo-950/50 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-neutral-900/50 rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-500 ease-out"
+                                className="h-full bg-gradient-to-r from-teal-500 to-teal-400 rounded-full transition-all duration-500 ease-out"
                                 style={{
                                     width: `${totalConcepts > 0 ? (ratedCount / totalConcepts) * 100 : 0}%`,
                                 }}
@@ -182,9 +182,9 @@ export function FamiliarityAssessment({
                         {Object.entries(groupedByUnit).map(([unitName, items]) => (
                             <div
                                 key={unitName}
-                                className="bg-indigo-950/50 border border-indigo-400/15 rounded-2xl p-5"
+                                className="bg-neutral-900/50 border border-teal-400/15 rounded-2xl p-5"
                             >
-                                <h2 className="text-sm font-semibold text-indigo-300 mb-4">
+                                <h2 className="text-sm font-semibold text-teal-300 mb-4">
                                     {unitName}
                                 </h2>
                                 <div className="space-y-4">
@@ -195,7 +195,7 @@ export function FamiliarityAssessment({
                                                     {item.concept}
                                                 </span>
                                                 {ratings[item.concept] != null && (
-                                                    <span className="text-xs text-indigo-400/70">
+                                                    <span className="text-xs text-teal-400/70">
                                                         {RATING_LABELS[ratings[item.concept]!]}
                                                     </span>
                                                 )}
@@ -210,8 +210,8 @@ export function FamiliarityAssessment({
                                                         className={cn(
                                                             "flex-1 py-2 rounded-lg text-xs font-medium transition-all border",
                                                             ratings[item.concept] === level
-                                                                ? "bg-indigo-500 text-white border-indigo-400 shadow-lg shadow-indigo-500/20"
-                                                                : "bg-indigo-950/30 text-indigo-300/60 border-indigo-400/20 hover:border-indigo-400/40 hover:text-indigo-200"
+                                                                ? "bg-teal-500 text-white border-teal-400 shadow-lg shadow-teal-500/20"
+                                                                : "bg-neutral-900/30 text-teal-300/60 border-teal-400/20 hover:border-teal-400/40 hover:text-teal-200"
                                                         )}
                                                         title={RATING_LABELS[level]}
                                                     >
@@ -222,10 +222,10 @@ export function FamiliarityAssessment({
                                             {/* Rating scale labels for first concept in each group */}
                                             {items.indexOf(item) === 0 && (
                                                 <div className="flex justify-between mt-1.5 px-1">
-                                                    <span className="text-[10px] text-indigo-400/40">
+                                                    <span className="text-[10px] text-teal-400/40">
                                                         Never heard of it
                                                     </span>
-                                                    <span className="text-[10px] text-indigo-400/40">
+                                                    <span className="text-[10px] text-teal-400/40">
                                                         Can teach it
                                                     </span>
                                                 </div>
@@ -245,8 +245,8 @@ export function FamiliarityAssessment({
                             className={cn(
                                 "w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2",
                                 allRated
-                                    ? "bg-indigo-500 text-white hover:bg-indigo-400 shadow-lg shadow-indigo-500/25"
-                                    : "bg-indigo-950/50 text-indigo-400/40 border border-indigo-400/10 cursor-not-allowed"
+                                    ? "bg-teal-500 text-white hover:bg-teal-400 shadow-lg shadow-teal-500/25"
+                                    : "bg-neutral-900/50 text-teal-400/40 border border-teal-400/10 cursor-not-allowed"
                             )}
                         >
                             {isLoading ? (
@@ -263,7 +263,7 @@ export function FamiliarityAssessment({
                             <button
                                 onClick={onSkip}
                                 disabled={isLoading}
-                                className="w-full py-2 text-xs text-indigo-400/50 hover:text-indigo-300 transition-colors flex items-center justify-center gap-1.5"
+                                className="w-full py-2 text-xs text-teal-400/50 hover:text-teal-300 transition-colors flex items-center justify-center gap-1.5"
                             >
                                 <SkipForward className="w-3.5 h-3.5" />
                                 Skip Assessment
@@ -284,28 +284,28 @@ export function FamiliarityAssessment({
         if (!currentQuestion) return null;
 
         return (
-            <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#050510] to-[#0a0820] overflow-y-auto">
+            <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#0F0F0F] to-[#131313] overflow-y-auto">
                 <div className="min-h-full flex flex-col items-center justify-center px-4 py-8">
                     {/* Header */}
                     <div className="text-center mb-8 max-w-lg">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/15 border border-violet-400/20 mb-4">
-                            <Star className="w-7 h-7 text-violet-400" />
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-teal-500/15 border border-teal-400/20 mb-4">
+                            <Star className="w-7 h-7 text-teal-400" />
                         </div>
                         <h1 className="text-xl font-bold text-white mb-1">
                             Quick Diagnostic Quiz
                         </h1>
-                        <p className="text-sm text-indigo-300/60">
+                        <p className="text-sm text-teal-300/60">
                             Answer a few questions to fine-tune your starting point.
                         </p>
                     </div>
 
                     {/* Progress Indicator */}
                     <div className="w-full max-w-md mb-6">
-                        <div className="flex items-center justify-between text-xs text-indigo-300/60 mb-2">
+                        <div className="flex items-center justify-between text-xs text-teal-300/60 mb-2">
                             <span>
                                 Question {currentQuestionIndex + 1} of {totalQuestions}
                             </span>
-                            <span className="text-xs text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">
+                            <span className="text-xs text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full">
                                 {currentQuestion.concept}
                             </span>
                         </div>
@@ -316,10 +316,10 @@ export function FamiliarityAssessment({
                                     className={cn(
                                         "flex-1 h-1 rounded-full transition-all duration-300",
                                         i < currentQuestionIndex
-                                            ? "bg-violet-400"
+                                            ? "bg-teal-400"
                                             : i === currentQuestionIndex
-                                              ? "bg-indigo-500"
-                                              : "bg-indigo-950/50"
+                                              ? "bg-teal-500"
+                                              : "bg-neutral-900/50"
                                     )}
                                 />
                             ))}
@@ -327,7 +327,7 @@ export function FamiliarityAssessment({
                     </div>
 
                     {/* Question Card */}
-                    <div className="w-full max-w-md bg-indigo-950/50 border border-indigo-400/15 rounded-2xl p-6">
+                    <div className="w-full max-w-md bg-neutral-900/50 border border-teal-400/15 rounded-2xl p-6">
                         <p className="text-gray-100 text-sm leading-relaxed font-medium mb-5">
                             {currentQuestion.question}
                         </p>
@@ -345,8 +345,8 @@ export function FamiliarityAssessment({
                                         className={cn(
                                             "w-full text-left px-4 py-3 rounded-xl border text-sm transition-all flex items-center gap-3",
                                             isSelected
-                                                ? "border-indigo-400 bg-indigo-500/20 ring-1 ring-indigo-400"
-                                                : "border-indigo-400/20 bg-indigo-950/30 hover:border-indigo-400/40 hover:bg-indigo-900/30",
+                                                ? "border-teal-400 bg-teal-500/20 ring-1 ring-teal-400"
+                                                : "border-teal-400/20 bg-neutral-900/30 hover:border-teal-400/40 hover:bg-teal-900/30",
                                             selectedOption !== null &&
                                                 !isSelected &&
                                                 "opacity-40"
@@ -356,8 +356,8 @@ export function FamiliarityAssessment({
                                             className={cn(
                                                 "flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold border transition-all",
                                                 isSelected
-                                                    ? "bg-indigo-500 text-white border-indigo-400"
-                                                    : "bg-indigo-950/50 text-indigo-300/60 border-indigo-400/20"
+                                                    ? "bg-teal-500 text-white border-teal-400"
+                                                    : "bg-neutral-900/50 text-teal-300/60 border-teal-400/20"
                                             )}
                                         >
                                             {letter}
@@ -370,8 +370,8 @@ export function FamiliarityAssessment({
                     </div>
 
                     {isLoading && (
-                        <div className="mt-6 flex items-center gap-2 text-xs text-indigo-300/50">
-                            <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                        <div className="mt-6 flex items-center gap-2 text-xs text-teal-300/50">
+                            <div className="w-3.5 h-3.5 border-2 border-teal-400/30 border-t-teal-400 rounded-full animate-spin" />
                             Submitting answers...
                         </div>
                     )}
@@ -384,13 +384,13 @@ export function FamiliarityAssessment({
 
     if (phase === "complete") {
         return (
-            <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#050510] to-[#0a0820] overflow-y-auto">
+            <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#0F0F0F] to-[#131313] overflow-y-auto">
                 <div className="min-h-full flex flex-col items-center justify-center px-4 py-8">
                     <div className="text-center max-w-md">
                         {/* Checkmark Animation */}
                         <div className="relative inline-flex items-center justify-center mb-6">
                             <div className="absolute w-24 h-24 rounded-full bg-emerald-500/10 animate-ping" />
-                            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 animate-[scale-in_0.5s_ease-out]">
+                            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 animate-[scale-in_0.5s_ease-out]">
                                 <Check className="w-10 h-10 text-white" strokeWidth={3} />
                             </div>
                         </div>
@@ -398,16 +398,16 @@ export function FamiliarityAssessment({
                         <h1 className="text-2xl font-bold text-white mb-3">
                             Assessment Complete!
                         </h1>
-                        <p className="text-sm text-indigo-300/70 mb-8 leading-relaxed">
+                        <p className="text-sm text-teal-300/70 mb-8 leading-relaxed">
                             We&apos;ve calibrated your starting point for{" "}
-                            <span className="text-indigo-300 font-medium">{subject}</span>.
+                            <span className="text-teal-300 font-medium">{subject}</span>.
                             Your learning path has been personalized based on your responses.
                         </p>
 
                         <button
                             onClick={onComplete}
                             disabled={isLoading}
-                            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-indigo-500 text-white text-sm font-semibold hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/25"
+                            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-teal-500 text-white text-sm font-semibold hover:bg-teal-400 transition-all shadow-lg shadow-teal-500/25"
                         >
                             {isLoading ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

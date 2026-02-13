@@ -19,13 +19,13 @@ function StaleSessionGuard({ onReset }: { onReset: () => void }) {
     }, [onReset]);
 
     return (
-        <div className="h-full bg-[#050510] flex items-center justify-center">
+        <div className="h-full bg-[#0F0F0F] flex items-center justify-center">
             <div className="text-center space-y-3">
                 <div className="relative w-12 h-12 mx-auto">
-                    <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping" />
+                    <div className="absolute inset-0 rounded-full bg-teal-500/20 animate-ping" />
                     <div className="relative w-12 h-12 flex items-center justify-center">
                         <svg
-                            className="w-6 h-6 text-indigo-400 animate-pulse"
+                            className="w-6 h-6 text-teal-400 animate-pulse"
                             viewBox="0 0 24 24"
                             fill="currentColor"
                         >
@@ -33,11 +33,11 @@ function StaleSessionGuard({ onReset }: { onReset: () => void }) {
                         </svg>
                     </div>
                 </div>
-                <p className="text-indigo-300/60 text-sm">Loading next cards...</p>
+                <p className="text-teal-300/60 text-sm">Loading next cards...</p>
                 {showButton && (
                     <button
                         onClick={onReset}
-                        className="mt-4 px-5 py-2 rounded-xl border border-indigo-400/30 bg-indigo-500/10 text-sm font-medium text-indigo-200 hover:bg-indigo-500/20 transition-all"
+                        className="mt-4 px-5 py-2 rounded-xl border border-teal-400/30 bg-teal-500/10 text-sm font-medium text-teal-200 hover:bg-teal-500/20 transition-all"
                     >
                         Start Over
                     </button>

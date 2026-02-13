@@ -215,7 +215,7 @@ export default function GamePlayPage() {
     if (authLoading || loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
             </div>
         );
     }
@@ -227,7 +227,7 @@ export default function GamePlayPage() {
                     <p className="text-red-600 mb-4">{error || "Game not found"}</p>
                     <Link
                         href="/student/dashboard"
-                        className="text-indigo-600 hover:text-indigo-800"
+                        className="text-teal-600 hover:text-teal-800"
                     >
                         Back to Study
                     </Link>
@@ -295,7 +295,7 @@ export default function GamePlayPage() {
                             </div>
                             <button
                                 onClick={resetGame}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
                             >
                                 Play Again
                             </button>
@@ -318,7 +318,7 @@ export default function GamePlayPage() {
                                         card.matched
                                             ? "bg-green-100 text-green-800 border-2 border-green-300 cursor-default"
                                             : card.selected
-                                            ? "bg-indigo-100 text-indigo-800 border-2 border-indigo-400 scale-105 shadow-lg"
+                                            ? "bg-teal-100 text-teal-800 border-2 border-teal-400 scale-105 shadow-lg"
                                             : "bg-white text-gray-700 border-2 border-gray-200 hover:border-gray-300 hover:shadow-md cursor-pointer"
                                     }
                                 `}
@@ -337,7 +337,7 @@ export default function GamePlayPage() {
                         </p>
                         <Link
                             href="/student/dashboard"
-                            className="mt-4 inline-block text-indigo-600 hover:text-indigo-800"
+                            className="mt-4 inline-block text-teal-600 hover:text-teal-800"
                         >
                             Back to Study
                         </Link>

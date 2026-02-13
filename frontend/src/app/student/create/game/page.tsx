@@ -215,10 +215,10 @@ export default function GameBuilderPage() {
                     <button
                         key={template.id}
                         onClick={() => handleTemplateSelect(template.id)}
-                        className="p-6 bg-white rounded-xl border-2 border-gray-200 hover:border-indigo-500 hover:shadow-lg transition-all text-left"
+                        className="p-6 bg-white rounded-xl border-2 border-gray-200 hover:border-teal-500 hover:shadow-lg transition-all text-left"
                     >
-                        <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                            <Icon className="w-6 h-6 text-indigo-600" />
+                        <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
+                            <Icon className="w-6 h-6 text-teal-600" />
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{template.name}</h3>
                         <p className="text-sm text-gray-600">{template.description}</p>
@@ -244,7 +244,7 @@ export default function GameBuilderPage() {
                             value={pair.term}
                             onChange={(e) => updatePair(pair.id, "term", e.target.value)}
                             placeholder="Enter term"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
                     <div className="flex-1">
@@ -256,7 +256,7 @@ export default function GameBuilderPage() {
                             value={pair.definition}
                             onChange={(e) => updatePair(pair.id, "definition", e.target.value)}
                             placeholder="Enter definition"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
                     <button
@@ -270,7 +270,7 @@ export default function GameBuilderPage() {
             ))}
             <button
                 onClick={addPair}
-                className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium"
+                className="flex items-center gap-2 text-teal-600 hover:text-teal-700 font-medium"
             >
                 <Plus className="w-4 h-4" />
                 Add Pair
@@ -300,7 +300,7 @@ export default function GameBuilderPage() {
                         value={sentence.text}
                         onChange={(e) => updateSentence(sentence.id, "text", e.target.value)}
                         placeholder="The ____ is the powerhouse of the cell."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -311,14 +311,14 @@ export default function GameBuilderPage() {
                             value={sentence.answer}
                             onChange={(e) => updateSentence(sentence.id, "answer", e.target.value)}
                             placeholder="mitochondria"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
                 </div>
             ))}
             <button
                 onClick={addSentence}
-                className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium"
+                className="flex items-center gap-2 text-teal-600 hover:text-teal-700 font-medium"
             >
                 <Plus className="w-4 h-4" />
                 Add Sentence
@@ -348,7 +348,7 @@ export default function GameBuilderPage() {
                         value={category.name}
                         onChange={(e) => updateCategoryName(category.id, e.target.value)}
                         placeholder="Category name"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">Items</label>
@@ -359,7 +359,7 @@ export default function GameBuilderPage() {
                                     value={item}
                                     onChange={(e) => updateCategoryItem(category.id, itemIndex, e.target.value)}
                                     placeholder={`Item ${itemIndex + 1}`}
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                                 />
                                 <button
                                     onClick={() => removeCategoryItem(category.id, itemIndex)}
@@ -372,7 +372,7 @@ export default function GameBuilderPage() {
                         ))}
                         <button
                             onClick={() => addCategoryItem(category.id)}
-                            className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
+                            className="flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700"
                         >
                             <Plus className="w-3 h-3" />
                             Add Item
@@ -382,7 +382,7 @@ export default function GameBuilderPage() {
             ))}
             <button
                 onClick={addCategory}
-                className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium"
+                className="flex items-center gap-2 text-teal-600 hover:text-teal-700 font-medium"
             >
                 <Plus className="w-4 h-4" />
                 Add Category
@@ -404,16 +404,16 @@ export default function GameBuilderPage() {
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="Enter a title for your game"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                 </div>
 
-                <div className="p-4 bg-indigo-50 rounded-lg">
+                <div className="p-4 bg-teal-50 rounded-lg">
                     <div className="flex items-center gap-3">
-                        {template && <template.icon className="w-5 h-5 text-indigo-600" />}
+                        {template && <template.icon className="w-5 h-5 text-teal-600" />}
                         <div>
-                            <h3 className="font-medium text-indigo-900">{template?.name}</h3>
-                            <p className="text-sm text-indigo-700">{template?.description}</p>
+                            <h3 className="font-medium text-teal-900">{template?.name}</h3>
+                            <p className="text-sm text-teal-700">{template?.description}</p>
                         </div>
                     </div>
                 </div>
@@ -440,7 +440,7 @@ export default function GameBuilderPage() {
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium"
+                        className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 font-medium"
                     >
                         {saving ? (
                             <>

@@ -92,7 +92,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
                 <span
                     className={cn(
                         "text-xs font-semibold truncate max-w-[80px] text-center",
-                        entry.is_current_user ? "text-violet-300" : "text-gray-200",
+                        entry.is_current_user ? "text-teal-300" : "text-gray-200",
                     )}
                 >
                     {entry.student_name}
@@ -138,7 +138,7 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
             className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors",
                 entry.is_current_user
-                    ? "bg-violet-500/8 border border-violet-500/20 ring-1 ring-violet-500/10"
+                    ? "bg-teal-500/8 border border-teal-500/20 ring-1 ring-teal-500/10"
                     : "bg-gray-900/40 border border-gray-800/40 hover:bg-gray-800/40",
             )}
         >
@@ -149,7 +149,7 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
                 className={cn(
                     "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
                     entry.is_current_user
-                        ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30"
+                        ? "bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30"
                         : "bg-gray-800 text-gray-400",
                 )}
             >
@@ -158,11 +158,11 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
             <div className="flex-1 min-w-0">
                 <div className={cn(
                     "text-sm font-semibold truncate",
-                    entry.is_current_user ? "text-violet-200" : "text-gray-200",
+                    entry.is_current_user ? "text-teal-200" : "text-gray-200",
                 )}>
                     {entry.student_name}
                     {entry.is_current_user && (
-                        <span className="ml-1.5 text-[10px] font-medium text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-full">
+                        <span className="ml-1.5 text-[10px] font-medium text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded-full">
                             You
                         </span>
                     )}
@@ -199,14 +199,14 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
 
 function YourRankCard({ entry, totalPlayers }: { entry: LeaderboardEntry; totalPlayers: number }) {
     return (
-        <div className="mx-4 p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 via-violet-600/5 to-fuchsia-500/5 border border-violet-500/20 ring-1 ring-violet-500/10">
+        <div className="mx-4 p-4 rounded-2xl bg-gradient-to-br from-teal-500/10 via-teal-600/5 to-fuchsia-500/5 border border-teal-500/20 ring-1 ring-teal-500/10">
             <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Your Ranking</span>
+                <span className="text-xs font-semibold text-teal-400 uppercase tracking-wider">Your Ranking</span>
                 <span className="text-xs text-gray-500">#{entry.rank} of {totalPlayers}</span>
             </div>
             <div className="flex items-center gap-4">
                 <div className="text-center">
-                    <div className="text-3xl font-black text-violet-300 tabular-nums">#{entry.rank}</div>
+                    <div className="text-3xl font-black text-teal-300 tabular-nums">#{entry.rank}</div>
                 </div>
                 <div className="flex-1 grid grid-cols-3 gap-3">
                     <div className="text-center">

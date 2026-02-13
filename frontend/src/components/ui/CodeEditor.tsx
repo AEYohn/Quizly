@@ -27,11 +27,11 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
     "float": { bg: "bg-blue-500/20", text: "text-blue-400" },
     "string": { bg: "bg-green-500/20", text: "text-green-400" },
     "bool": { bg: "bg-orange-500/20", text: "text-orange-400" },
-    "list[int]": { bg: "bg-purple-500/20", text: "text-purple-400" },
-    "list[str]": { bg: "bg-purple-500/20", text: "text-purple-400" },
-    "list[float]": { bg: "bg-purple-500/20", text: "text-purple-400" },
+    "list[int]": { bg: "bg-teal-500/20", text: "text-teal-400" },
+    "list[str]": { bg: "bg-teal-500/20", text: "text-teal-400" },
+    "list[float]": { bg: "bg-teal-500/20", text: "text-teal-400" },
     "list[list[int]]": { bg: "bg-pink-500/20", text: "text-pink-400" },
-    "list": { bg: "bg-purple-500/20", text: "text-purple-400" },
+    "list": { bg: "bg-teal-500/20", text: "text-teal-400" },
     "object": { bg: "bg-gray-500/20", text: "text-gray-400" },
 };
 

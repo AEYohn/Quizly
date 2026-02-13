@@ -10,8 +10,8 @@ interface MilestoneCardProps {
 }
 
 const PHASE_STYLES = {
-    learn: { Icon: BookOpen, bg: "bg-indigo-500/15", text: "text-indigo-400", btnBg: "bg-indigo-500/20 hover:bg-indigo-500/30", btnText: "text-indigo-300" },
-    flashcards: { Icon: Layers, bg: "bg-violet-500/15", text: "text-violet-400", btnBg: "bg-violet-500/20 hover:bg-violet-500/30", btnText: "text-violet-300" },
+    learn: { Icon: BookOpen, bg: "bg-teal-500/15", text: "text-teal-400", btnBg: "bg-teal-500/20 hover:bg-teal-500/30", btnText: "text-teal-300" },
+    flashcards: { Icon: Layers, bg: "bg-teal-500/15", text: "text-teal-400", btnBg: "bg-teal-500/20 hover:bg-teal-500/30", btnText: "text-teal-300" },
     quiz: { Icon: Brain, bg: "bg-pink-500/15", text: "text-pink-400", btnBg: "bg-pink-500/20 hover:bg-pink-500/30", btnText: "text-pink-300" },
 } as const;
 
@@ -60,7 +60,7 @@ export function MilestoneCard({ card, onNext }: MilestoneCardProps) {
                     "w-16 h-16 rounded-2xl flex items-center justify-center mb-5",
                     isMastery
                         ? "bg-amber-500/15 text-amber-400"
-                        : "bg-violet-500/15 text-violet-400",
+                        : "bg-teal-500/15 text-teal-400",
                 )}
             >
                 {isMastery ? (
@@ -93,7 +93,7 @@ export function MilestoneCard({ card, onNext }: MilestoneCardProps) {
                     "flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-colors",
                     isMastery
                         ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
-                        : "bg-violet-500/20 text-violet-300 hover:bg-violet-500/30",
+                        : "bg-teal-500/20 text-teal-300 hover:bg-teal-500/30",
                 )}
             >
                 Keep Going

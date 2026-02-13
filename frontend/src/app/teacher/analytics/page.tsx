@@ -213,7 +213,7 @@ function TeacherAnalyticsContent() {
                                 trend={analytics.class_accuracy >= 70 ? "up" : "down"}
                             />
                             <StatCard
-                                icon={<Brain className="h-6 w-6 text-purple-400" />}
+                                icon={<Brain className="h-6 w-6 text-teal-400" />}
                                 label="Avg Confidence"
                                 value={`${Math.round(analytics.class_avg_confidence)}%`}
                             />
@@ -605,7 +605,7 @@ function TabButton({
             onClick={onClick}
             className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
                 active
-                    ? darkMode ? "bg-sky-600 text-white" : "bg-white text-purple-600"
+                    ? darkMode ? "bg-sky-600 text-white" : "bg-white text-teal-600"
                     : darkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700" : "bg-white/10 text-white hover:bg-white/20"
             }`}
         >

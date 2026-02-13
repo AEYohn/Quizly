@@ -20,7 +20,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const buttonVariants: Record<ButtonVariant, string> = {
     primary:
-        "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/25 hover:shadow-xl hover:shadow-indigo-600/30",
+        "bg-teal-600 text-white hover:bg-teal-700 shadow-lg shadow-teal-600/25 hover:shadow-xl hover:shadow-teal-600/30",
     secondary:
         "bg-gray-100 text-gray-900 hover:bg-gray-200",
     outline:
@@ -157,7 +157,7 @@ export function CardDescription({ className, children }: { className?: string; c
 // Badge Component
 // ============================================
 
-type BadgeVariant = "default" | "success" | "warning" | "danger" | "info" | "purple";
+type BadgeVariant = "default" | "success" | "warning" | "danger" | "info" | "teal";
 
 interface BadgeProps {
     variant?: BadgeVariant;
@@ -173,7 +173,7 @@ const badgeVariants: Record<BadgeVariant, string> = {
     warning: "bg-amber-100 text-amber-700",
     danger: "bg-red-100 text-red-700",
     info: "bg-sky-100 text-sky-700",
-    purple: "bg-purple-100 text-purple-700",
+    teal: "bg-teal-100 text-teal-700",
 };
 
 const dotVariants: Record<BadgeVariant, string> = {
@@ -182,7 +182,7 @@ const dotVariants: Record<BadgeVariant, string> = {
     warning: "bg-amber-500",
     danger: "bg-red-500",
     info: "bg-sky-500",
-    purple: "bg-purple-500",
+    teal: "bg-teal-500",
 };
 
 export function Badge({ variant = "default", children, className, dot, pulse }: BadgeProps) {
@@ -224,7 +224,7 @@ export function Badge({ variant = "default", children, className, dot, pulse }: 
 interface ProgressProps {
     value: number;
     max?: number;
-    color?: "default" | "success" | "warning" | "danger" | "info" | "purple";
+    color?: "default" | "success" | "warning" | "danger" | "info" | "teal";
     showLabel?: boolean;
     showValue?: boolean;
     size?: "sm" | "md" | "lg";
@@ -238,7 +238,7 @@ const progressColors = {
     warning: "bg-amber-500",
     danger: "bg-red-600",
     info: "bg-sky-600",
-    purple: "bg-purple-600",
+    teal: "bg-teal-600",
 };
 
 const progressSizes = {
@@ -386,7 +386,7 @@ interface StatCardProps {
     label: string;
     value: string | number;
     change?: { value: number; label?: string };
-    color?: "default" | "success" | "warning" | "danger" | "info" | "purple";
+    color?: "default" | "success" | "warning" | "danger" | "info" | "teal";
     className?: string;
 }
 
@@ -396,7 +396,7 @@ const statColors = {
     warning: "text-amber-600 bg-amber-100",
     danger: "text-red-600 bg-red-100",
     info: "text-sky-600 bg-sky-100",
-    purple: "text-purple-600 bg-purple-100",
+    teal: "text-teal-600 bg-teal-100",
 };
 
 export function StatCard({ icon, label, value, change, color = "default", className }: StatCardProps) {

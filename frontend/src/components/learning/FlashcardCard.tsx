@@ -62,7 +62,7 @@ export function FlashcardCard({ card, onRate, onNext, stats, xpEarned }: Flashca
                     className={cn(
                         "flex-1 rounded-2xl border p-6 flex flex-col items-center justify-center text-center transition-all duration-500",
                         !isFlipped
-                            ? "border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-violet-500/5 cursor-pointer hover:border-cyan-500/50"
+                            ? "border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-teal-500/5 cursor-pointer hover:border-cyan-500/50"
                             : "border-gray-700 bg-gray-900/60",
                     )}
                 >

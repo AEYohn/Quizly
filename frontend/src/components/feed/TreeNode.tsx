@@ -46,9 +46,9 @@ export function TreeNode({
     // Color palette per state
     const palette = {
         mastered:    { ring: "#34d399", glow: "rgba(52,211,153,0.5)",  fill1: "#064e3b", fill2: "#022c22", text: "text-emerald-300", accent: "emerald" },
-        recommended: { ring: "#c4b5fd", glow: "rgba(196,181,253,0.6)", fill1: "#3b1d8e", fill2: "#1e1b4b", text: "text-violet-200",  accent: "violet" },
-        in_progress: { ring: "#8b5cf6", glow: "rgba(139,92,246,0.4)",  fill1: "#2e1065", fill2: "#0f0a2e", text: "text-gray-200",    accent: "violet" },
-        ready:       { ring: "#7c3aed", glow: "rgba(124,58,237,0.25)", fill1: "#1a1040", fill2: "#0c0a1a", text: "text-gray-300",    accent: "violet" },
+        recommended: { ring: "#4DD0E1", glow: "rgba(77,208,225,0.6)", fill1: "#004D40", fill2: "#1A1A1A", text: "text-teal-200",  accent: "teal" },
+        in_progress: { ring: "#00B8D4", glow: "rgba(0,184,212,0.4)",  fill1: "#2e1065", fill2: "#0f0a2e", text: "text-gray-200",    accent: "teal" },
+        ready:       { ring: "#00838F", glow: "rgba(124,58,237,0.25)", fill1: "#1a1040", fill2: "#0c0a1a", text: "text-gray-300",    accent: "teal" },
         locked:      { ring: "#374151", glow: "rgba(55,65,81,0.1)",    fill1: "#1f2937", fill2: "#111827", text: "text-gray-600",    accent: "gray" },
     } as const;
     const p = palette[state];
@@ -81,7 +81,7 @@ export function TreeNode({
                         top: 0,
                         right: center - 50,
                         padding: "2px 7px",
-                        background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
+                        background: "linear-gradient(135deg, #00838F 0%, #006064 100%)",
                         boxShadow: "0 2px 12px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
                     }}
                 >
@@ -110,7 +110,7 @@ export function TreeNode({
                         {state === "recommended" && (
                             <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
                                 <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
-                                <feFlood floodColor="#c4b5fd" floodOpacity="0.3" result="color" />
+                                <feFlood floodColor="#4DD0E1" floodOpacity="0.3" result="color" />
                                 <feComposite in="color" in2="blur" operator="in" result="glow" />
                                 <feMerge>
                                     <feMergeNode in="glow" />
@@ -125,13 +125,13 @@ export function TreeNode({
                         <>
                             <circle
                                 cx={center} cy={center} r={ringR + 10}
-                                fill="none" stroke="rgba(196,181,253,0.15)" strokeWidth="2"
+                                fill="none" stroke="rgba(77,208,225,0.15)" strokeWidth="2"
                                 className="animate-ping"
                                 style={{ animationDuration: "3s", transformOrigin: "center" }}
                             />
                             <circle
                                 cx={center} cy={center} r={ringR + 6}
-                                fill="none" stroke="rgba(196,181,253,0.2)" strokeWidth="1.5"
+                                fill="none" stroke="rgba(77,208,225,0.2)" strokeWidth="1.5"
                             />
                         </>
                     )}
@@ -192,7 +192,7 @@ export function TreeNode({
                         <circle
                             cx={center} cy={center} r={ringR}
                             fill="none"
-                            stroke="rgba(196,181,253,0.3)"
+                            stroke="rgba(77,208,225,0.3)"
                             strokeWidth={RING_STROKE}
                         />
                     )}
@@ -208,7 +208,7 @@ export function TreeNode({
                         </div>
                     ) : state === "recommended" ? (
                         <div className="relative">
-                            <Sparkles className="w-7 h-7 text-violet-200" style={{ filter: "drop-shadow(0 0 10px rgba(196,181,253,0.7))" }} />
+                            <Sparkles className="w-7 h-7 text-teal-200" style={{ filter: "drop-shadow(0 0 10px rgba(77,208,225,0.7))" }} />
                         </div>
                     ) : mastery > 0 ? (
                         <span className="text-[17px] font-black tabular-nums text-white/85 drop-shadow-sm">{mastery}</span>
@@ -222,7 +222,7 @@ export function TreeNode({
             <span className={cn(
                 "mt-2.5 text-[11px] font-bold text-center leading-tight max-w-[100px] line-clamp-2 tracking-wide",
                 state === "mastered" ? "text-emerald-300/70" :
-                    state === "recommended" ? "text-violet-200/90" :
+                    state === "recommended" ? "text-teal-200/90" :
                         state === "locked" ? "text-gray-600" :
                             "text-gray-400",
             )}>

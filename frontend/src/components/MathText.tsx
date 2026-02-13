@@ -593,7 +593,7 @@ export default function MathText({ text, className = "" }: MathTextProps) {
 
     return (
         <span
-            className={className}
+            className={`${className} [&_.katex]:whitespace-normal [&_.katex_.base]:whitespace-normal [&_.katex-display]:overflow-x-auto`}
             dangerouslySetInnerHTML={{ __html: rendered }}
         />
     );

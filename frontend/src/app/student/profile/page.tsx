@@ -110,7 +110,7 @@ export default function StudentProfilePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-teal-600 via-teal-600 to-pink-500 flex items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-white" />
             </div>
         );
@@ -118,13 +118,13 @@ export default function StudentProfilePage() {
 
     if (!profile) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex flex-col items-center justify-center p-8">
+            <div className="min-h-screen bg-gradient-to-br from-teal-600 via-teal-600 to-pink-500 flex flex-col items-center justify-center p-8">
                 <AlertTriangle className="h-16 w-16 text-yellow-400 mb-4" />
                 <h1 className="text-2xl font-bold text-white mb-2">Profile Not Found</h1>
                 <p className="text-white/70 mb-6">Please log in to view your learning profile.</p>
                 <Link
                     href="/sign-in"
-                    className="rounded-full bg-white px-6 py-3 font-bold text-purple-600 hover:scale-105 transition-transform"
+                    className="rounded-full bg-white px-6 py-3 font-bold text-teal-600 hover:scale-105 transition-transform"
                 >
                     Log In
                 </Link>
@@ -133,7 +133,7 @@ export default function StudentProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-teal-900 to-slate-900">
             {/* Header */}
             <header className="bg-black/20 backdrop-blur-lg border-b border-white/10">
                 <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -143,7 +143,7 @@ export default function StudentProfilePage() {
                     <nav className="flex items-center gap-4">
                         <Link
                             href="/join"
-                            className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:opacity-90 transition-opacity"
+                            className="px-4 py-2 rounded-full bg-gradient-to-r from-teal-500 to-pink-500 text-white font-medium hover:opacity-90 transition-opacity"
                         >
                             Join Game
                         </Link>
@@ -155,7 +155,7 @@ export default function StudentProfilePage() {
                 {/* Profile Header */}
                 <div className="bg-white/10 rounded-2xl p-6 backdrop-blur-lg border border-white/20 mb-6">
                     <div className="flex items-center gap-4 mb-6">
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-3xl">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-pink-500 flex items-center justify-center text-3xl">
                             {profile.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -395,7 +395,7 @@ export default function StudentProfilePage() {
                                         </span>
                                     </div>
                                 ))}
-                                <button className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold hover:opacity-90 transition-opacity">
+                                <button className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-teal-500 text-white font-bold hover:opacity-90 transition-opacity">
                                     Start Review Session
                                 </button>
                             </div>
@@ -439,7 +439,7 @@ function TabButton({
             onClick={onClick}
             className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap ${
                 active
-                    ? "bg-white text-purple-600"
+                    ? "bg-white text-teal-600"
                     : "bg-white/10 text-white hover:bg-white/20"
             }`}
         >

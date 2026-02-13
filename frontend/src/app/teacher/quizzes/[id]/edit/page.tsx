@@ -521,7 +521,7 @@ export default function EditQuizPage() {
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
             </div>
         );
     }
@@ -535,11 +535,11 @@ export default function EditQuizPage() {
         >
             {/* Drop overlay */}
             {dragOver && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-purple-600/90 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-teal-600/90 backdrop-blur-sm">
                     <div className="text-center text-white">
                         <Upload className="mx-auto h-16 w-16 mb-4 animate-bounce" />
                         <p className="text-2xl font-bold">Drop to add files</p>
-                        <p className="text-purple-200 mt-2">Images, PDFs, screenshots</p>
+                        <p className="text-teal-200 mt-2">Images, PDFs, screenshots</p>
                     </div>
                 </div>
             )}
@@ -610,7 +610,7 @@ export default function EditQuizPage() {
                             <div className="flex justify-center gap-3">
                                 <button
                                     onClick={() => addQuestion("multiple_choice")}
-                                    className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 font-medium text-white hover:bg-purple-700"
+                                    className="flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 font-medium text-white hover:bg-teal-700"
                                 >
                                     <Plus className="h-4 w-4" />
                                     Add MCQ
@@ -627,7 +627,7 @@ export default function EditQuizPage() {
                                     onDragOver={(e) => handleDragOver(e, index)}
                                     onDragEnd={handleDragEnd}
                                     className={`rounded-xl bg-gray-800 border transition-all cursor-grab active:cursor-grabbing ${
-                                        draggedIndex === index ? "opacity-50 border-purple-400" : "border-gray-700"
+                                        draggedIndex === index ? "opacity-50 border-teal-400" : "border-gray-700"
                                     }`}
                                 >
                                     {/* Question Header */}
@@ -641,7 +641,7 @@ export default function EditQuizPage() {
                                         <span className={`rounded px-2 py-0.5 text-xs font-medium ${
                                             question.question_type === "coding"
                                                 ? "bg-blue-900/50 text-blue-400"
-                                                : "bg-purple-900/50 text-purple-400"
+                                                : "bg-teal-900/50 text-teal-400"
                                         }`}>
                                             {question.question_type === "coding" ? "Coding" : "MCQ"}
                                         </span>
@@ -664,7 +664,7 @@ export default function EditQuizPage() {
                                                 placeholder="Enter your question..."
                                                 value={question.question_text}
                                                 onChange={(e) => updateQuestion(question.id, { question_text: e.target.value })}
-                                                className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-gray-200 focus:border-purple-400 focus:outline-none resize-none placeholder-gray-500"
+                                                className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-gray-200 focus:border-teal-400 focus:outline-none resize-none placeholder-gray-500"
                                                 rows={2}
                                             />
 
@@ -786,7 +786,7 @@ export default function EditQuizPage() {
                                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                                     <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
                                         msg.role === "user"
-                                            ? "bg-purple-600 text-white"
+                                            ? "bg-teal-600 text-white"
                                             : "bg-gray-800 border border-gray-700 text-gray-200"
                                     }`}>
                                         {msg.content}
@@ -825,7 +825,7 @@ export default function EditQuizPage() {
                     <div
                         className={`flex gap-3 items-end bg-gray-800 rounded-2xl border shadow-lg p-3 transition-all ${
                             dragOverTextbox
-                                ? "border-purple-400 ring-2 ring-purple-500/30 bg-purple-900/20"
+                                ? "border-teal-400 ring-2 ring-teal-500/30 bg-teal-900/20"
                                 : "border-gray-700"
                         }`}
                         onDragOver={handleTextboxDragOver}
@@ -863,7 +863,7 @@ export default function EditQuizPage() {
                         <button
                             onClick={handleSubmit}
                             disabled={generating || (!chatInput.trim() && pendingFiles.length === 0)}
-                            className="rounded-xl bg-purple-600 p-2.5 text-white hover:bg-purple-700 disabled:opacity-50"
+                            className="rounded-xl bg-teal-600 p-2.5 text-white hover:bg-teal-700 disabled:opacity-50"
                         >
                             <Send className="h-5 w-5" />
                         </button>

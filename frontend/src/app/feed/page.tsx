@@ -10,10 +10,10 @@ import { useLeaderboard, useProfile } from "~/hooks/feed";
 
 function LoadingScreen() {
     return (
-        <div className="h-screen bg-[#050510] flex items-center justify-center">
+        <div className="h-screen bg-[#0F0F0F] flex items-center justify-center">
             <div className="text-center space-y-3">
-                <div className="w-10 h-10 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin mx-auto" />
-                <p className="text-indigo-200 text-sm">Loading...</p>
+                <div className="w-10 h-10 rounded-full border-2 border-teal-400 border-t-transparent animate-spin mx-auto" />
+                <p className="text-teal-200 text-sm">Loading...</p>
             </div>
         </div>
     );
@@ -45,7 +45,7 @@ export default function FeedPage() {
 
     return (
         <ThemeProvider>
-            <div className="h-screen bg-[#050510] flex flex-col overflow-hidden">
+            <div className="h-screen bg-[#0F0F0F] flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-hidden relative">
                     <div className={activeTab === "feed" ? "h-full" : "hidden"}>
                         <Feed />

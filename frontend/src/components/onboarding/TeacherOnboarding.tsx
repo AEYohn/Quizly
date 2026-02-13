@@ -73,7 +73,7 @@ export function TeacherOnboarding() {
                 </button>
 
                 {/* Gradient header */}
-                <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-6 text-center">
+                <div className="bg-gradient-to-br from-teal-600 via-teal-600 to-pink-600 p-6 text-center">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-4">
                         <Sparkles className="w-8 h-8 text-white" />
                     </div>
@@ -99,7 +99,7 @@ export function TeacherOnboarding() {
                             </p>
                             <button
                                 onClick={handleWelcomeComplete}
-                                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl font-semibold text-white transition-all"
+                                className="w-full py-4 bg-gradient-to-r from-teal-600 to-teal-600 hover:from-teal-500 hover:to-teal-500 rounded-xl font-semibold text-white transition-all"
                             >
                                 Get Started
                             </button>

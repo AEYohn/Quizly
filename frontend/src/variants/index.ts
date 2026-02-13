@@ -1,7 +1,7 @@
 import type { VariantComponents } from "./contracts";
 
-const cosmicLoader = async () => (await import("./cosmic")).variantComponents;
+const brilliantLoader = async () => (await import("./brilliant")).variantComponents;
 
 export async function loadVariant(): Promise<VariantComponents> {
-    return cosmicLoader();
+    return brilliantLoader();
 }

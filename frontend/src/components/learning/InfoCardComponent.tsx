@@ -42,7 +42,7 @@ function InfoBody({ text }: { text: string }) {
                 if (isBullet) {
                     return (
                         <div key={i} className="flex gap-2 pl-1">
-                            <span className="text-violet-400 shrink-0 mt-0.5">&#8226;</span>
+                            <span className="text-teal-400 shrink-0 mt-0.5">&#8226;</span>
                             <span className="text-sm text-gray-300 leading-relaxed">{rendered}</span>
                         </div>
                     );
@@ -75,7 +75,7 @@ export function InfoCardComponent({ card, onGotIt, onNext, xpAwarded }: InfoCard
         <div className="h-full w-full flex flex-col px-5 pt-4 pb-5 overflow-y-auto">
             {/* Concept + type badge */}
             <div className="flex items-center gap-2 mb-5 shrink-0">
-                <span className="flex items-center gap-1 text-[11px] font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                <span className="flex items-center gap-1 text-[11px] font-medium text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded-full">
                     <BookOpen className="w-3 h-3" />
                     Insight
                 </span>
@@ -100,10 +100,10 @@ export function InfoCardComponent({ card, onGotIt, onNext, xpAwarded }: InfoCard
 
             {/* Key takeaway */}
             {takeaway && (
-                <div className="rounded-xl bg-violet-500/5 border border-violet-500/15 px-4 py-3 mb-4 shrink-0">
+                <div className="rounded-xl bg-teal-500/5 border border-teal-500/15 px-4 py-3 mb-4 shrink-0">
                     <div className="flex items-start gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-violet-400 mt-0.5 shrink-0" />
-                        <p className="text-sm text-violet-300/90 leading-relaxed">
+                        <Sparkles className="w-3.5 h-3.5 text-teal-400 mt-0.5 shrink-0" />
+                        <p className="text-sm text-teal-300/90 leading-relaxed">
                             {takeaway}
                         </p>
                     </div>
@@ -114,7 +114,7 @@ export function InfoCardComponent({ card, onGotIt, onNext, xpAwarded }: InfoCard
             {!acknowledged ? (
                 <button
                     onClick={handleGotIt}
-                    className="w-full py-3.5 rounded-2xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-500 active:scale-[0.98] transition-all shrink-0"
+                    className="w-full py-3.5 rounded-2xl text-sm font-semibold bg-teal-600 text-white hover:bg-teal-500 active:scale-[0.98] transition-all shrink-0"
                 >
                     Got it
                 </button>

@@ -104,7 +104,7 @@ export function Sidebar() {
                 "flex items-center border-b border-gray-700 py-5 transition-all",
                 isCollapsed ? "justify-center px-2" : "gap-3 px-6"
             )}>
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-pink-500">
                     <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 {!isCollapsed && <span className="text-lg font-bold">Quizly</span>}
@@ -126,7 +126,7 @@ export function Sidebar() {
                             className={cn(
                                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                                 isActive
-                                    ? "bg-purple-600 text-white"
+                                    ? "bg-teal-600 text-white"
                                     : "text-gray-300 hover:bg-gray-800 hover:text-white",
                                 isCollapsed && "justify-center px-2"
                             )}
@@ -169,7 +169,7 @@ export function Sidebar() {
                                 className="h-8 w-8 rounded-full object-cover"
                             />
                         ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-sm font-medium">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-sm font-medium">
                                 {initials}
                             </div>
                         )}

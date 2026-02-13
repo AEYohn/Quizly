@@ -193,7 +193,7 @@ export default function StudentHubPage() {
                     <div className="mt-6 pt-6 border-t border-gray-800">
                         <Link
                             href="/sign-in"
-                            className="flex items-center justify-center gap-2 w-full rounded-xl border border-gray-700 bg-gray-800/50 py-3 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-purple-500/50 transition-all"
+                            className="flex items-center justify-center gap-2 w-full rounded-xl border border-gray-700 bg-gray-800/50 py-3 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-teal-500/50 transition-all"
                         >
                             <UserCircle2 className="h-5 w-5" />
                             Sign in for more features
@@ -241,7 +241,7 @@ export default function StudentHubPage() {
                             ) : (
                                 <Link
                                     href="/sign-in"
-                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-purple-400 hover:bg-gray-800 font-medium"
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-teal-400 hover:bg-gray-800 font-medium"
                                 >
                                     <UserCircle2 className="h-4 w-4" />
                                     Sign In

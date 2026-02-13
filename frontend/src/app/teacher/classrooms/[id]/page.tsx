@@ -439,7 +439,7 @@ export default function ClassroomDetailPage() {
 
     const getItemColor = (itemType: string) => {
         switch (itemType) {
-            case "quiz": return "bg-purple-500/20 text-purple-400 border-purple-500/30";
+            case "quiz": return "bg-teal-500/20 text-teal-400 border-teal-500/30";
             case "video": return "bg-rose-500/20 text-rose-400 border-rose-500/30";
             default: return "bg-sky-500/20 text-sky-400 border-sky-500/30";
         }
@@ -557,7 +557,7 @@ export default function ClassroomDetailPage() {
                     <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
                         <p className="text-sm text-gray-400 mb-1">Content</p>
                         <div className="flex items-center gap-2">
-                            <Layers className="h-5 w-5 text-purple-400" />
+                            <Layers className="h-5 w-5 text-teal-400" />
                             <span className="text-2xl font-bold text-white">{course.modules.length}</span>
                             <span className="text-gray-500">modules</span>
                             <span className="text-gray-600">·</span>
@@ -777,7 +777,7 @@ export default function ClassroomDetailPage() {
                                         <div key={student.id} className="grid grid-cols-12 gap-4 px-5 py-4 items-center hover:bg-gray-800/30 transition-colors group">
                                             <div className="col-span-5">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-400 to-teal-500 flex items-center justify-center text-white font-semibold text-sm">
                                                         {student.student_name.charAt(0).toUpperCase()}
                                                     </div>
                                                     <span className="font-medium text-white">{student.student_name}</span>
@@ -1071,7 +1071,7 @@ export default function ClassroomDetailPage() {
                                             className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
                                                 newItemType === type
                                                     ? type === "quiz"
-                                                        ? "border-purple-500 bg-purple-500/20 text-purple-400"
+                                                        ? "border-teal-500 bg-teal-500/20 text-teal-400"
                                                         : type === "video"
                                                         ? "border-rose-500 bg-rose-500/20 text-rose-400"
                                                         : "border-sky-500 bg-sky-500/20 text-sky-400"

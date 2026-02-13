@@ -104,9 +104,9 @@ export function SkipLink({
                 "focus:fixed focus:top-4 focus:left-4 focus:z-[9999]",
                 // Styling when visible
                 "focus:px-4 focus:py-2",
-                "focus:bg-indigo-600 focus:text-white",
+                "focus:bg-teal-600 focus:text-white",
                 "focus:rounded-lg focus:shadow-lg",
-                "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
+                "focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2",
                 "focus:font-medium",
                 // Transition for smooth appearance
                 "transition-all duration-150",

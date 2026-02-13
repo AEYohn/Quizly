@@ -206,7 +206,7 @@ export default function MisconceptionInsightsPage() {
                         Back to Results
                     </button>
                     <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-pink-500">
                             <Brain className="h-7 w-7 text-white" />
                         </div>
                         <div>
@@ -244,7 +244,7 @@ export default function MisconceptionInsightsPage() {
                             <Brain className="h-4 w-4" />
                             <span className="text-sm">Conceptual</span>
                         </div>
-                        <div className="text-2xl font-bold text-purple-400">{summary.category_distribution?.conceptual || 0}</div>
+                        <div className="text-2xl font-bold text-teal-400">{summary.category_distribution?.conceptual || 0}</div>
                     </div>
                 </div>
 
@@ -272,7 +272,7 @@ export default function MisconceptionInsightsPage() {
                         {summary.top_misconception_types.length > 0 && (
                             <div className="rounded-2xl bg-gray-900 border border-gray-800 p-6">
                                 <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
-                                    <Lightbulb className="h-5 w-5 text-purple-400" />
+                                    <Lightbulb className="h-5 w-5 text-teal-400" />
                                     Top Misconception Types
                                 </h2>
                                 <div className="space-y-3">
@@ -287,7 +287,7 @@ export default function MisconceptionInsightsPage() {
                                                 </div>
                                                 <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                                                     <div
-                                                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                                                        className="h-full bg-gradient-to-r from-teal-500 to-pink-500 rounded-full"
                                                         style={{
                                                             width: `${Math.min(100, (item.count / insights.total_players) * 100)}%`
                                                         }}
@@ -456,7 +456,7 @@ export default function MisconceptionInsightsPage() {
                                         className="w-full p-4 flex items-center justify-between hover:bg-gray-800/50 transition-colors"
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white font-bold">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-teal-500 text-white font-bold">
                                                 {student.nickname.charAt(0).toUpperCase()}
                                             </div>
                                             <div className="text-left">

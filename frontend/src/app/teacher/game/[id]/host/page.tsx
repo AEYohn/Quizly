@@ -443,7 +443,7 @@ export default function GameHostPage() {
             case "encouragement": return <TrendingUp className="h-4 w-4 text-green-500" />;
             case "warning": return <AlertTriangle className="h-4 w-4 text-orange-500" />;
             case "tip": return <Lightbulb className="h-4 w-4 text-yellow-500" />;
-            default: return <Brain className="h-4 w-4 text-purple-500" />;
+            default: return <Brain className="h-4 w-4 text-teal-500" />;
         }
     };
 

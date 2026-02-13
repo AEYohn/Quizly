@@ -91,7 +91,7 @@ export function ProfileModal({ isOpen, onClose, onSave }: ProfileModalProps) {
                                 className="h-20 w-20 rounded-full object-cover border-4 border-gray-700"
                             />
                         ) : (
-                            <div className="h-20 w-20 rounded-full bg-purple-600 flex items-center justify-center text-2xl font-bold text-white border-4 border-gray-700">
+                            <div className="h-20 w-20 rounded-full bg-teal-600 flex items-center justify-center text-2xl font-bold text-white border-4 border-gray-700">
                                 {initials}
                             </div>
                         )}
@@ -108,7 +108,7 @@ export function ProfileModal({ isOpen, onClose, onSave }: ProfileModalProps) {
                                 value={firstName}
                                 onChange={(e) => setFirstName(e.target.value)}
                                 placeholder="Enter your first name"
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition-colors"
+                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none transition-colors"
                             />
                         </div>
 
@@ -121,7 +121,7 @@ export function ProfileModal({ isOpen, onClose, onSave }: ProfileModalProps) {
                                 value={lastName}
                                 onChange={(e) => setLastName(e.target.value)}
                                 placeholder="Enter your last name"
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition-colors"
+                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none transition-colors"
                             />
                         </div>
                     </div>
@@ -148,7 +148,7 @@ export function ProfileModal({ isOpen, onClose, onSave }: ProfileModalProps) {
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                     >
                         <Check className="h-5 w-5" />
                         Save Changes

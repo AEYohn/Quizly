@@ -164,16 +164,16 @@ export default function CodeEditor({
     const hiddenCount = testCases.filter(t => t.is_hidden).length;
 
     return (
-        <div className="flex h-full bg-[#1a1a2e] rounded-xl overflow-hidden border border-gray-700/50 shadow-2xl">
+        <div className="flex h-full bg-[#222222] rounded-xl overflow-hidden border border-gray-700/50 shadow-2xl">
             {/* Left Panel - Problem Description */}
             <div className="w-[45%] flex flex-col border-r border-gray-700/50">
                 {/* Tabs */}
-                <div className="flex items-center gap-1 px-2 py-2 bg-[#0f0f1a] border-b border-gray-700/50">
+                <div className="flex items-center gap-1 px-2 py-2 bg-[#1A1A1A] border-b border-gray-700/50">
                     <button
                         onClick={() => setActiveTab("description")}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                             activeTab === "description"
-                                ? "bg-[#2d2d4a] text-white"
+                                ? "bg-[#333333] text-white"
                                 : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
                         }`}
                     >
@@ -184,7 +184,7 @@ export default function CodeEditor({
                         onClick={() => setActiveTab("testcases")}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                             activeTab === "testcases"
-                                ? "bg-[#2d2d4a] text-white"
+                                ? "bg-[#333333] text-white"
                                 : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
                         }`}
                     >
@@ -211,7 +211,7 @@ export default function CodeEditor({
                                         Examples
                                     </h3>
                                     {visibleTestCases.slice(0, 2).map((tc, i) => (
-                                        <div key={i} className="mb-4 rounded-lg bg-[#0f0f1a] p-4 border border-gray-700/30">
+                                        <div key={i} className="mb-4 rounded-lg bg-[#1A1A1A] p-4 border border-gray-700/30">
                                             <div className="mb-2">
                                                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Input</span>
                                                 <pre className="mt-1 text-sm text-cyan-400 font-mono bg-black/30 p-2 rounded overflow-x-auto whitespace-pre-wrap break-all">{tc.input}</pre>
@@ -230,7 +230,7 @@ export default function CodeEditor({
                     {activeTab === "testcases" && (
                         <div className="p-4 space-y-3">
                             {visibleTestCases.map((tc, i) => (
-                                <div key={i} className="rounded-lg bg-[#0f0f1a] p-4 border border-gray-700/30">
+                                <div key={i} className="rounded-lg bg-[#1A1A1A] p-4 border border-gray-700/30">
                                     <div className="flex items-center justify-between mb-3">
                                         <span className="text-sm font-medium text-gray-300">Case {i + 1}</span>
                                         {result?.test_results[i] && (
@@ -276,7 +276,7 @@ export default function CodeEditor({
             {/* Right Panel - Code Editor */}
             <div className="flex-1 flex flex-col">
                 {/* Editor Header */}
-                <div className="flex items-center justify-between px-4 py-2 bg-[#0f0f1a] border-b border-gray-700/50">
+                <div className="flex items-center justify-between px-4 py-2 bg-[#1A1A1A] border-b border-gray-700/50">
                     <div className="flex items-center gap-2">
                         <span className="text-lg">{getLanguageIcon(language)}</span>
                         <span className="text-sm font-medium text-gray-300">{getLanguageLabel(language)}</span>
@@ -347,7 +347,7 @@ export default function CodeEditor({
                 <div className="border-t border-gray-700/50">
                     <button
                         onClick={() => setConsoleOpen(!consoleOpen)}
-                        className="w-full flex items-center justify-between px-4 py-2 bg-[#0f0f1a] hover:bg-[#1a1a2e] transition-colors"
+                        className="w-full flex items-center justify-between px-4 py-2 bg-[#1A1A1A] hover:bg-[#222222] transition-colors"
                     >
                         <div className="flex items-center gap-2">
                             <Terminal className="h-4 w-4 text-gray-400" />
@@ -370,7 +370,7 @@ export default function CodeEditor({
                     </button>
 
                     {consoleOpen && (
-                        <div className="max-h-[200px] overflow-y-auto bg-[#0a0a14] p-4">
+                        <div className="max-h-[200px] overflow-y-auto bg-[#131313] p-4">
                             {!result && !isRunning && (
                                 <div className="text-center text-gray-500 py-4">
                                     <Play className="h-6 w-6 mx-auto mb-2 opacity-50" />

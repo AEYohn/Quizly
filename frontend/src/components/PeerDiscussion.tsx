@@ -862,12 +862,12 @@ export default function PeerDiscussion({
             <div className={`px-4 py-3 flex items-center gap-3 ${
                 isRealPeer
                     ? "bg-gradient-to-r from-emerald-500/30 to-teal-500/30 border-b border-emerald-500/30"
-                    : "bg-gradient-to-r from-sky-500/30 to-indigo-500/30 border-b border-sky-500/30"
+                    : "bg-gradient-to-r from-sky-500/30 to-teal-500/30 border-b border-sky-500/30"
             }`}>
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                     isRealPeer
                         ? "bg-gradient-to-br from-emerald-400 to-teal-500"
-                        : "bg-gradient-to-br from-sky-400 to-indigo-500"
+                        : "bg-gradient-to-br from-sky-400 to-teal-500"
                 }`}>
                     {isRealPeer ? (
                         <Users className="h-5 w-5 text-white" />
@@ -1352,7 +1352,7 @@ export function QuickPeerInsight({
     return (
         <div className="bg-sky-500/10 rounded-2xl p-4 border border-sky-500/30">
             <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-400 to-teal-500 flex items-center justify-center flex-shrink-0">
                     <Lightbulb className="h-5 w-5 text-white" />
                 </div>
                 <div>

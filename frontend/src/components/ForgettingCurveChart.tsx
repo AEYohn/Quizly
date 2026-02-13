@@ -77,7 +77,7 @@ export function ForgettingCurveChart({ concepts, className = "" }: ForgettingCur
 
     const colors = [
         { stroke: "#10b981", fill: "#10b981" },
-        { stroke: "#8b5cf6", fill: "#8b5cf6" },
+        { stroke: "#00B8D4", fill: "#00B8D4" },
         { stroke: "#f59e0b", fill: "#f59e0b" },
         { stroke: "#ef4444", fill: "#ef4444" },
         { stroke: "#3b82f6", fill: "#3b82f6" },
@@ -116,7 +116,7 @@ export function ForgettingCurveChart({ concepts, className = "" }: ForgettingCur
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-medium flex items-center gap-2">
-                    <Brain className="h-5 w-5 text-purple-400" />
+                    <Brain className="h-5 w-5 text-teal-400" />
                     Memory Retention Forecast
                 </h3>
             </div>
@@ -220,10 +220,10 @@ export function ForgettingCurveChart({ concepts, className = "" }: ForgettingCur
             </div>
 
             {/* Review Schedule */}
-            <div className="mt-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+            <div className="mt-4 p-3 rounded-lg bg-teal-500/10 border border-teal-500/30">
                 <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm font-medium text-purple-400">Spaced Repetition Schedule</span>
+                    <Calendar className="h-4 w-4 text-teal-400" />
+                    <span className="text-sm font-medium text-teal-400">Spaced Repetition Schedule</span>
                 </div>
                 <p className="text-xs text-gray-400">
                     Based on the Ebbinghaus forgetting curve, concepts are scheduled for review before retention drops below 70%.

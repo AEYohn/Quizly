@@ -1905,7 +1905,7 @@ export default function PlayGamePage() {
                             </button>
                             <Link
                                 href="/student/dashboard"
-                                className="rounded-full bg-purple-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
+                                className="rounded-full bg-teal-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-teal-500 transition-colors flex items-center justify-center gap-2"
                             >
                                 <BookOpen className="h-5 w-5" />
                                 My Learning Dashboard
@@ -2065,7 +2065,7 @@ export default function PlayGamePage() {
                                             setShowReasoning(false);
                                             setShowPeerDiscussion(false);
                                         }}
-                                        className="rounded-full bg-white px-8 py-4 text-lg font-bold text-purple-600 shadow-xl hover:scale-105 transition-transform"
+                                        className="rounded-full bg-white px-8 py-4 text-lg font-bold text-teal-600 shadow-xl hover:scale-105 transition-transform"
                                     >
                                         Next Question →
                                     </button>
@@ -2157,9 +2157,9 @@ export default function PlayGamePage() {
                                 ? "bg-red-500 animate-pulse"
                                 : "bg-white"
                         } shadow-lg`}>
-                            <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-purple-600"}`} />
+                            <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-teal-600"}`} />
                             <span className={`text-2xl font-bold ${
-                                timeLeft <= 5 ? "text-white" : "text-purple-600"
+                                timeLeft <= 5 ? "text-white" : "text-teal-600"
                             }`}>
                                 {timeLeft}
                             </span>
@@ -2272,9 +2272,9 @@ export default function PlayGamePage() {
                             ? "bg-red-500 animate-pulse"
                             : "bg-white"
                     } shadow-lg`}>
-                        <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-purple-600"}`} />
+                        <Clock className={`h-5 w-5 ${timeLeft <= 5 ? "text-white" : "text-teal-600"}`} />
                         <span className={`text-2xl font-bold ${
-                            timeLeft <= 5 ? "text-white" : "text-purple-600"
+                            timeLeft <= 5 ? "text-white" : "text-teal-600"
                         }`}>
                             {timeLeft}
                         </span>

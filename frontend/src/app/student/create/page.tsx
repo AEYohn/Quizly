@@ -31,7 +31,7 @@ const contentTypes = [
         description: "Create fun games to practice and test yourself",
         icon: Gamepad2,
         href: "/student/create/game",
-        color: "bg-purple-600"
+        color: "bg-teal-600"
     },
     {
         id: "quiz",

@@ -83,7 +83,7 @@ export function LearningProgressChart({
                         <p className="text-emerald-400">
                             Accuracy: {data.accuracy}%
                         </p>
-                        <p className="text-purple-400">
+                        <p className="text-teal-400">
                             Difficulty: {data.difficulty}%
                         </p>
                         {data.reason && (
@@ -129,8 +129,8 @@ export function LearningProgressChart({
                                 <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="difficultyGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                <stop offset="5%" stopColor="#00B8D4" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#00B8D4" stopOpacity={0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
@@ -168,11 +168,11 @@ export function LearningProgressChart({
                             type="monotone"
                             dataKey="difficulty"
                             name="Difficulty"
-                            stroke="#8b5cf6"
+                            stroke="#00B8D4"
                             strokeWidth={2}
                             fill="url(#difficultyGradient)"
-                            dot={{ fill: "#8b5cf6", strokeWidth: 0, r: 3 }}
-                            activeDot={{ r: 5, fill: "#8b5cf6" }}
+                            dot={{ fill: "#00B8D4", strokeWidth: 0, r: 3 }}
+                            activeDot={{ r: 5, fill: "#00B8D4" }}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
@@ -190,7 +190,7 @@ export function LearningProgressChart({
                         <p className="text-xs text-gray-500">Avg Accuracy</p>
                     </div>
                     <div className="text-center">
-                        <p className="text-2xl font-bold text-purple-400">
+                        <p className="text-2xl font-bold text-teal-400">
                             {lastData?.difficulty ?? 0}%
                         </p>
                         <p className="text-xs text-gray-500">Current Difficulty</p>

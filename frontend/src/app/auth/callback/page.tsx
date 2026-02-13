@@ -130,7 +130,7 @@ export default function AuthCallbackPage() {
     return (
         <div className="min-h-screen bg-gray-950 flex items-center justify-center">
             <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-violet-500 mx-auto mb-4" />
+                <Loader2 className="h-8 w-8 animate-spin text-teal-500 mx-auto mb-4" />
                 <p className="text-gray-400">{status}</p>
             </div>
         </div>

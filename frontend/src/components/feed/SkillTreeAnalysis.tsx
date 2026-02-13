@@ -81,7 +81,7 @@ function MasteryRing({ value, size = 100 }: { value: number; size?: number }) {
             : value >= 50
               ? "stroke-amber-400"
               : value >= 25
-                ? "stroke-violet-400"
+                ? "stroke-teal-400"
                 : "stroke-red-400";
 
     return (
@@ -168,7 +168,7 @@ function OverviewTab({ data }: { data: SkillTreeAnalysisResponse }) {
                     { label: "Mastered", value: data.summary.mastered, color: "text-emerald-400", bg: "bg-emerald-500/10" },
                     { label: "Learning", value: data.summary.in_progress, color: "text-amber-400", bg: "bg-amber-500/10" },
                     { label: "Struggling", value: data.summary.struggling, color: "text-red-400", bg: "bg-red-500/10" },
-                    { label: "Overdue", value: data.summary.overdue, color: "text-violet-400", bg: "bg-violet-500/10" },
+                    { label: "Overdue", value: data.summary.overdue, color: "text-teal-400", bg: "bg-teal-500/10" },
                 ].map((stat) => (
                     <div
                         key={stat.label}
@@ -193,8 +193,8 @@ function OverviewTab({ data }: { data: SkillTreeAnalysisResponse }) {
                             <AreaChart data={data.mastery_timeline}>
                                 <defs>
                                     <linearGradient id="masteryGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                                        <stop offset="0%" stopColor="#00B8D4" stopOpacity={0.4} />
+                                        <stop offset="100%" stopColor="#00B8D4" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <XAxis
@@ -204,19 +204,19 @@ function OverviewTab({ data }: { data: SkillTreeAnalysisResponse }) {
                                 <YAxis domain={[0, 100]} hide />
                                 <Tooltip
                                     contentStyle={{
-                                        background: "#1a1a2e",
-                                        border: "1px solid rgba(139,92,246,0.3)",
+                                        background: "#222222",
+                                        border: "1px solid rgba(0,184,212,0.3)",
                                         borderRadius: 12,
                                         fontSize: 12,
                                     }}
-                                    labelStyle={{ color: "#a78bfa" }}
+                                    labelStyle={{ color: "#26C6DA" }}
                                     itemStyle={{ color: "#e0e0e0" }}
                                     formatter={(value: number | undefined) => [`${value ?? 0}%`, "Accuracy"]}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="overall"
-                                    stroke="#8b5cf6"
+                                    stroke="#00B8D4"
                                     strokeWidth={2}
                                     fill="url(#masteryGrad)"
                                 />
@@ -250,7 +250,7 @@ function WeaknessCard({
                             {weakness.concept}
                         </span>
                         {weakness.is_overdue && (
-                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-full shrink-0">
+                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-teal-400 bg-teal-500/10 px-1.5 py-0.5 rounded-full shrink-0">
                                 <Clock className="w-2.5 h-2.5" /> Overdue
                             </span>
                         )}
@@ -262,7 +262,7 @@ function WeaknessCard({
                 {onStudyNow && (
                     <button
                         onClick={() => onStudyNow(weakness.concept)}
-                        className="flex items-center gap-1 text-[11px] font-bold text-violet-300 bg-violet-500/15 border border-violet-500/20 px-2.5 py-1.5 rounded-lg hover:bg-violet-500/25 transition-colors shrink-0"
+                        className="flex items-center gap-1 text-[11px] font-bold text-teal-300 bg-teal-500/15 border border-teal-500/20 px-2.5 py-1.5 rounded-lg hover:bg-teal-500/25 transition-colors shrink-0"
                     >
                         <Play className="w-3 h-3" /> Study
                     </button>
@@ -377,8 +377,8 @@ function InsightsTab({ data }: { data: SkillTreeAnalysisResponse }) {
     if (!insights.summary && insights.recommendations.length === 0) {
         return (
             <div className="text-center py-8">
-                <div className="w-12 h-12 rounded-full bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
-                    <Sparkles className="w-6 h-6 text-violet-400" />
+                <div className="w-12 h-12 rounded-full bg-teal-500/10 flex items-center justify-center mx-auto mb-3">
+                    <Sparkles className="w-6 h-6 text-teal-400" />
                 </div>
                 <p className="text-sm text-gray-400">Not enough data for AI insights yet.</p>
                 <p className="text-xs text-gray-600 mt-1">Complete more study sessions to unlock insights.</p>
@@ -390,10 +390,10 @@ function InsightsTab({ data }: { data: SkillTreeAnalysisResponse }) {
         <div className="space-y-5">
             {/* AI Summary */}
             {insights.summary && (
-                <div className="rounded-xl bg-violet-500/5 border border-violet-500/15 p-4">
+                <div className="rounded-xl bg-teal-500/5 border border-teal-500/15 p-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="w-4 h-4 text-violet-400" />
-                        <span className="text-xs font-bold text-violet-300 uppercase tracking-wider">Summary</span>
+                        <Sparkles className="w-4 h-4 text-teal-400" />
+                        <span className="text-xs font-bold text-teal-300 uppercase tracking-wider">Summary</span>
                     </div>
                     <p className="text-sm text-gray-300 leading-relaxed">
                         {insights.summary}
@@ -542,7 +542,7 @@ export function SkillTreeAnalysis({
                             className={cn(
                                 "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all",
                                 activeTab === tab.key
-                                    ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/30"
                                     : "text-gray-500 hover:text-gray-300",
                             )}
                         >
@@ -557,7 +557,7 @@ export function SkillTreeAnalysis({
             <div className="mt-4 min-h-[200px]">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-3">
-                        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                        <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
                         <p className="text-sm text-gray-500">Analyzing your progress...</p>
                     </div>
                 ) : error ? (
@@ -565,7 +565,7 @@ export function SkillTreeAnalysis({
                         <p className="text-sm text-red-400">{error}</p>
                         <button
                             onClick={fetchAnalysis}
-                            className="mt-3 text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors"
+                            className="mt-3 text-xs font-medium text-teal-400 hover:text-teal-300 transition-colors"
                         >
                             Try again
                         </button>
@@ -595,12 +595,12 @@ export function AnalysisFloatingButton({ onClick }: { onClick: () => void }) {
             className={cn(
                 "fixed bottom-24 right-4 z-30",
                 "flex items-center gap-2 px-4 py-2.5 rounded-full",
-                "bg-gradient-to-r from-indigo-600 to-violet-600",
+                "bg-gradient-to-r from-teal-600 to-teal-600",
                 "text-white text-sm font-bold shadow-xl",
-                "hover:from-indigo-500 hover:to-violet-500 transition-all",
-                "border border-indigo-400/30",
+                "hover:from-teal-500 hover:to-teal-500 transition-all",
+                "border border-teal-400/30",
             )}
-            style={{ boxShadow: "0 4px 24px rgba(99,102,241,0.4)" }}
+            style={{ boxShadow: "0 4px 24px rgba(0,184,212,0.4)" }}
         >
             <BarChart3 className="w-4 h-4" />
             Analysis

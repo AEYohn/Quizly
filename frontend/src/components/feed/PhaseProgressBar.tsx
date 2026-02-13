@@ -35,7 +35,7 @@ export function PhaseProgressBar({ phase, progress, onSkip }: PhaseProgressBarPr
                                 <div
                                     className={cn(
                                         "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold",
-                                        isCurrent && "bg-indigo-100 text-indigo-600",
+                                        isCurrent && "bg-teal-100 text-teal-600",
                                         isCompleted && "bg-emerald-50 text-emerald-600",
                                         !isCurrent && !isCompleted && "bg-gray-50 text-gray-400",
                                     )}
@@ -46,7 +46,7 @@ export function PhaseProgressBar({ phase, progress, onSkip }: PhaseProgressBarPr
                                         <Icon
                                             className={cn(
                                                 "w-3 h-3",
-                                                isCurrent ? "text-indigo-500" : "text-gray-400",
+                                                isCurrent ? "text-teal-500" : "text-gray-400",
                                             )}
                                         />
                                     )}
@@ -63,7 +63,7 @@ export function PhaseProgressBar({ phase, progress, onSkip }: PhaseProgressBarPr
                 {onSkip && phase !== "quiz" && (
                     <button
                         onClick={() => onSkip(phase === "learn" ? "flashcards" : "quiz")}
-                        className="text-[10px] font-medium text-indigo-500 hover:text-indigo-700 px-2 py-1"
+                        className="text-[10px] font-medium text-teal-500 hover:text-teal-700 px-2 py-1"
                     >
                         Skip to Quiz
                     </button>
@@ -73,7 +73,7 @@ export function PhaseProgressBar({ phase, progress, onSkip }: PhaseProgressBarPr
             {progress && (
                 <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                        className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                        className="h-full bg-teal-500 rounded-full transition-all duration-300"
                         style={{ width: `${progressPct}%` }}
                     />
                 </div>

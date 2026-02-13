@@ -280,7 +280,7 @@ export default function StudentClassPage() {
                                                             </div>
                                                             <div className={`p-2 rounded-lg ${
                                                                 item.item_type === "quiz"
-                                                                    ? "bg-purple-500/20 text-purple-400"
+                                                                    ? "bg-teal-500/20 text-teal-400"
                                                                     : item.item_type === "video"
                                                                     ? "bg-red-500/20 text-red-400"
                                                                     : "bg-sky-500/20 text-sky-400"
@@ -300,7 +300,7 @@ export default function StudentClassPage() {
                                                                 </p>
                                                             </div>
                                                             {item.item_type === "quiz" && (
-                                                                <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-400">
+                                                                <span className="text-xs px-2 py-1 rounded-full bg-teal-500/20 text-teal-400">
                                                                     Quiz
                                                                 </span>
                                                             )}

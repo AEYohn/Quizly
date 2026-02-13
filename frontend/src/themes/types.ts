@@ -27,10 +27,10 @@ export interface ThemeTokens {
     isDark: boolean;
 }
 
-export type VariantName = "cosmic";
+export type VariantName = "brilliant";
 
-export const VARIANT_NAMES: VariantName[] = ["cosmic"];
+export const VARIANT_NAMES: VariantName[] = ["brilliant"];
 
 export const VARIANT_LABELS: Record<VariantName, string> = {
-    cosmic: "Cosmic Journey",
+    brilliant: "Brilliant",
 };

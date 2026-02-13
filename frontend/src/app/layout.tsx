@@ -30,7 +30,7 @@ export const viewport: Viewport = {
     initialScale: 1,
     maximumScale: 1,
     viewportFit: "cover",
-    themeColor: "#030712",
+    themeColor: "#0A0A0A",
 };
 
 const geist = Geist({
@@ -42,14 +42,14 @@ export default function RootLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
     return (
-        <html lang="en" className={`${geist.variable}`} suppressHydrationWarning style={{ backgroundColor: "#030712" }}>
+        <html lang="en" className={`${geist.variable}`} suppressHydrationWarning style={{ backgroundColor: "#0A0A0A" }}>
             <head>
-                <meta name="theme-color" content="#030712" media="(prefers-color-scheme: dark)" />
-                <meta name="theme-color" content="#030712" media="(prefers-color-scheme: light)" />
+                <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)" />
+                <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: light)" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <style dangerouslySetInnerHTML={{ __html: `
                     html, body {
-                        background: #030712 !important;
+                        background: #0A0A0A !important;
                         margin: 0;
                         padding: 0;
                     }
@@ -61,13 +61,13 @@ export default function RootLayout({
                     #bg-layer {
                         position: fixed;
                         inset: -200vh -50vw;
-                        background: #030712;
+                        background: #0A0A0A;
                         z-index: -9999;
                         pointer-events: none;
                     }
                 ` }} />
             </head>
-            <body style={{ background: "#030712", margin: 0 }}>
+            <body style={{ background: "#0A0A0A", margin: 0 }}>
                 <div id="bg-layer" aria-hidden="true" />
                 <ClerkProviderWrapper>
                     <QueryProvider>

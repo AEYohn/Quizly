@@ -257,8 +257,8 @@ export default function LiveMonitorPage() {
 
                     <div className="rounded-xl bg-gray-900 border border-gray-800 p-4">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/20">
-                                <BarChart3 className="h-5 w-5 text-purple-400" />
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/20">
+                                <BarChart3 className="h-5 w-5 text-teal-400" />
                             </div>
                             <div>
                                 <p className="text-2xl font-bold text-white">

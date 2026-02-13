@@ -318,10 +318,10 @@ export default function StudentSessionPage() {
     // Name prompt
     if (needsName) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-6">
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-teal-50 via-white to-teal-50 px-6">
                 <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-100">
                     <div className="mb-8 text-center">
-                        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-3xl shadow-lg shadow-indigo-600/20">
+                        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-600 text-3xl shadow-lg shadow-teal-600/20">
                             🎒
                         </div>
                         <h1 className="text-2xl font-bold text-gray-900">Join Live Session</h1>
@@ -340,7 +340,7 @@ export default function StudentSessionPage() {
                                 value={nameInput}
                                 onChange={(e) => setNameInput(e.target.value)}
                                 placeholder="e.g. Alex Smith"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-lg outline-none transition-all placeholder:text-gray-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/20"
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-lg outline-none transition-all placeholder:text-gray-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/20"
                                 autoFocus
                             />
                         </div>
@@ -348,7 +348,7 @@ export default function StudentSessionPage() {
                         <button
                             type="submit"
                             disabled={!nameInput.trim()}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 text-lg font-bold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/40 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 py-4 text-lg font-bold text-white shadow-lg shadow-teal-600/30 transition-all hover:bg-teal-700 hover:shadow-xl hover:shadow-teal-600/40 disabled:opacity-50"
                         >
                             Join Session
                             <ArrowRight className="h-5 w-5" />
@@ -369,8 +369,8 @@ export default function StudentSessionPage() {
     // Loading
     if (phase === "loading") {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-                <Loader2 className="h-12 w-12 animate-spin text-indigo-600" />
+            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50 via-white to-teal-50">
+                <Loader2 className="h-12 w-12 animate-spin text-teal-600" />
             </div>
         );
     }
@@ -378,16 +378,16 @@ export default function StudentSessionPage() {
     // Waiting
     if (phase === "waiting") {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 text-center">
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-teal-50 via-white to-teal-50 px-4 text-center">
                 <div className="mb-6 rounded-full bg-white p-6 shadow-xl">
-                    <Loader2 className="h-16 w-16 animate-spin text-indigo-600" />
+                    <Loader2 className="h-16 w-16 animate-spin text-teal-600" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900">Waiting for Teacher</h1>
                 <p className="mt-2 text-gray-600">The session will start soon...</p>
                 <Card className="mt-8">
                     <div className="text-center">
                         <span className="text-sm font-medium text-gray-500">Joined as</span>
-                        <div className="mt-1 text-xl font-bold text-indigo-600">{studentName}</div>
+                        <div className="mt-1 text-xl font-bold text-teal-600">{studentName}</div>
                     </div>
                 </Card>
             </div>
@@ -448,7 +448,7 @@ export default function StudentSessionPage() {
     if (isCodeView && currentQuestion) {
         // Full-screen LeetCode-style layout for code questions
         return (
-            <div className="h-screen w-screen bg-[#0a0a14] flex flex-col overflow-hidden">
+            <div className="h-screen w-screen bg-[#131313] flex flex-col overflow-hidden">
                 {/* Header with question navigator */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800">
                     <div className="flex items-center gap-3">
@@ -479,9 +479,9 @@ export default function StudentSessionPage() {
                             </button>
                         </div>
                         
-                        <Badge variant="purple" dot pulse>LIVE</Badge>
-                        <Code className="h-4 w-4 text-purple-500" />
-                        <span className="text-sm text-purple-400">Coding Problem</span>
+                        <Badge variant="teal" dot pulse>LIVE</Badge>
+                        <Code className="h-4 w-4 text-teal-500" />
+                        <span className="text-sm text-teal-400">Coding Problem</span>
                         <span className="text-sm text-gray-500">{currentQuestion.language || 'Python'}</span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -490,7 +490,7 @@ export default function StudentSessionPage() {
                             <button
                                 onClick={getAIAnalysis}
                                 disabled={isAnalyzing}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium transition-all"
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition-all"
                             >
                                 {isAnalyzing ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -541,7 +541,7 @@ export default function StudentSessionPage() {
                                         onClick={() => goToQuestion(i)}
                                         className={`w-10 h-10 rounded-lg font-medium text-sm transition-all ${
                                             isCurrent
-                                                ? "bg-purple-600 text-white"
+                                                ? "bg-teal-600 text-white"
                                                 : status === 'passed'
                                                 ? "bg-emerald-600/30 text-emerald-400 border border-emerald-500/50"
                                                 : status === 'attempted'
@@ -569,15 +569,15 @@ export default function StudentSessionPage() {
                 
                 {/* AI Analysis Panel */}
                 {codeAnalysis && (
-                    <div className="bg-purple-900/30 border-b border-purple-700/50 px-4 py-3">
+                    <div className="bg-teal-900/30 border-b border-teal-700/50 px-4 py-3">
                         <div className="flex items-start gap-3 max-w-4xl mx-auto">
-                            <Brain className="h-5 w-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                            <Brain className="h-5 w-5 text-teal-400 mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
-                                <div className="text-purple-200 font-medium mb-1">{codeAnalysis.summary}</div>
+                                <div className="text-teal-200 font-medium mb-1">{codeAnalysis.summary}</div>
                                 {codeAnalysis.issues.length > 0 && (
                                     <div className="mt-2">
-                                        <div className="text-xs text-purple-400 mb-1">Issues Found:</div>
-                                        <ul className="text-sm text-purple-200/80 space-y-1">
+                                        <div className="text-xs text-teal-400 mb-1">Issues Found:</div>
+                                        <ul className="text-sm text-teal-200/80 space-y-1">
                                             {codeAnalysis.issues.map((issue, i) => (
                                                 <li key={i} className="flex items-start gap-2">
                                                     <span className="text-red-400">•</span>
@@ -589,8 +589,8 @@ export default function StudentSessionPage() {
                                 )}
                                 {codeAnalysis.suggestions.length > 0 && (
                                     <div className="mt-2">
-                                        <div className="text-xs text-purple-400 mb-1">Suggestions:</div>
-                                        <ul className="text-sm text-purple-200/80 space-y-1">
+                                        <div className="text-xs text-teal-400 mb-1">Suggestions:</div>
+                                        <ul className="text-sm text-teal-200/80 space-y-1">
                                             {codeAnalysis.suggestions.map((sug, i) => (
                                                 <li key={i} className="flex items-start gap-2">
                                                     <span className="text-emerald-400">→</span>
@@ -602,7 +602,7 @@ export default function StudentSessionPage() {
                                 )}
                                 <button
                                     onClick={() => setCodeAnalysis(null)}
-                                    className="mt-2 text-xs text-purple-400 hover:text-purple-300"
+                                    className="mt-2 text-xs text-teal-400 hover:text-teal-300"
                                 >
                                     Dismiss
                                 </button>
@@ -636,12 +636,12 @@ export default function StudentSessionPage() {
     }
     
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-4">
+        <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-teal-50 px-4 py-4">
             <div className="mx-auto max-w-2xl">
                 {/* Header */}
                 <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Badge variant="purple" dot pulse>LIVE</Badge>
+                        <Badge variant="teal" dot pulse>LIVE</Badge>
                         <span className="text-sm text-gray-500">
                             Question {currentQuestionIndex + 1} of {totalQuestions}
                         </span>
@@ -652,7 +652,7 @@ export default function StudentSessionPage() {
                     </div>
                 </div>
 
-                <Progress value={((currentQuestionIndex + 1) / totalQuestions) * 100} color="purple" size="sm" className="mb-4" />
+                <Progress value={((currentQuestionIndex + 1) / totalQuestions) * 100} color="teal" size="sm" className="mb-4" />
 
                 {/* Question prompt for MCQ */}
                 {currentQuestion && (
@@ -672,13 +672,13 @@ export default function StudentSessionPage() {
                                     disabled={hasSubmitted}
                                     className={`w-full rounded-2xl p-5 text-left transition-all ${
                                         selectedOption === idx
-                                            ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-[1.02]"
+                                            ? "bg-teal-600 text-white shadow-lg shadow-teal-600/30 scale-[1.02]"
                                             : "bg-white text-gray-700 hover:bg-gray-50 hover:shadow-md"
                                     }`}
                                 >
                                     <div className="flex items-center gap-4">
                                         <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-bold ${
-                                            selectedOption === idx ? "bg-white/20" : "bg-indigo-100 text-indigo-600"
+                                            selectedOption === idx ? "bg-white/20" : "bg-teal-100 text-teal-600"
                                         }`}>
                                             {String.fromCharCode(65 + idx)}
                                         </span>
@@ -703,7 +703,7 @@ export default function StudentSessionPage() {
                                         max="100"
                                         value={confidence}
                                         onChange={(e) => setConfidence(Number(e.target.value))}
-                                        className="w-full h-3 rounded-full appearance-none bg-gray-200 cursor-pointer accent-indigo-600"
+                                        className="w-full h-3 rounded-full appearance-none bg-gray-200 cursor-pointer accent-teal-600"
                                     />
                                     <div className="mt-2 flex justify-between text-xs text-gray-400">
                                         <span>Just guessing</span>
@@ -719,7 +719,7 @@ export default function StudentSessionPage() {
                                         value={reasoning}
                                         onChange={(e) => setReasoning(e.target.value)}
                                         placeholder="Explain your thinking..."
-                                        className="w-full rounded-xl border-2 border-gray-200 p-3 text-gray-700 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+                                        className="w-full rounded-xl border-2 border-gray-200 p-3 text-gray-700 placeholder:text-gray-400 focus:border-teal-500 focus:outline-none"
                                         rows={3}
                                     />
                                 </Card>
@@ -745,18 +745,18 @@ export default function StudentSessionPage() {
 
                         <Card className="shadow-lg">
                             <div className="mb-4 flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-teal-500 to-pink-500 flex items-center justify-center text-white font-bold">
                                     {peerDiscussion?.peer_name?.[0] || "P"}
                                 </div>
                                 <div>
                                     <div className="font-semibold">{peerDiscussion?.peer_name || "AI Peer"}</div>
-                                    <Badge variant="purple" dot pulse>In Discussion</Badge>
+                                    <Badge variant="teal" dot pulse>In Discussion</Badge>
                                 </div>
                             </div>
 
                             {isLoadingPeer ? (
                                 <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                                    <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
                                 </div>
                             ) : (
                                 <>
@@ -764,7 +764,7 @@ export default function StudentSessionPage() {
                                         {discussionMessages.map((msg, i) => (
                                             <div key={i} className={`flex ${msg.role === "student" ? "justify-end" : "justify-start"}`}>
                                                 <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                                                    msg.role === "student" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"
+                                                    msg.role === "student" ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-800"
                                                 }`}>
                                                     {msg.content}
                                                 </div>
@@ -794,7 +794,7 @@ export default function StudentSessionPage() {
                                             }}
                                             placeholder="Type your response..."
                                             rows={1}
-                                            className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-2 focus:border-indigo-500 focus:outline-none resize-none"
+                                            className="flex-1 rounded-xl border-2 border-gray-200 px-4 py-2 focus:border-teal-500 focus:outline-none resize-none"
                                             style={{ minHeight: '42px', maxHeight: '120px' }}
                                         />
                                         <Button onClick={handleSendMessage} disabled={!messageInput.trim()}>
@@ -849,7 +849,7 @@ export default function StudentSessionPage() {
                         {isCodeQuestion && codeResult && codeResult.test_results.length > 0 && (
                             <Card className="shadow-lg">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Code className="h-5 w-5 text-indigo-600" />
+                                    <Code className="h-5 w-5 text-teal-600" />
                                     <span className="font-semibold text-gray-900">Test Results</span>
                                 </div>
                                 <div className="space-y-3">
@@ -897,14 +897,14 @@ export default function StudentSessionPage() {
 
                         {/* Explanation - always show for code questions */}
                         {currentQuestion.explanation && (
-                            <Card className="shadow-lg bg-indigo-50">
+                            <Card className="shadow-lg bg-teal-50">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Sparkles className="h-5 w-5 text-indigo-600" />
-                                    <span className="font-semibold text-indigo-900">
+                                    <Sparkles className="h-5 w-5 text-teal-600" />
+                                    <span className="font-semibold text-teal-900">
                                         {isCodeQuestion ? "Solution Approach" : "Explanation"}
                                     </span>
                                 </div>
-                                <p className="text-indigo-800 leading-relaxed whitespace-pre-wrap">{currentQuestion.explanation}</p>
+                                <p className="text-teal-800 leading-relaxed whitespace-pre-wrap">{currentQuestion.explanation}</p>
                             </Card>
                         )}
 
@@ -925,12 +925,12 @@ export default function StudentSessionPage() {
                         )}
 
                         {peerDiscussion?.insight && (
-                            <Card className="bg-purple-50 shadow-lg">
+                            <Card className="bg-teal-50 shadow-lg">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <MessageCircle className="h-5 w-5 text-purple-600" />
-                                    <span className="font-semibold text-purple-900">Discussion Insight</span>
+                                    <MessageCircle className="h-5 w-5 text-teal-600" />
+                                    <span className="font-semibold text-teal-900">Discussion Insight</span>
                                 </div>
-                                <p className="text-purple-800">{peerDiscussion.insight}</p>
+                                <p className="text-teal-800">{peerDiscussion.insight}</p>
                             </Card>
                         )}
 

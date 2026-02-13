@@ -74,21 +74,21 @@ function SessionRow({
     });
 
     return (
-        <div className="rounded-xl border border-indigo-500/10 bg-[#0d0b25]/60 overflow-hidden">
+        <div className="rounded-xl border border-teal-500/10 bg-[#1A1A1A]/60 overflow-hidden">
             <button
                 onClick={onToggle}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-500/5 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-teal-500/5 transition-colors text-left"
             >
                 <div className="shrink-0">
                     {session.mode === "scroll" ? (
                         <Zap className="h-4 w-4 text-amber-400" />
                     ) : (
-                        <BookOpen className="h-4 w-4 text-indigo-400" />
+                        <BookOpen className="h-4 w-4 text-teal-400" />
                     )}
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-200 truncate">{session.topic}</p>
-                    <p className="text-[11px] text-indigo-300/30">
+                    <p className="text-[11px] text-teal-300/30">
                         {formatDate(session.started_at)} &middot; {session.questions_answered}q
                     </p>
                 </div>
@@ -96,20 +96,20 @@ function SessionRow({
                     {session.accuracy}%
                 </span>
                 {isExpanded ? (
-                    <ChevronUp className="h-3.5 w-3.5 text-indigo-300/30 shrink-0" />
+                    <ChevronUp className="h-3.5 w-3.5 text-teal-300/30 shrink-0" />
                 ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-indigo-300/30 shrink-0" />
+                    <ChevronDown className="h-3.5 w-3.5 text-teal-300/30 shrink-0" />
                 )}
             </button>
 
             {isExpanded && (
-                <div className="border-t border-indigo-500/8 px-4 py-3">
+                <div className="border-t border-teal-500/8 px-4 py-3">
                     {questions.length === 0 ? (
                         <div className="flex justify-center py-3">
-                            <Loader2 className="h-4 w-4 animate-spin text-indigo-400/50" />
+                            <Loader2 className="h-4 w-4 animate-spin text-teal-400/50" />
                         </div>
                     ) : filteredQuestions.length === 0 ? (
-                        <p className="text-xs text-indigo-300/30 text-center py-2">No matching questions.</p>
+                        <p className="text-xs text-teal-300/30 text-center py-2">No matching questions.</p>
                     ) : (
                         <div className="space-y-2">
                             {filteredQuestions.map((q) => (
@@ -146,35 +146,35 @@ function QuestionItem({ question }: { question: QuestionHistoryItem }) {
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-[13px] text-gray-300 leading-snug">{truncate(question.prompt, 90)}</p>
-                    <span className="inline-block mt-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-300/50">
+                    <span className="inline-block mt-1 rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] text-teal-300/50">
                         {question.concept}
                     </span>
                 </div>
                 <div className="shrink-0">
                     {expanded ? (
-                        <ChevronUp className="h-3 w-3 text-indigo-300/30" />
+                        <ChevronUp className="h-3 w-3 text-teal-300/30" />
                     ) : (
-                        <ChevronDown className="h-3 w-3 text-indigo-300/30" />
+                        <ChevronDown className="h-3 w-3 text-teal-300/30" />
                     )}
                 </div>
             </button>
 
             {expanded && (
-                <div className="border-t border-indigo-500/8 px-3 py-2.5 space-y-1.5 text-[12px]">
+                <div className="border-t border-teal-500/8 px-3 py-2.5 space-y-1.5 text-[12px]">
                     <div className="flex gap-2">
-                        <span className="text-indigo-300/40">Your answer:</span>
+                        <span className="text-teal-300/40">Your answer:</span>
                         <span className={question.is_correct ? "text-emerald-400" : "text-red-400"}>
                             {question.student_answer}
                         </span>
                     </div>
                     {!question.is_correct && (
                         <div className="flex gap-2">
-                            <span className="text-indigo-300/40">Correct:</span>
+                            <span className="text-teal-300/40">Correct:</span>
                             <span className="text-emerald-400">{question.correct_answer}</span>
                         </div>
                     )}
                     {question.explanation && (
-                        <p className="text-indigo-300/40 bg-indigo-500/5 rounded-lg p-2 mt-1 leading-relaxed">
+                        <p className="text-teal-300/40 bg-teal-500/5 rounded-lg p-2 mt-1 leading-relaxed">
                             {question.explanation}
                         </p>
                     )}
@@ -231,18 +231,18 @@ export function Profile({
         historyPagination.offset + historyPagination.limit < historyPagination.total;
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-[#050510] via-[#0a0820] to-[#050515] relative overflow-y-auto">
+        <div className="h-full flex flex-col bg-gradient-to-b from-[#0F0F0F] via-[#131313] to-[#0F0F0F] relative overflow-y-auto">
             {/* Star field */}
             <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                     background: `
                         radial-gradient(1px 1px at 8% 12%, rgba(255,255,255,0.3) 50%, transparent 100%),
-                        radial-gradient(1px 1px at 25% 45%, rgba(165,180,252,0.3) 50%, transparent 100%),
+                        radial-gradient(1px 1px at 25% 45%, rgba(77,208,225,0.3) 50%, transparent 100%),
                         radial-gradient(1px 1px at 50% 20%, rgba(255,255,255,0.2) 50%, transparent 100%),
                         radial-gradient(1px 1px at 72% 60%, rgba(110,231,183,0.2) 50%, transparent 100%),
                         radial-gradient(1px 1px at 90% 30%, rgba(251,191,36,0.15) 50%, transparent 100%),
-                        radial-gradient(1px 1px at 40% 80%, rgba(165,180,252,0.2) 50%, transparent 100%)
+                        radial-gradient(1px 1px at 40% 80%, rgba(77,208,225,0.2) 50%, transparent 100%)
                     `,
                 }}
             />
@@ -256,19 +256,19 @@ export function Profile({
                             <ellipse
                                 cx="56" cy="56" rx="54" ry="20"
                                 fill="none"
-                                stroke="rgba(129,140,248,0.2)"
+                                stroke="rgba(38,198,218,0.2)"
                                 strokeWidth="1"
                                 transform="rotate(-20, 56, 56)"
                             />
                             <ellipse
                                 cx="56" cy="56" rx="54" ry="20"
                                 fill="none"
-                                stroke="rgba(129,140,248,0.15)"
+                                stroke="rgba(38,198,218,0.15)"
                                 strokeWidth="0.5"
                                 transform="rotate(-20, 56, 56)"
                                 strokeDasharray="4 6"
                             />
-                            <circle r="3" fill="#818cf8" opacity="0.8">
+                            <circle r="3" fill="#26C6DA" opacity="0.8">
                                 <animateMotion
                                     dur="6s"
                                     repeatCount="indefinite"
@@ -277,8 +277,8 @@ export function Profile({
                             </circle>
                         </svg>
 
-                        <div className="absolute inset-4 rounded-full bg-gradient-to-br from-indigo-600 via-indigo-800 to-[#0a0820] border-2 border-indigo-500/30 flex items-center justify-center shadow-[0_0_40px_rgba(99,102,241,0.25)]">
-                            <span className="text-2xl font-bold text-indigo-200">{initial}</span>
+                        <div className="absolute inset-4 rounded-full bg-gradient-to-br from-teal-600 via-teal-800 to-[#131313] border-2 border-teal-500/30 flex items-center justify-center shadow-[0_0_40px_rgba(0,184,212,0.25)]">
+                            <span className="text-2xl font-bold text-teal-200">{initial}</span>
                         </div>
 
                         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-400 text-[10px] font-bold">
@@ -287,17 +287,17 @@ export function Profile({
                     </div>
 
                     <h1 className="text-xl font-bold text-gray-100 mt-5">{studentName}</h1>
-                    <p className="text-xs text-indigo-300/40 mt-0.5">{email}</p>
+                    <p className="text-xs text-teal-300/40 mt-0.5">{email}</p>
 
                     {/* XP progress bar */}
                     <div className="w-full max-w-[200px] mt-4">
-                        <div className="flex items-center justify-between text-[10px] text-indigo-300/40 mb-1">
+                        <div className="flex items-center justify-between text-[10px] text-teal-300/40 mb-1">
                             <span>{totalXp} XP total</span>
                             <span>Level {level + 1}</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-indigo-500/10 overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-teal-500/10 overflow-hidden">
                             <div
-                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-amber-400 transition-all duration-500"
+                                className="h-full rounded-full bg-gradient-to-r from-teal-500 to-amber-400 transition-all duration-500"
                                 style={{ width: `${xpPercent}%` }}
                             />
                         </div>
@@ -307,23 +307,23 @@ export function Profile({
                 {/* Stats constellation */}
                 <div className="relative">
                     <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 300 180" preserveAspectRatio="none">
-                        <line x1="75" y1="45" x2="225" y2="45" stroke="rgba(129,140,248,0.1)" strokeWidth="1" strokeDasharray="4 4" />
-                        <line x1="75" y1="45" x2="75" y2="135" stroke="rgba(129,140,248,0.1)" strokeWidth="1" strokeDasharray="4 4" />
-                        <line x1="225" y1="45" x2="225" y2="135" stroke="rgba(129,140,248,0.1)" strokeWidth="1" strokeDasharray="4 4" />
-                        <line x1="75" y1="135" x2="225" y2="135" stroke="rgba(129,140,248,0.1)" strokeWidth="1" strokeDasharray="4 4" />
-                        <line x1="150" y1="0" x2="150" y2="180" stroke="rgba(129,140,248,0.06)" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="75" y1="45" x2="225" y2="45" stroke="rgba(38,198,218,0.1)" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="75" y1="45" x2="75" y2="135" stroke="rgba(38,198,218,0.1)" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="225" y1="45" x2="225" y2="135" stroke="rgba(38,198,218,0.1)" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="75" y1="135" x2="225" y2="135" stroke="rgba(38,198,218,0.1)" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="150" y1="0" x2="150" y2="180" stroke="rgba(38,198,218,0.06)" strokeWidth="1" strokeDasharray="4 4" />
                     </svg>
 
                     <div className="grid grid-cols-2 gap-4">
                         {[
                             { label: "Total XP", value: totalXp, icon: Zap, color: "text-amber-400", glow: "rgba(251,191,36,0.3)" },
-                            { label: "Voyages", value: totalSessions, icon: BookOpen, color: "text-indigo-400", glow: "rgba(129,140,248,0.3)" },
+                            { label: "Voyages", value: totalSessions, icon: BookOpen, color: "text-teal-400", glow: "rgba(38,198,218,0.3)" },
                             { label: "Accuracy", value: `${accuracy}%`, icon: Target, color: "text-emerald-400", glow: "rgba(110,231,183,0.3)" },
                             { label: "Level", value: level, icon: Award, color: "text-amber-400", glow: "rgba(251,191,36,0.3)" },
                         ].map(({ label, value, icon: Icon, color, glow }) => (
                             <div
                                 key={label}
-                                className="relative bg-[#0d0b25]/80 border border-indigo-500/10 rounded-2xl p-4 text-center group hover:border-indigo-500/20 transition-all"
+                                className="relative bg-[#1A1A1A]/80 border border-teal-500/10 rounded-2xl p-4 text-center group hover:border-teal-500/20 transition-all"
                             >
                                 <div
                                     className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
@@ -332,7 +332,7 @@ export function Profile({
                                 <div className="relative">
                                     <Icon className={cn("w-5 h-5 mx-auto mb-2", color)} />
                                     <div className="text-xl font-bold text-gray-100">{value}</div>
-                                    <div className="text-[10px] text-indigo-300/40 uppercase tracking-wider mt-1">{label}</div>
+                                    <div className="text-[10px] text-teal-300/40 uppercase tracking-wider mt-1">{label}</div>
                                 </div>
                             </div>
                         ))}
@@ -340,8 +340,8 @@ export function Profile({
                 </div>
 
                 {/* Tab bar */}
-                <div className="sticky top-0 z-20 pt-1 pb-2 bg-gradient-to-b from-[#0a0820] to-transparent">
-                    <div className="flex gap-1 p-1 rounded-xl bg-[#0d0b25]/80 border border-indigo-500/10">
+                <div className="sticky top-0 z-20 pt-1 pb-2 bg-gradient-to-b from-[#131313] to-transparent">
+                    <div className="flex gap-1 p-1 rounded-xl bg-[#1A1A1A]/80 border border-teal-500/10">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
@@ -349,8 +349,8 @@ export function Profile({
                                 className={cn(
                                     "flex-1 py-2 rounded-lg text-xs font-semibold transition-all",
                                     activeProfileTab === tab.id
-                                        ? "bg-indigo-600/30 text-indigo-200 shadow-[0_0_12px_rgba(99,102,241,0.2)]"
-                                        : "text-indigo-300/40 hover:text-indigo-300/60",
+                                        ? "bg-teal-600/30 text-teal-200 shadow-[0_0_12px_rgba(0,184,212,0.2)]"
+                                        : "text-teal-300/40 hover:text-teal-300/60",
                                 )}
                             >
                                 {tab.label}
@@ -415,7 +415,7 @@ function OverviewTab({
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                <Loader2 className="w-5 h-5 text-teal-400 animate-spin" />
             </div>
         );
     }
@@ -423,15 +423,15 @@ function OverviewTab({
     if (!progress || !progress.mastery || progress.mastery.length === 0) {
         return (
             <div className="text-center py-8">
-                <Brain className="w-8 h-8 text-indigo-400/30 mx-auto mb-2" />
-                <p className="text-sm text-indigo-300/40">Start learning to see your mastery data.</p>
+                <Brain className="w-8 h-8 text-teal-400/30 mx-auto mb-2" />
+                <p className="text-sm text-teal-300/40">Start learning to see your mastery data.</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-3">
-            <h2 className="text-xs font-semibold text-indigo-300/50 uppercase tracking-wider flex items-center gap-1.5">
+            <h2 className="text-xs font-semibold text-teal-300/50 uppercase tracking-wider flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5" />
                 Explored Concepts
             </h2>
@@ -441,14 +441,14 @@ function OverviewTab({
                     return (
                         <div
                             key={concept.concept}
-                            className="bg-[#0d0b25]/60 border border-indigo-500/8 rounded-xl px-4 py-3"
+                            className="bg-[#1A1A1A]/60 border border-teal-500/8 rounded-xl px-4 py-3"
                         >
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm text-gray-200 font-medium truncate">{concept.concept}</span>
-                                <span className="text-xs text-indigo-300/30 shrink-0 ml-2">{concept.attempts} attempts</span>
+                                <span className="text-xs text-teal-300/30 shrink-0 ml-2">{concept.attempts} attempts</span>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className="flex-1 h-1.5 rounded-full bg-indigo-500/10 overflow-hidden">
+                                <div className="flex-1 h-1.5 rounded-full bg-teal-500/10 overflow-hidden">
                                     <div
                                         className={cn(
                                             "h-full rounded-full transition-all",
@@ -457,7 +457,7 @@ function OverviewTab({
                                         style={{ width: `${scorePercent}%` }}
                                     />
                                 </div>
-                                <span className="text-[11px] text-indigo-300/40 w-10 text-right">{scorePercent}%</span>
+                                <span className="text-[11px] text-teal-300/40 w-10 text-right">{scorePercent}%</span>
                             </div>
                         </div>
                     );
@@ -468,12 +468,12 @@ function OverviewTab({
                 <div className="grid grid-cols-3 gap-2 mt-3">
                     {[
                         { label: "Mastered", value: progress.summary.mastered, color: "text-emerald-400" },
-                        { label: "In Progress", value: progress.summary.in_progress, color: "text-indigo-400" },
+                        { label: "In Progress", value: progress.summary.in_progress, color: "text-teal-400" },
                         { label: "Needs Work", value: progress.summary.needs_work, color: "text-red-400" },
                     ].map(({ label, value, color }) => (
-                        <div key={label} className="bg-[#0d0b25]/60 border border-indigo-500/8 rounded-xl p-3 text-center">
+                        <div key={label} className="bg-[#1A1A1A]/60 border border-teal-500/8 rounded-xl p-3 text-center">
                             <div className={cn("text-lg font-bold", color)}>{value}</div>
-                            <div className="text-[9px] text-indigo-300/30 uppercase tracking-wider mt-0.5">{label}</div>
+                            <div className="text-[9px] text-teal-300/30 uppercase tracking-wider mt-0.5">{label}</div>
                         </div>
                     ))}
                 </div>
@@ -520,8 +520,8 @@ function HistoryTab({
                         className={cn(
                             "rounded-full px-3 py-1 text-[11px] font-semibold transition-all",
                             filter === f
-                                ? "bg-indigo-600/30 text-indigo-200 shadow-[0_0_8px_rgba(99,102,241,0.2)]"
-                                : "bg-[#0d0b25]/60 text-indigo-300/40 hover:text-indigo-300/60 border border-indigo-500/8",
+                                ? "bg-teal-600/30 text-teal-200 shadow-[0_0_8px_rgba(0,184,212,0.2)]"
+                                : "bg-[#1A1A1A]/60 text-teal-300/40 hover:text-teal-300/60 border border-teal-500/8",
                         )}
                     >
                         {f === "all" ? "All" : f === "correct" ? "Correct" : "Incorrect"}
@@ -531,12 +531,12 @@ function HistoryTab({
 
             {isLoading && sessions.length === 0 ? (
                 <div className="flex justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-indigo-400/50" />
+                    <Loader2 className="h-5 w-5 animate-spin text-teal-400/50" />
                 </div>
             ) : sessions.length === 0 ? (
                 <div className="text-center py-8">
-                    <History className="w-8 h-8 text-indigo-400/30 mx-auto mb-2" />
-                    <p className="text-sm text-indigo-300/40">No sessions yet. Start learning!</p>
+                    <History className="w-8 h-8 text-teal-400/30 mx-auto mb-2" />
+                    <p className="text-sm text-teal-300/40">No sessions yet. Start learning!</p>
                 </div>
             ) : (
                 <>
@@ -552,7 +552,7 @@ function HistoryTab({
                     ))}
 
                     {pagination && (
-                        <p className="text-center text-[10px] text-indigo-300/30">
+                        <p className="text-center text-[10px] text-teal-300/30">
                             Showing {sessions.length} of {pagination.total}
                         </p>
                     )}
@@ -561,7 +561,7 @@ function HistoryTab({
                         <button
                             onClick={onLoadMore}
                             disabled={isLoading}
-                            className="w-full py-2.5 rounded-xl border border-indigo-500/10 text-xs text-indigo-300/40 hover:bg-indigo-500/5 hover:text-indigo-300/60 transition-all disabled:opacity-50"
+                            className="w-full py-2.5 rounded-xl border border-teal-500/10 text-xs text-teal-300/40 hover:bg-teal-500/5 hover:text-teal-300/60 transition-all disabled:opacity-50"
                         >
                             {isLoading ? (
                                 <Loader2 className="inline h-3.5 w-3.5 animate-spin mr-1" />
@@ -596,7 +596,7 @@ function WeakAreasTab({
         <div className="space-y-6">
             {/* Needs Work section */}
             <div className="space-y-3">
-                <h2 className="text-xs font-semibold text-indigo-300/50 uppercase tracking-wider flex items-center gap-1.5">
+                <h2 className="text-xs font-semibold text-teal-300/50 uppercase tracking-wider flex items-center gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     Needs Work
                 </h2>
@@ -606,23 +606,23 @@ function WeakAreasTab({
                         <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-2">
                             <Check className="w-5 h-5 text-emerald-400" />
                         </div>
-                        <p className="text-sm text-indigo-300/40">No weak areas — nice work!</p>
+                        <p className="text-sm text-teal-300/40">No weak areas — nice work!</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
                         {weakConcepts.map((c) => (
                             <div
                                 key={c.concept}
-                                className="bg-[#0d0b25]/60 border border-red-500/10 rounded-xl px-4 py-3"
+                                className="bg-[#1A1A1A]/60 border border-red-500/10 rounded-xl px-4 py-3"
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-sm text-gray-200 font-medium truncate">{c.concept}</span>
-                                    <span className="text-[11px] text-indigo-300/30 shrink-0 ml-2">
+                                    <span className="text-[11px] text-teal-300/30 shrink-0 ml-2">
                                         {c.correct}/{c.attempts} correct
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="flex-1 h-1.5 rounded-full bg-indigo-500/10 overflow-hidden">
+                                    <div className="flex-1 h-1.5 rounded-full bg-teal-500/10 overflow-hidden">
                                         <div
                                             className="h-full rounded-full bg-red-500 transition-all"
                                             style={{ width: `${c.score}%` }}
@@ -639,11 +639,11 @@ function WeakAreasTab({
             {/* Calibration chart */}
             {calibration && calibration.calibration.total_responses > 0 && (
                 <div className="space-y-3">
-                    <h2 className="text-xs font-semibold text-indigo-300/50 uppercase tracking-wider flex items-center gap-1.5">
+                    <h2 className="text-xs font-semibold text-teal-300/50 uppercase tracking-wider flex items-center gap-1.5">
                         <Target className="w-3.5 h-3.5" />
                         Confidence Calibration
                     </h2>
-                    <div className="bg-[#0d0b25]/60 border border-indigo-500/8 rounded-xl p-4">
+                    <div className="bg-[#1A1A1A]/60 border border-teal-500/8 rounded-xl p-4">
                         <CalibrationChart
                             buckets={calibration.calibration.buckets}
                             brierScore={calibration.calibration.brier_score}
@@ -657,7 +657,7 @@ function WeakAreasTab({
             {/* Overconfident areas (DK concepts) */}
             {calibration && calibration.dk_concepts.length > 0 && (
                 <div className="space-y-3">
-                    <h2 className="text-xs font-semibold text-indigo-300/50 uppercase tracking-wider flex items-center gap-1.5">
+                    <h2 className="text-xs font-semibold text-teal-300/50 uppercase tracking-wider flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5" />
                         Overconfident Areas
                     </h2>
@@ -665,7 +665,7 @@ function WeakAreasTab({
                         {calibration.dk_concepts.slice(0, 5).map((dk) => (
                             <div
                                 key={dk.concept}
-                                className="bg-[#0d0b25]/60 border border-amber-500/10 rounded-xl px-4 py-3"
+                                className="bg-[#1A1A1A]/60 border border-amber-500/10 rounded-xl px-4 py-3"
                             >
                                 <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-sm text-gray-200 font-medium truncate">{dk.concept}</span>
@@ -674,10 +674,10 @@ function WeakAreasTab({
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-4 text-[11px]">
-                                    <span className="text-indigo-300/40">
+                                    <span className="text-teal-300/40">
                                         Confidence: <span className="text-amber-400 font-medium">{Math.round(dk.avg_confidence * 100)}%</span>
                                     </span>
-                                    <span className="text-indigo-300/40">
+                                    <span className="text-teal-300/40">
                                         Accuracy: <span className="text-red-400 font-medium">{Math.round(dk.accuracy * 100)}%</span>
                                     </span>
                                 </div>
@@ -689,19 +689,19 @@ function WeakAreasTab({
 
             {/* Review wrong answers */}
             <div className="space-y-3">
-                <h2 className="text-xs font-semibold text-indigo-300/50 uppercase tracking-wider flex items-center gap-1.5">
+                <h2 className="text-xs font-semibold text-teal-300/50 uppercase tracking-wider flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5" />
                     Review These Questions
                 </h2>
 
                 {isLoadingWrongAnswers ? (
                     <div className="flex justify-center py-6">
-                        <Loader2 className="h-5 w-5 animate-spin text-indigo-400/50" />
+                        <Loader2 className="h-5 w-5 animate-spin text-teal-400/50" />
                     </div>
                 ) : wrongAnswers.length === 0 ? (
                     <div className="text-center py-6">
                         <Check className="w-6 h-6 text-emerald-400/40 mx-auto mb-2" />
-                        <p className="text-sm text-indigo-300/40">No wrong answers to review.</p>
+                        <p className="text-sm text-teal-300/40">No wrong answers to review.</p>
                     </div>
                 ) : (
                     <div className="space-y-2">

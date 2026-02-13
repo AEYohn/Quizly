@@ -28,7 +28,7 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
                             onClick={() => onTabChange(id)}
                             className={cn(
                                 "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
-                                active ? "text-violet-400" : "text-gray-500",
+                                active ? "text-teal-400" : "text-gray-500",
                             )}
                         >
                             <Icon className="w-5 h-5" />
