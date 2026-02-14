@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
 from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
+from ..cache import CacheService
+from ..ai_cache import cache_key_builder, hash_context, TTL_STUDY_NOTES
 
 logger = get_logger(__name__)
 
@@ -145,7 +147,15 @@ class StudyNotesGenerator:
         if not self.available:
             return self._fallback_note(concept)
 
+        # --- Direct cache check ---
         concept_name = concept.get("name", "Unknown")
+        ctx_hash = hash_context(resource_content or context)
+        cache_key = cache_key_builder("study_notes", concept_name, context_hash=ctx_hash)
+        cached = await CacheService.get(cache_key)
+        if cached and isinstance(cached, dict) and not cached.get("llm_required"):
+            logger.info("study_notes_cache_hit", extra={"concept": concept_name})
+            return cached
+        # --- End cache check ---
         topics = ", ".join(concept.get("topics", []))
         misconceptions = ", ".join(concept.get("misconceptions", []))
 
@@ -227,7 +237,7 @@ Do NOT wrap the response in any outer code fence. Start directly with ===TITLE==
             # Extract grounding URLs as sources
             sources = self._extract_grounding_sources(response)
 
-            return {
+            result = {
                 "title": parsed["title"],
                 "body_markdown": parsed["body"],
                 "key_takeaway": parsed["takeaway"],
@@ -235,6 +245,8 @@ Do NOT wrap the response in any outer code fence. Start directly with ===TITLE==
                 "concept": concept.get("id", concept.get("name", "unknown")),
                 "style": "comprehensive",
             }
+            await CacheService.set(cache_key, result, TTL_STUDY_NOTES)
+            return result
 
         except Exception as e:
             capture_exception(

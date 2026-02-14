@@ -11,6 +11,9 @@ from typing import Dict, Any, Optional
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
 from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
+from ..ai_cache import (
+    cache_key_builder, hash_context, CachedPool, TTL_FLASHCARD_POOL,
+)
 
 logger = get_logger(__name__)
 
@@ -48,6 +51,18 @@ class FlashcardGenerator:
         """
         if not self.available:
             return self._fallback_flashcard(concept, difficulty)
+
+        # --- Pool cache check ---
+        ctx_hash = hash_context(rich_context or context)
+        pool_key = cache_key_builder(
+            "flashcard", concept["name"],
+            difficulty=difficulty, context_hash=ctx_hash,
+        )
+        cached = await CachedPool.get_one(pool_key)
+        if cached:
+            logger.info("flashcard_cache_hit", extra={"concept": concept["name"]})
+            return cached
+        # --- End cache check ---
 
         difficulty_label = "easy" if difficulty < 0.4 else "medium" if difficulty < 0.7 else "hard"
 
@@ -95,6 +110,7 @@ Return ONLY valid JSON:
                 if self._validate_flashcard(result):
                     result["concept"] = concept.get("id", concept.get("name", "unknown"))
                     result["difficulty"] = difficulty
+                    await CachedPool.add_to_pool(pool_key, result, TTL_FLASHCARD_POOL)
                     return result
         except Exception as e:
             capture_exception(e, context={"service": "flashcard_generator", "operation": "generate_flashcard"})

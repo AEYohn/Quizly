@@ -1,4 +1,5 @@
 import { View, Text, Pressable, Image } from "react-native";
+import { MathText } from "@/components/common/MathText";
 
 interface QuestionCardProps {
   questionNumber: number;
@@ -61,9 +62,10 @@ export function QuestionCard({
 
       {/* Question Text */}
       <View className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
-        <Text className="text-xl font-semibold text-gray-900 text-center leading-7">
-          {questionText}
-        </Text>
+        <MathText
+          text={questionText}
+          style={{ fontSize: 20, fontWeight: "600", color: "#111827", textAlign: "center", lineHeight: 28 }}
+        />
       </View>
 
       {/* Question Image */}
@@ -97,12 +99,12 @@ export function QuestionCard({
                 <View className="w-8 h-8 rounded-full bg-white/30 items-center justify-center mr-3">
                   <Text className={`font-bold ${colors.text}`}>{key}</Text>
                 </View>
-                <Text
-                  className={`flex-1 text-base font-medium ${colors.text}`}
-                  numberOfLines={3}
-                >
-                  {value}
-                </Text>
+                <MathText
+                  text={value}
+                  style={{ fontSize: 16, fontWeight: "500", color: "#FFFFFF" }}
+                  containerStyle={{ flex: 1 }}
+                  inline
+                />
               </View>
             </Pressable>
           );

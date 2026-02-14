@@ -13,13 +13,18 @@ import hashlib
 from typing import Dict, Any, Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, exists
+
+from ..logging_config import get_logger
 
 from ..db_models_content_pool import ContentItem
 from ..ai_agents.question_generator import QuestionBankGenerator
 from ..ai_agents.flashcard_generator import FlashcardGenerator
 from ..ai_agents.info_card_generator import InfoCardGenerator
 from ..ai_agents.resource_curator import ResourceCuratorAgent
+
+
+logger = get_logger(__name__)
 
 
 class ContentGenerationOrchestrator:
@@ -134,6 +139,50 @@ class ContentGenerationOrchestrator:
             difficulties = [0.3, 0.5, 0.7] if count_per_type >= 3 else [0.5]
 
             for i, diff in enumerate(difficulties[:count_per_type]):
+                # Skip MCQ if active content already exists for this item
+                if await self._has_active_content(topic, concept_name, "mcq", diff):
+                    logger.info("orchestrator_skip_existing", extra={
+                        "concept": concept_name, "type": "mcq", "difficulty": diff,
+                    })
+                    counts["mcq"] += 1
+                    # Also skip flashcard check for this difficulty
+                    if await self._has_active_content(topic, concept_name, "flashcard", diff):
+                        logger.info("orchestrator_skip_existing", extra={
+                            "concept": concept_name, "type": "flashcard", "difficulty": diff,
+                        })
+                        counts["flashcard"] += 1
+                    else:
+                        fc = await self.flashcard_gen.generate_flashcard(
+                            concept_dict, difficulty=diff, context=notes,
+                        )
+                        stored = await self._store_content_item(
+                            content_type="flashcard", topic=topic, concept=concept_name,
+                            difficulty=diff,
+                            content_json={"front": fc.get("front", ""), "back": fc.get("back", ""), "hint": fc.get("hint", "")},
+                            tags=_topic_to_tags(topic, concept_name), agent="FlashcardGenerator",
+                        )
+                        if stored:
+                            counts["flashcard"] += 1
+                    # Handle info cards for first difficulty
+                    if i == 0:
+                        for style_idx, info_style in enumerate(["key_insight", "summary"][:2]):
+                            info_difficulty = 0.2 if style_idx == 0 else 0.5
+                            if await self._has_active_content(topic, concept_name, "info_card", info_difficulty):
+                                counts["info_card"] += 1
+                                continue
+                            ic = await self.info_card_gen.generate_info_card(concept_dict, style=info_style, context=notes)
+                            if ic.get("llm_required"):
+                                continue
+                            stored = await self._store_content_item(
+                                content_type="info_card", topic=topic, concept=concept_name,
+                                difficulty=info_difficulty,
+                                content_json={"title": ic.get("title", ""), "body_markdown": ic.get("body_markdown", ""), "key_takeaway": ic.get("key_takeaway", ""), "style": ic.get("style", info_style)},
+                                tags=_topic_to_tags(topic, concept_name), agent="InfoCardGenerator",
+                            )
+                            if stored:
+                                counts["info_card"] += 1
+                    continue
+
                 # MCQ via existing QuestionBankGenerator
                 mcq = await self.question_gen.generate_question(
                     concept_dict,
@@ -162,37 +211,43 @@ class ContentGenerationOrchestrator:
                     counts["mcq"] += 1
 
                 # Flashcard via FlashcardGenerator
-                fc = await self.flashcard_gen.generate_flashcard(
-                    concept_dict,
-                    difficulty=diff,
-                    context=notes,
-                )
-                stored = await self._store_content_item(
-                    content_type="flashcard",
-                    topic=topic,
-                    concept=concept_name,
-                    difficulty=diff,
-                    content_json={
-                        "front": fc.get("front", ""),
-                        "back": fc.get("back", ""),
-                        "hint": fc.get("hint", ""),
-                    },
-                    tags=_topic_to_tags(topic, concept_name),
-                    agent="FlashcardGenerator",
-                )
-                if stored:
+                if not await self._has_active_content(topic, concept_name, "flashcard", diff):
+                    fc = await self.flashcard_gen.generate_flashcard(
+                        concept_dict,
+                        difficulty=diff,
+                        context=notes,
+                    )
+                    stored = await self._store_content_item(
+                        content_type="flashcard",
+                        topic=topic,
+                        concept=concept_name,
+                        difficulty=diff,
+                        content_json={
+                            "front": fc.get("front", ""),
+                            "back": fc.get("back", ""),
+                            "hint": fc.get("hint", ""),
+                        },
+                        tags=_topic_to_tags(topic, concept_name),
+                        agent="FlashcardGenerator",
+                    )
+                    if stored:
+                        counts["flashcard"] += 1
+                else:
                     counts["flashcard"] += 1
 
                 # Info cards: generate 2 per concept with varied styles
                 if i == 0:
                     intro_styles = ["key_insight", "summary", "example"]
                     for style_idx, info_style in enumerate(intro_styles[:2]):
+                        info_difficulty = 0.2 if style_idx == 0 else 0.5
+                        if await self._has_active_content(topic, concept_name, "info_card", info_difficulty):
+                            counts["info_card"] += 1
+                            continue
                         ic = await self.info_card_gen.generate_info_card(
                             concept_dict, style=info_style, context=notes
                         )
                         if ic.get("llm_required"):
                             continue
-                        info_difficulty = 0.2 if style_idx == 0 else 0.5
                         stored = await self._store_content_item(
                             content_type="info_card",
                             topic=topic,
@@ -282,6 +337,24 @@ class ContentGenerationOrchestrator:
         )
         self.db.add(item)
         return item
+
+    async def _has_active_content(
+        self, topic: str, concept: str, content_type: str,
+        difficulty: Optional[float] = None,
+    ) -> bool:
+        """Check if active content already exists for this specific item."""
+        conditions = [
+            ContentItem.topic == topic,
+            ContentItem.concept == concept,
+            ContentItem.content_type == content_type,
+            ContentItem.is_active.is_(True),
+        ]
+        if difficulty is not None:
+            conditions.append(ContentItem.difficulty == difficulty)
+        result = await self.db.execute(
+            select(func.count(ContentItem.id)).where(and_(*conditions))
+        )
+        return (result.scalar() or 0) > 0
 
     async def _count_pool_items(self, topic: str) -> int:
         result = await self.db.execute(

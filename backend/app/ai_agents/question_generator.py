@@ -14,6 +14,9 @@ from typing import Dict, Any, Optional, List
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
 from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
+from ..ai_cache import (
+    cache_key_builder, hash_context, CachedPool, TTL_QUESTION_POOL,
+)
 
 logger = get_logger(__name__)
 
@@ -153,7 +156,20 @@ class QuestionBankGenerator:
         """
         if not self.available:
             return self._fallback_question(concept, difficulty)
-        
+
+        # --- Pool cache check ---
+        ctx_hash = hash_context(rich_context or context)
+        pool_key = cache_key_builder(
+            "question", concept["name"],
+            difficulty=difficulty, question_type=question_type,
+            context_hash=ctx_hash,
+        )
+        cached = await CachedPool.get_one(pool_key)
+        if cached and cached.get("prompt") not in (previous_prompts or []):
+            logger.info("question_cache_hit", extra={"concept": concept["name"]})
+            return shuffle_options(cached)
+        # --- End cache check ---
+
         difficulty_label = "easy" if difficulty < 0.4 else "medium" if difficulty < 0.7 else "hard"
         
         prev_context = ""
@@ -236,7 +252,8 @@ Return ONLY valid JSON matching this structure:
                     result["difficulty"] = difficulty
                     result["question_type"] = question_type
                     result["target_misconception"] = target_misconception
-                    # Shuffle options to randomize correct answer position
+                    # Store pre-shuffle version in pool for answer-position variety
+                    await CachedPool.add_to_pool(pool_key, result, TTL_QUESTION_POOL)
                     return shuffle_options(result)
         except Exception as e:
             capture_exception(e, context={"service": "question_generator", "operation": "generate_question"})

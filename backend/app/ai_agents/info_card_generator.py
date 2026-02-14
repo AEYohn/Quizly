@@ -13,6 +13,8 @@ from typing import Dict, Any, Optional
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
 from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
+from ..cache import CacheService
+from ..ai_cache import cache_key_builder, hash_context, TTL_INFO_CARD
 
 logger = get_logger(__name__)
 
@@ -58,6 +60,18 @@ class InfoCardGenerator:
         if not self.available:
             return self._fallback_info_card(concept, style)
 
+        # --- Direct cache check ---
+        ctx_hash = hash_context(context)
+        cache_key = cache_key_builder(
+            "info_card", concept["name"],
+            question_type=style, context_hash=ctx_hash,
+        )
+        cached = await CacheService.get(cache_key)
+        if cached and isinstance(cached, dict) and not cached.get("llm_required"):
+            logger.info("info_card_cache_hit", extra={"concept": concept["name"]})
+            return cached
+        # --- End cache check ---
+
         style_guidance = {
             "key_insight": "Explain the single most important insight about this concept. Make it memorable.",
             "comparison": "Compare this concept with a related/contrasting concept. Use a clear X vs Y structure.",
@@ -98,6 +112,7 @@ Return ONLY valid JSON:
                 if self._validate_info_card(result):
                     result["concept"] = concept.get("id", concept.get("name", "unknown"))
                     result["style"] = style
+                    await CacheService.set(cache_key, result, TTL_INFO_CARD)
                     return result
         except Exception as e:
             capture_exception(e, context={"service": "info_card_generator", "operation": "generate_info_card"})

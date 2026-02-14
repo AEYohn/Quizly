@@ -5,10 +5,11 @@ Each step uses output from previous steps as context, producing
 content tightly grounded in the user's uploaded materials.
 """
 
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, List, Callable, Awaitable
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, update
+from sqlalchemy import select, and_, update, func
 
 from ..db_models import SubjectResource
 from ..db_models_content_pool import ContentItem
@@ -68,16 +69,13 @@ class ChainedContentGenerator:
                 except Exception:
                     pass
 
-        # Step 0: Deactivate existing content for this topic so fresh content replaces old
-        await self._deactivate_existing(topic)
-
         # Step 1: Load resources
         await progress("loading_resources", 0.05, "Loading uploaded resources...")
         resource_text = await self._load_full_resources(subject, student_id)
         if not resource_text:
             await progress("loading_resources", 0.1, "No resources found — using web search")
 
-        # Step 2: Generate study notes
+        # Step 2: Generate study notes (skip if fresh content exists)
         notes_count = 0
         generated_notes: Dict[str, str] = {}  # concept -> body_markdown
 
@@ -87,6 +85,17 @@ class ChainedContentGenerator:
                 "generating_notes", pct,
                 f"Generating notes for {concept_name}..."
             )
+
+            # Check for fresh existing content
+            existing_note = await self._get_fresh_content(topic, concept_name, "study_note")
+            if existing_note:
+                body = existing_note.content_json.get("body_markdown", "")
+                generated_notes[concept_name] = body
+                notes_count += 1
+                logger.info("chained_fresh_content_exists", extra={
+                    "concept": concept_name, "type": "study_note",
+                })
+                continue
 
             concept_dict = {
                 "id": concept_name.lower().replace(" ", "_"),
@@ -146,6 +155,13 @@ class ChainedContentGenerator:
             rich_ctx = generated_notes.get(concept_name, resource_text or "")
 
             for diff in [0.3, 0.5, 0.7]:
+                if await self._has_fresh_content(topic, concept_name, "flashcard", diff):
+                    flashcards_count += 1
+                    logger.info("chained_fresh_content_exists", extra={
+                        "concept": concept_name, "type": "flashcard", "difficulty": diff,
+                    })
+                    continue
+
                 fc = await self.flashcard_gen.generate_flashcard(
                     concept_dict,
                     difficulty=diff,
@@ -198,6 +214,13 @@ class ChainedContentGenerator:
                     rich_ctx += "\n\n" + resource_text[:remaining]
 
             for diff, qtype in [(0.3, "conceptual"), (0.5, "application"), (0.7, "analysis")]:
+                if await self._has_fresh_content(topic, concept_name, "mcq", diff):
+                    quiz_count += 1
+                    logger.info("chained_fresh_content_exists", extra={
+                        "concept": concept_name, "type": "mcq", "difficulty": diff,
+                    })
+                    continue
+
                 mcq = await self.question_gen.generate_question(
                     concept_dict,
                     difficulty=diff,
@@ -233,6 +256,49 @@ class ChainedContentGenerator:
             "flashcards": flashcards_count,
             "quiz": quiz_count,
         }
+
+    async def _has_fresh_content(
+        self, topic: str, concept: str, content_type: str,
+        difficulty: Optional[float] = None, max_age_hours: int = 24,
+    ) -> bool:
+        """Check if fresh active content already exists for this item."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        conditions = [
+            ContentItem.topic == topic,
+            ContentItem.concept == concept,
+            ContentItem.content_type == content_type,
+            ContentItem.is_active.is_(True),
+            ContentItem.created_at >= cutoff,
+            ContentItem.generator_agent.like("chained_%"),
+        ]
+        if difficulty is not None:
+            conditions.append(ContentItem.difficulty == difficulty)
+
+        result = await self.db.execute(
+            select(func.count(ContentItem.id)).where(and_(*conditions))
+        )
+        return (result.scalar() or 0) > 0
+
+    async def _get_fresh_content(
+        self, topic: str, concept: str, content_type: str,
+        max_age_hours: int = 24,
+    ) -> Optional[ContentItem]:
+        """Get the most recent fresh content item if it exists."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        result = await self.db.execute(
+            select(ContentItem)
+            .where(and_(
+                ContentItem.topic == topic,
+                ContentItem.concept == concept,
+                ContentItem.content_type == content_type,
+                ContentItem.is_active.is_(True),
+                ContentItem.created_at >= cutoff,
+                ContentItem.generator_agent.like("chained_%"),
+            ))
+            .order_by(ContentItem.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def _load_full_resources(
         self, subject: str, student_id: Optional[str] = None

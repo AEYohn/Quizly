@@ -12,7 +12,7 @@ from ..exceptions import (
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import case, delete, func, select, and_
+from sqlalchemy import case, delete, func, select, and_, update
 from datetime import datetime, timezone, timedelta
 import math
 import os
@@ -27,6 +27,7 @@ from ..auth_clerk import (
     clerk_security, verify_clerk_token, get_or_create_user_from_clerk,
 )
 from ..cache import CacheService, _get_redis
+from ..db_models_content_pool import ContentItem
 from ..services.learning_orchestrator import LearningOrchestrator
 from ..services.scroll_feed_engine import ScrollFeedEngine
 from ..services.content_pool_service import ContentPoolService
@@ -1437,6 +1438,27 @@ async def upload_resources(
             })
 
     await db.commit()
+
+    # Invalidate caches so new resources trigger fresh AI generation
+    if created_resources:
+        try:
+            # Invalidate Redis AI agent caches for this subject
+            await CacheService.invalidate_pattern("agent:*")
+            await CacheService.invalidate_pattern("pool:*")
+            # Mark old chained content as inactive so it gets regenerated
+            await db.execute(
+                update(ContentItem)
+                .where(and_(
+                    ContentItem.topic == subject,
+                    ContentItem.is_active.is_(True),
+                    ContentItem.generator_agent.like("chained_%"),
+                ))
+                .values(is_active=False)
+            )
+            await db.commit()
+            logger.info("cache_invalidated_on_upload", extra={"subject": subject})
+        except Exception as e:
+            log_error(logger, "cache_invalidation_failed", error=str(e))
 
     return {
         "resources": created_resources,

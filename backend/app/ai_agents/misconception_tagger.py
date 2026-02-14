@@ -6,6 +6,7 @@ Automatically categorizes why students got wrong answers.
 Uses LLM to analyze reasoning and identify specific misconceptions.
 """
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
@@ -15,6 +16,8 @@ from enum import Enum
 from ..sentry_config import capture_exception
 from ..logging_config import get_logger, log_error
 from ..utils.llm_utils import call_gemini_with_timeout, GEMINI_AVAILABLE
+from ..cache import CacheService
+from ..ai_cache import TTL_MISCONCEPTION
 
 logger = get_logger(__name__)
 
@@ -120,13 +123,48 @@ class MisconceptionTagger:
         """
         question_id = question.get("id", str(hash(question.get("prompt", ""))))
         concept = question.get("concept", "unknown")
-        
+
         if not self.available:
             return self._fallback_tagging(
                 student_id, question_id, concept,
                 student_answer, student_reasoning, correct_answer
             )
-        
+
+        # --- Cache check (key: prompt + student_answer + correct_answer) ---
+        cache_input = f"{question.get('prompt', '')}|{student_answer}|{correct_answer}"
+        cache_hash = hashlib.md5(cache_input.encode()).hexdigest()
+        cache_key = f"misconception:{cache_hash}"
+        cached = await CacheService.get(cache_key)
+        if cached and isinstance(cached, dict):
+            logger.info("misconception_cache_hit", extra={"concept": concept})
+            # Reconstruct with current student_id/question_id
+            category = MisconceptionCategory.UNKNOWN
+            try:
+                category = MisconceptionCategory(cached.get("category", "unknown"))
+            except ValueError:
+                pass
+            severity = MisconceptionSeverity.MODERATE
+            try:
+                severity = MisconceptionSeverity(cached.get("severity", "moderate"))
+            except ValueError:
+                pass
+            result = MisconceptionResult(
+                student_id=student_id,
+                question_id=question_id,
+                misconception_type=cached.get("misconception_type", "unknown"),
+                category=category,
+                severity=severity,
+                description=cached.get("description", ""),
+                root_cause=cached.get("root_cause", ""),
+                evidence=cached.get("evidence", []),
+                suggested_remediation=cached.get("suggested_remediation", ""),
+                related_concepts=cached.get("related_concepts", []),
+                confidence=cached.get("confidence", 0.5),
+            )
+            self.misconception_history.append(result)
+            return result
+        # --- End cache check ---
+
         prompt = f"""You are an expert at identifying student misconceptions across any academic subject.
 
 ## Question
@@ -209,7 +247,10 @@ Return JSON:
                     related_concepts=result.get("related_concepts", []),
                     confidence=result.get("confidence", 0.5)
                 )
-                
+
+                # Cache the classification (without student-specific fields)
+                await CacheService.set(cache_key, misconception.to_dict(), TTL_MISCONCEPTION)
+
                 self.misconception_history.append(misconception)
                 if len(self.misconception_history) > 1000:
                     self.misconception_history = self.misconception_history[-500:]

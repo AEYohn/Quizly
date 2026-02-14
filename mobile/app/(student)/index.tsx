@@ -10,6 +10,7 @@ import {
   Trophy,
   FileUp,
   Sparkles,
+  MessageCircle,
 } from "lucide-react-native";
 import { useState, useCallback } from "react";
 import { useAuth } from "@/providers/AuthProvider";
@@ -179,6 +180,17 @@ export default function HomeScreen() {
             <FileUp size={14} color="#6366F1" />
             <Text className="text-sm text-indigo-600 font-medium">
               Or upload a PDF / study material
+            </Text>
+          </Pressable>
+
+          {/* AI Tutor CTA */}
+          <Pressable
+            onPress={() => router.push("/(student)/chat-learn")}
+            className="flex-row items-center gap-2 py-2"
+          >
+            <MessageCircle size={14} color="#6366F1" />
+            <Text className="text-sm text-indigo-600 font-medium">
+              Or try AI Tutor (Chat Mode)
             </Text>
           </Pressable>
         </View>

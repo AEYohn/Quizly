@@ -8,6 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Zap, RotateCcw } from "lucide-react-native";
 import { useHaptics } from "@/hooks/useHaptics";
+import { MathText } from "@/components/common/MathText";
 import type { ScrollCard } from "@/types/learn";
 
 const RATINGS = [
@@ -92,13 +93,15 @@ export function FlashcardCard({
                 contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
                 showsVerticalScrollIndicator={false}
               >
-                <Text className="text-lg font-medium text-gray-900 text-center leading-7">
-                  {card.flashcard_front || card.prompt}
-                </Text>
+                <MathText
+                  text={card.flashcard_front || card.prompt}
+                  style={{ fontSize: 18, fontWeight: "500", color: "#111827", textAlign: "center", lineHeight: 28 }}
+                />
                 {card.flashcard_hint && (
-                  <Text className="text-sm text-gray-500 text-center mt-3">
-                    Hint: {card.flashcard_hint}
-                  </Text>
+                  <MathText
+                    text={`Hint: ${card.flashcard_hint}`}
+                    style={{ fontSize: 14, color: "#6B7280", textAlign: "center", marginTop: 12 }}
+                  />
                 )}
               </ScrollView>
               {!isFlipped && (
@@ -119,9 +122,10 @@ export function FlashcardCard({
                 contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
                 showsVerticalScrollIndicator={false}
               >
-                <Text className="text-lg font-medium text-gray-900 text-center leading-7">
-                  {card.flashcard_back || card.explanation}
-                </Text>
+                <MathText
+                  text={card.flashcard_back || card.explanation}
+                  style={{ fontSize: 18, fontWeight: "500", color: "#111827", textAlign: "center", lineHeight: 28 }}
+                />
               </ScrollView>
             </View>
           </Animated.View>
