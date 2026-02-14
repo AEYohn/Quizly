@@ -189,6 +189,21 @@ export function useSkillTree(handleQuickStart: (topic: string, opts?: { mode?: '
         }
     }, [store, store.syllabus, store.selectedSubject, auth.user?.name]);
 
+    // Fetch uploaded resources on mount (not persisted in store)
+    useEffect(() => {
+        if (!store.selectedSubject) return;
+        resourcesApi.list(store.selectedSubject, auth.user?.id).then((res) => {
+            if (res.success) {
+                store.setSubjectResources(res.data.resources.map((r) => ({
+                    id: r.id,
+                    file_name: r.file_name,
+                    file_type: r.file_type,
+                    concepts_count: r.concepts_count,
+                })));
+            }
+        }).catch(() => {});
+    }, [store.selectedSubject, auth.user?.id]);
+
     // Presence polling
     useEffect(() => {
         if (!store.selectedSubject || !store.syllabus || store.sessionId) return;

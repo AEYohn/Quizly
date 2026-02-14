@@ -2,6 +2,7 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -217,7 +218,36 @@ export function MathMarkdown({ children, className = "", dark = false }: MathMar
                             {m(children)}
                         </a>
                     ),
+                    table: ({ children }) => (
+                        <div className="overflow-x-auto my-3">
+                            <table className={`w-full border-collapse text-sm ${dark ? "text-teal-100/80" : "text-gray-700"}`}>
+                                {children}
+                            </table>
+                        </div>
+                    ),
+                    thead: ({ children }) => (
+                        <thead className={dark ? "border-b border-teal-400/30" : "border-b border-gray-300"}>
+                            {children}
+                        </thead>
+                    ),
+                    tbody: ({ children }) => <tbody>{children}</tbody>,
+                    tr: ({ children }) => (
+                        <tr className={dark ? "border-b border-teal-400/10" : "border-b border-gray-200"}>
+                            {children}
+                        </tr>
+                    ),
+                    th: ({ children }) => (
+                        <th className={`px-3 py-2 text-left font-semibold ${dark ? "text-teal-200" : "text-gray-900"}`}>
+                            {m(children)}
+                        </th>
+                    ),
+                    td: ({ children }) => (
+                        <td className={`px-3 py-2 ${dark ? "text-teal-100/80" : "text-gray-700"}`}>
+                            {m(children)}
+                        </td>
+                    ),
                 }}
+                remarkPlugins={[remarkGfm]}
             >
                 {processed}
             </ReactMarkdown>
