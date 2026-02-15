@@ -1,11 +1,13 @@
 "use client";
 
-import { ArrowLeft, BookOpen, Layers, Zap, Pencil, Check, XIcon, Loader2, Eye, ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, Layers, Zap, Pencil, Check, XIcon, Loader2, Eye, ExternalLink, RefreshCw, AlertCircle, FileText } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { MathMarkdown } from "~/components/MathMarkdown";
 import { FlashcardCard } from "~/components/learning/FlashcardCard";
 import { CosmicQuizCard } from "~/variants/brilliant/QuizCard";
 import { useTopicStudyView, type StudyTab } from "~/hooks/feed/useTopicStudyView";
+import { ResourceContentViewer } from "~/components/feed/ResourceContentViewer";
+import { useScrollSessionStore } from "~/stores/scrollSessionStore";
 import type { SyllabusTopic } from "~/stores/scrollSessionStore";
 import type { ApiResult } from "~/types";
 
@@ -160,6 +162,50 @@ function PeekNotesOverlay({ takeaways, onClose }: { takeaways: Array<{ concept: 
 }
 
 // ============================================
+// Peek Resources overlay
+// ============================================
+
+function PeekResourcesOverlay({
+    resources,
+    onClose,
+    onViewResource,
+}: {
+    resources: Array<{ id: string; file_name: string; concepts_count: number }>;
+    onClose: () => void;
+    onViewResource: (id: string) => void;
+}) {
+    return (
+        <div className="absolute inset-x-0 bottom-0 z-40 animate-in slide-in-from-bottom duration-300">
+            <div className="bg-[#131313]/95 backdrop-blur-xl border-t border-indigo-400/20 rounded-t-2xl max-h-[50vh] overflow-y-auto px-5 py-4">
+                <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-bold text-indigo-200">Uploaded Materials</h4>
+                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-indigo-300/60"><XIcon className="w-4 h-4" /></button>
+                </div>
+                {resources.length === 0 ? (
+                    <p className="text-xs text-indigo-300/40">No materials uploaded yet.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {resources.map((r) => (
+                            <button
+                                key={r.id}
+                                onClick={() => { onViewResource(r.id); onClose(); }}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-400/15 hover:bg-indigo-500/20 transition-colors text-left"
+                            >
+                                <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-indigo-200 truncate">{r.file_name}</p>
+                                    <p className="text-[11px] text-indigo-300/50">{r.concepts_count} concepts</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ============================================
 // Main component
 // ============================================
 
@@ -173,6 +219,7 @@ interface TopicStudyViewProps {
 
 export function TopicStudyView({ topic, mastery, onClose, topicResources }: TopicStudyViewProps) {
     const s = useTopicStudyView(topic);
+    const store = useScrollSessionStore();
 
     return (
         <div className="fixed inset-0 z-50 bg-[#0F0F0F] flex flex-col animate-in slide-in-from-bottom duration-300">
@@ -220,6 +267,8 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
                     <div className="px-4 py-4">
                         {s.notesLoading ? (
                             <NotesLoadingSkeleton />
+                        ) : s.notesError ? (
+                            <SessionErrorState message={s.notesError} onRetry={s.retryNotes} />
                         ) : s.notesData && s.notesData.total_notes > 0 ? (
                             <div className="space-y-5">
                                 {Object.entries(s.notesData.notes_by_concept).map(([concept, notes]) => (
@@ -388,21 +437,41 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
                     )}
                 </div>
 
-                {/* Peek notes floating button — visible on Cards/Quiz tabs when notes are loaded */}
-                {s.activeTab !== "notes" && s.keyTakeaways.length > 0 && (
-                    <button
-                        onClick={() => s.setShowPeekNotes(!s.showPeekNotes)}
-                        className={cn(
-                            "absolute bottom-4 right-4 z-30",
-                            "flex items-center gap-1.5 px-3 py-2 rounded-full",
-                            "bg-teal-600/90 backdrop-blur text-white text-xs font-semibold",
-                            "shadow-lg shadow-teal-500/20 hover:bg-teal-500 transition-all",
-                            "border border-teal-400/30",
+                {/* Floating buttons — visible on Cards/Quiz tabs */}
+                {s.activeTab !== "notes" && (
+                    <div className="absolute bottom-4 right-4 z-30 flex items-center gap-2">
+                        {/* Peek PDFs button */}
+                        {store.subjectResources.length > 0 && (
+                            <button
+                                onClick={() => s.setShowPeekResources(!s.showPeekResources)}
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-2 rounded-full",
+                                    "bg-indigo-600/90 backdrop-blur text-white text-xs font-semibold",
+                                    "shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all",
+                                    "border border-indigo-400/30",
+                                )}
+                            >
+                                <FileText className="w-3.5 h-3.5" />
+                                Peek PDFs
+                            </button>
                         )}
-                    >
-                        <Eye className="w-3.5 h-3.5" />
-                        Peek Notes
-                    </button>
+
+                        {/* Peek Notes button */}
+                        {s.keyTakeaways.length > 0 && (
+                            <button
+                                onClick={() => s.setShowPeekNotes(!s.showPeekNotes)}
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-2 rounded-full",
+                                    "bg-teal-600/90 backdrop-blur text-white text-xs font-semibold",
+                                    "shadow-lg shadow-teal-500/20 hover:bg-teal-500 transition-all",
+                                    "border border-teal-400/30",
+                                )}
+                            >
+                                <Eye className="w-3.5 h-3.5" />
+                                Peek Notes
+                            </button>
+                        )}
+                    </div>
                 )}
 
                 {/* Peek notes overlay */}
@@ -412,6 +481,21 @@ export function TopicStudyView({ topic, mastery, onClose, topicResources }: Topi
                         onClose={() => s.setShowPeekNotes(false)}
                     />
                 )}
+
+                {/* Peek resources overlay */}
+                {s.showPeekResources && s.activeTab !== "notes" && (
+                    <PeekResourcesOverlay
+                        resources={store.subjectResources}
+                        onClose={() => s.setShowPeekResources(false)}
+                        onViewResource={(id) => s.setViewingResourceId(id)}
+                    />
+                )}
+
+                {/* Resource content viewer */}
+                <ResourceContentViewer
+                    resourceId={s.viewingResourceId}
+                    onClose={() => s.setViewingResourceId(null)}
+                />
             </div>
         </div>
     );

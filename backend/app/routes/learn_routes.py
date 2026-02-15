@@ -3,7 +3,7 @@ Learn API Routes
 Conversational adaptive learning endpoints.
 """
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
 from ..exceptions import (
     QuizlyException, ErrorCodes, SessionNotFound, ResourceNotFound,
@@ -1108,73 +1108,35 @@ async def get_topic_notes(
 
     # Auto-generate notes if none exist and generation requested
     if total_notes == 0 and generate and concept_list:
-        if comprehensive:
-            from ..ai_agents.study_notes_generator import StudyNotesGenerator
-            gen = StudyNotesGenerator()
-            for concept_name in concept_list[:5]:
-                concept_dict = {
-                    "id": concept_name.lower().replace(" ", "_"),
-                    "name": concept_name,
-                    "topics": [],
-                    "misconceptions": [],
-                }
-                note = await gen.generate_comprehensive_note(concept_dict, context=topic)
-                if note.get("llm_required"):
-                    continue
-                content_json = {
-                    "title": note.get("title", ""),
-                    "body_markdown": note.get("body_markdown", ""),
-                    "key_takeaway": note.get("key_takeaway", ""),
-                    "style": note.get("style", "comprehensive"),
-                    "sources": note.get("sources", []),
-                }
-                item = ContentItem(
-                    topic=topic,
-                    concept=concept_name,
-                    content_type="study_note",
-                    difficulty=0.3,
-                    content_json=content_json,
-                    generator_agent="study_notes_generator",
-                    quality_score=0.7,
-                )
-                db.add(item)
-                notes_by_concept.setdefault(concept_name, []).append({
-                    "id": str(item.id),
-                    "concept": concept_name,
-                    "title": content_json["title"],
-                    "body_markdown": content_json["body_markdown"],
-                    "key_takeaway": content_json["key_takeaway"],
-                    "style": content_json["style"],
-                    "sources": content_json["sources"],
-                })
-        else:
-            from ..ai_agents.info_card_generator import InfoCardGenerator
-            gen = InfoCardGenerator()
-            for concept_name in concept_list[:5]:
-                concept_dict = {
-                    "id": concept_name.lower().replace(" ", "_"),
-                    "name": concept_name,
-                    "topics": [],
-                    "misconceptions": [],
-                }
-                for style in ["key_insight", "summary"]:
-                    card = await gen.generate_info_card(concept_dict, style=style)
-                    if card.get("llm_required"):
+        try:
+            if comprehensive:
+                from ..ai_agents.study_notes_generator import StudyNotesGenerator
+                gen = StudyNotesGenerator()
+                for concept_name in concept_list[:5]:
+                    concept_dict = {
+                        "id": concept_name.lower().replace(" ", "_"),
+                        "name": concept_name,
+                        "topics": [],
+                        "misconceptions": [],
+                    }
+                    note = await gen.generate_comprehensive_note(concept_dict, context=topic)
+                    if note.get("llm_required"):
                         continue
                     content_json = {
-                        "title": card.get("title", ""),
-                        "body_markdown": card.get("body_markdown", ""),
-                        "key_takeaway": card.get("key_takeaway", ""),
-                        "style": card.get("style", style),
+                        "title": note.get("title", ""),
+                        "body_markdown": note.get("body_markdown", ""),
+                        "key_takeaway": note.get("key_takeaway", ""),
+                        "style": note.get("style", "comprehensive"),
+                        "sources": note.get("sources", []),
                     }
                     item = ContentItem(
                         topic=topic,
                         concept=concept_name,
-                        content_type="info_card",
+                        content_type="study_note",
                         difficulty=0.3,
                         content_json=content_json,
-                        generator_agent="info_card_generator",
-                        quality_score=0.5,
+                        generator_agent="study_notes_generator",
+                        quality_score=0.7,
                     )
                     db.add(item)
                     notes_by_concept.setdefault(concept_name, []).append({
@@ -1184,9 +1146,51 @@ async def get_topic_notes(
                         "body_markdown": content_json["body_markdown"],
                         "key_takeaway": content_json["key_takeaway"],
                         "style": content_json["style"],
+                        "sources": content_json["sources"],
                     })
-        await db.commit()
-        total_notes = sum(len(n) for n in notes_by_concept.values())
+            else:
+                from ..ai_agents.info_card_generator import InfoCardGenerator
+                gen = InfoCardGenerator()
+                for concept_name in concept_list[:5]:
+                    concept_dict = {
+                        "id": concept_name.lower().replace(" ", "_"),
+                        "name": concept_name,
+                        "topics": [],
+                        "misconceptions": [],
+                    }
+                    for style in ["key_insight", "summary"]:
+                        card = await gen.generate_info_card(concept_dict, style=style)
+                        if card.get("llm_required"):
+                            continue
+                        content_json = {
+                            "title": card.get("title", ""),
+                            "body_markdown": card.get("body_markdown", ""),
+                            "key_takeaway": card.get("key_takeaway", ""),
+                            "style": card.get("style", style),
+                        }
+                        item = ContentItem(
+                            topic=topic,
+                            concept=concept_name,
+                            content_type="info_card",
+                            difficulty=0.3,
+                            content_json=content_json,
+                            generator_agent="info_card_generator",
+                            quality_score=0.5,
+                        )
+                        db.add(item)
+                        notes_by_concept.setdefault(concept_name, []).append({
+                            "id": str(item.id),
+                            "concept": concept_name,
+                            "title": content_json["title"],
+                            "body_markdown": content_json["body_markdown"],
+                            "key_takeaway": content_json["key_takeaway"],
+                            "style": content_json["style"],
+                        })
+            await db.commit()
+            total_notes = sum(len(n) for n in notes_by_concept.values())
+        except Exception as e:
+            capture_exception(e, context={"service": "learn_routes", "operation": "notes_auto_generation", "topic": topic})
+            log_error(logger, "notes auto-generation failed, returning empty notes", error=str(e), topic=topic)
 
     return {
         "topic": topic,
@@ -1503,6 +1507,31 @@ async def list_resources(
             }
             for r in resources
         ]
+    }
+
+
+@router.get("/resources/detail/{resource_id}")
+async def get_resource_detail(
+    resource_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get full content of a single resource."""
+    result = await db.execute(
+        select(SubjectResource).where(SubjectResource.id == resource_id)
+    )
+    resource = result.scalars().first()
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    return {
+        "id": str(resource.id),
+        "file_name": resource.file_name,
+        "file_type": resource.file_type,
+        "summary": resource.summary or "",
+        "full_content": resource.full_content or "",
+        "page_count": resource.page_count or 0,
+        "concepts_json": resource.concepts_json if isinstance(resource.concepts_json, list) else [],
+        "created_at": ensure_utc_iso(resource.created_at),
     }
 
 

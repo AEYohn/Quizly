@@ -34,6 +34,7 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
     // Notes
     const [notesData, setNotesData] = useState<NotesData | null>(null);
     const [notesLoading, setNotesLoading] = useState(false);
+    const [notesError, setNotesError] = useState<string | null>(null);
 
     // Note editing
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -73,6 +74,10 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
     // Peek notes
     const [showPeekNotes, setShowPeekNotes] = useState(false);
 
+    // Peek resources
+    const [showPeekResources, setShowPeekResources] = useState(false);
+    const [viewingResourceId, setViewingResourceId] = useState<string | null>(null);
+
     // Reset everything when topic changes
     useEffect(() => {
         setActiveTab("notes");
@@ -90,6 +95,9 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         setLocalSessionId(null);
         setEditingNoteId(null);
         setShowPeekNotes(false);
+        setShowPeekResources(false);
+        setViewingResourceId(null);
+        setNotesError(null);
         setSessionError(null);
         setFlashcardsExhausted(false);
         sessionStartedRef.current = false;
@@ -135,7 +143,9 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
                 if (!startRes.success) {
                     setCardsLoading(false);
                     setQuizLoading(false);
-                    setSessionError("Failed to start study session. Please try again.");
+                    const detail = startRes.error ? `: ${startRes.error}` : "";
+                    console.error("[TopicStudyView] startFeed failed", startRes.error);
+                    setSessionError(`Failed to start study session${detail}`);
                     return;
                 }
                 sessionId = startRes.data.session_id;
@@ -200,9 +210,18 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
                 if (res.success) {
                     setNotesData(res.data as NotesData);
                     store.setTopicNotes(topic.id, res.data);
+                } else {
+                    console.error("[TopicStudyView] Notes fetch failed:", res.error);
+                    setNotesError(res.error ?? "Failed to load study notes.");
                 }
                 setNotesLoading(false);
-            }).catch(() => { if (!signal.cancelled) setNotesLoading(false); });
+            }).catch((err) => {
+                if (signal.cancelled) return;
+                const msg = err instanceof Error ? err.message : "Unknown error";
+                console.error("[TopicStudyView] Notes fetch error:", msg);
+                setNotesError(`Failed to load study notes: ${msg}`);
+                setNotesLoading(false);
+            });
         }
 
         // 2. Init session (resume-first, then start)
@@ -298,9 +317,21 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         } catch { /* ignore */ }
     }, [localSessionId, quizIdx, quizData.length]);
 
+    // Key takeaways for peek overlay (computed early so handleQuizHelp can reference it)
+    const keyTakeaways = notesData
+        ? Object.values(notesData.notes_by_concept)
+            .flat()
+            .filter((n) => n.key_takeaway)
+            .map((n) => ({ concept: n.concept, takeaway: n.key_takeaway }))
+        : [];
+
     const handleQuizHelp = useCallback(() => {
-        // no-op for now — could open help in the future
-    }, []);
+        if (store.subjectResources.length > 0) {
+            setShowPeekResources(true);
+        } else if (keyTakeaways.length > 0) {
+            setShowPeekNotes(true);
+        }
+    }, [store.subjectResources.length, keyTakeaways.length]);
 
     // ── Note editing handlers ──
 
@@ -348,6 +379,28 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         setEditTakeawayDraft("");
     }, [editingNoteId, editDraft, editTakeawayDraft, notesData, topic, store]);
 
+    // Retry notes fetch
+    const retryNotes = useCallback(() => {
+        if (!topic) return;
+        setNotesError(null);
+        setNotesLoading(true);
+        learnApi.getTopicNotes(topic.name, topic.concepts).then((res) => {
+            if (res.success) {
+                setNotesData(res.data as NotesData);
+                store.setTopicNotes(topic.id, res.data);
+            } else {
+                console.error("[TopicStudyView] Notes retry failed:", res.error);
+                setNotesError(res.error ?? "Failed to load study notes.");
+            }
+            setNotesLoading(false);
+        }).catch((err) => {
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            console.error("[TopicStudyView] Notes retry error:", msg);
+            setNotesError(`Failed to load study notes: ${msg}`);
+            setNotesLoading(false);
+        });
+    }, [topic, store]);
+
     // Retry session creation
     const retrySession = useCallback(() => {
         sessionStartedRef.current = false;
@@ -361,14 +414,6 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         initSession(topic, { cancelled: false });
     }, [topic, initSession]);
 
-    // Key takeaways for peek overlay
-    const keyTakeaways = notesData
-        ? Object.values(notesData.notes_by_concept)
-            .flat()
-            .filter((n) => n.key_takeaway)
-            .map((n) => ({ concept: n.concept, takeaway: n.key_takeaway }))
-        : [];
-
     return {
         activeTab,
         setActiveTab,
@@ -376,6 +421,8 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         // Notes
         notesData,
         notesLoading,
+        notesError,
+        retryNotes,
         editingNoteId,
         editDraft,
         setEditDraft,
@@ -412,6 +459,12 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         showPeekNotes,
         setShowPeekNotes,
         keyTakeaways,
+
+        // Peek resources
+        showPeekResources,
+        setShowPeekResources,
+        viewingResourceId,
+        setViewingResourceId,
 
         // Error / retry
         sessionError,

@@ -948,8 +948,13 @@ class ScrollFeedEngine:
                 state.notes_context = resource_ctx
 
         # Fallback to inline generation with BKT-aware concept selection
-        inline_cards = await self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
-        return prepend_cards + inline_cards
+        try:
+            inline_cards = await self._generate_card_batch(state, count=count, bkt_states=bkt_states, notes_context=state.notes_context)
+            return prepend_cards + inline_cards
+        except Exception as e:
+            capture_exception(e, context={"service": "scroll_feed_engine", "operation": "inline_card_generation_fallback"})
+            log_error(logger, "inline card generation fallback failed", error=str(e))
+            return prepend_cards
 
     def _card_to_dict(self, card: ScrollCard) -> Dict[str, Any]:
         """Convert card to API response dict."""
