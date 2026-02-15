@@ -19,6 +19,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # --- Clean up orphaned references before adding FK constraints ---
+    conn = op.get_bind()
+    for table, col in [
+        ('exit_tickets', 'game_id'),
+        ('detailed_misconceptions', 'game_id'),
+        ('peer_discussion_sessions', 'game_id'),
+        ('student_assignments', 'source_game_id'),
+    ]:
+        conn.execute(sa.text(
+            f"UPDATE {table} SET {col} = NULL "
+            f"WHERE {col} IS NOT NULL AND {col} NOT IN (SELECT id FROM sessions)"
+        ))
+
     # --- Foreign key constraints on game_id / source_game_id columns ---
     with op.batch_alter_table('exit_tickets', schema=None) as batch_op:
         batch_op.create_foreign_key(
