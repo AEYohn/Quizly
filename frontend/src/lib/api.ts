@@ -1762,6 +1762,7 @@ export const scrollApi = {
             concepts: string[];
             cards: ScrollCard[];
             stats: ScrollStats;
+            feed_phase?: string;
             resumed: boolean;
         }>('/learn/scroll/resume', {
             method: 'POST',

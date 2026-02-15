@@ -95,11 +95,99 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         sessionStartedRef.current = false;
     }, [topic?.id]);
 
-    // Fetch notes + create session + pre-load cards/quiz on mount
+    // Shared session init: tries resume first, falls back to startFeed
+    const initSession = useCallback(async (topicObj: SyllabusTopic, signal: { cancelled: boolean }) => {
+        const studentName = getStudentName(auth.user);
+        setCardsLoading(true);
+        setQuizLoading(true);
+        setSessionError(null);
+
+        let sessionId: string | null = null;
+        let initialCards: ScrollCard[] = [];
+        let initialStats: ScrollStats | null = null;
+        let feedPhase: string | undefined;
+
+        // 1. Try resuming an existing session
+        try {
+            const resumeRes = await scrollApi.resumeFeed(topicObj.name, studentName);
+            if (resumeRes.success) {
+                sessionId = resumeRes.data.session_id;
+                initialCards = resumeRes.data.cards ?? [];
+                initialStats = resumeRes.data.stats;
+                feedPhase = resumeRes.data.feed_phase;
+            }
+        } catch {
+            // 404 or other error — no resumable session, will start fresh
+        }
+
+        // 2. Fall back to starting a new session
+        if (!sessionId) {
+            try {
+                const startRes = await scrollApi.startFeed(
+                    topicObj.name,
+                    studentName,
+                    auth.user?.id,
+                    undefined,
+                    undefined,
+                    "structured",
+                );
+                if (signal.cancelled) return;
+                if (!startRes.success) {
+                    setCardsLoading(false);
+                    setQuizLoading(false);
+                    setSessionError("Failed to start study session. Please try again.");
+                    return;
+                }
+                sessionId = startRes.data.session_id;
+                initialCards = startRes.data.cards ?? [];
+                initialStats = startRes.data.stats;
+                feedPhase = undefined; // new session starts in learn/flashcards phase
+            } catch (err) {
+                if (signal.cancelled) return;
+                setCardsLoading(false);
+                setQuizLoading(false);
+                const msg = err instanceof Error ? err.message : "Unknown error";
+                setSessionError(`Failed to start study session: ${msg}`);
+                return;
+            }
+        }
+
+        if (signal.cancelled) return;
+        setLocalSessionId(sessionId);
+        sessionStartedRef.current = true;
+
+        // 3. Set flashcard data from initial cards
+        if (initialCards.length > 0) {
+            setCardsData(initialCards);
+            if (initialStats) setCardStats(initialStats);
+        }
+        setCardsLoading(false);
+
+        // 4. Skip to quiz phase (only if not already there)
+        if (feedPhase !== "quiz") {
+            try {
+                const qRes = await scrollApi.skipPhase(sessionId, "quiz");
+                if (!signal.cancelled && qRes.success) {
+                    setQuizData(qRes.data.cards);
+                    setQuizStats(qRes.data.stats);
+                }
+            } catch {
+                // Quiz load failed but flashcards still work
+            }
+        } else {
+            // Already in quiz phase — use the resumed cards as quiz cards too
+            if (initialCards.length > 0) {
+                setQuizData(initialCards);
+                if (initialStats) setQuizStats(initialStats);
+            }
+        }
+        if (!signal.cancelled) setQuizLoading(false);
+    }, [auth.user]);
+
+    // Fetch notes + init session on mount
     useEffect(() => {
         if (!topic) return;
-        let cancelled = false;
-        const studentName = getStudentName(auth.user);
+        const signal = { cancelled: false };
 
         // 1. Fetch notes
         const cached = store.topicNotesCache?.[topic.id];
@@ -108,74 +196,22 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         } else {
             setNotesLoading(true);
             learnApi.getTopicNotes(topic.name, topic.concepts).then((res) => {
-                if (cancelled) return;
+                if (signal.cancelled) return;
                 if (res.success) {
                     setNotesData(res.data as NotesData);
                     store.setTopicNotes(topic.id, res.data);
                 }
                 setNotesLoading(false);
-            }).catch(() => { if (!cancelled) setNotesLoading(false); });
+            }).catch(() => { if (!signal.cancelled) setNotesLoading(false); });
         }
 
-        // 2. Create session + pre-load cards/quiz
-        //    Use initial cards from startFeed for flashcards (learn phase),
-        //    then skipPhase("quiz") ONCE to get quiz cards.
-        //    This leaves the session in quiz phase so getNextCards works for quiz.
+        // 2. Init session (resume-first, then start)
         if (!sessionStartedRef.current) {
             sessionStartedRef.current = true;
-            setCardsLoading(true);
-            setQuizLoading(true);
-            setSessionError(null);
-
-            scrollApi.startFeed(
-                topic.name,
-                studentName,
-                auth.user?.id,
-                undefined,
-                undefined,
-                "structured",
-            ).then(async (res) => {
-                if (cancelled) return;
-                if (!res.success) {
-                    setCardsLoading(false);
-                    setQuizLoading(false);
-                    setSessionError("Failed to start study session. Please try again.");
-                    return;
-                }
-
-                const sessionId = res.data.session_id;
-                setLocalSessionId(sessionId);
-
-                // Use initial cards from startFeed as flashcards
-                if (res.data.cards && res.data.cards.length > 0) {
-                    setCardsData(res.data.cards);
-                    setCardStats(res.data.stats);
-                }
-                if (!cancelled) setCardsLoading(false);
-
-                // Skip to quiz phase — single skipPhase call
-                try {
-                    const qRes = await scrollApi.skipPhase(sessionId, "quiz");
-                    if (!cancelled && qRes.success) {
-                        setQuizData(qRes.data.cards);
-                        setQuizStats(qRes.data.stats);
-                    }
-                } catch {
-                    if (!cancelled) {
-                        // Quiz load failed but flashcards still work
-                    }
-                }
-                if (!cancelled) setQuizLoading(false);
-            }).catch(() => {
-                if (!cancelled) {
-                    setCardsLoading(false);
-                    setQuizLoading(false);
-                    setSessionError("Failed to start study session. Please try again.");
-                }
-            });
+            initSession(topic, signal);
         }
 
-        return () => { cancelled = true; };
+        return () => { signal.cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [topic?.id]);
 
@@ -321,53 +357,9 @@ export function useTopicStudyView(topic: SyllabusTopic | null) {
         setCardIdx(0);
         setQuizIdx(0);
         setFlashcardsExhausted(false);
-        // Trigger re-run by toggling a state that the effect depends on
-        // We'll use the sessionStartedRef reset — but the effect won't re-run
-        // since topic?.id hasn't changed. Instead, run the session logic inline.
         if (!topic) return;
-        const studentName = getStudentName(auth.user);
-        setCardsLoading(true);
-        setQuizLoading(true);
-
-        scrollApi.startFeed(
-            topic.name,
-            studentName,
-            auth.user?.id,
-            undefined,
-            undefined,
-            "structured",
-        ).then(async (res) => {
-            if (!res.success) {
-                setCardsLoading(false);
-                setQuizLoading(false);
-                setSessionError("Failed to start study session. Please try again.");
-                return;
-            }
-
-            const sessionId = res.data.session_id;
-            setLocalSessionId(sessionId);
-            sessionStartedRef.current = true;
-
-            if (res.data.cards && res.data.cards.length > 0) {
-                setCardsData(res.data.cards);
-                setCardStats(res.data.stats);
-            }
-            setCardsLoading(false);
-
-            try {
-                const qRes = await scrollApi.skipPhase(sessionId, "quiz");
-                if (qRes.success) {
-                    setQuizData(qRes.data.cards);
-                    setQuizStats(qRes.data.stats);
-                }
-            } catch { /* quiz load failed */ }
-            setQuizLoading(false);
-        }).catch(() => {
-            setCardsLoading(false);
-            setQuizLoading(false);
-            setSessionError("Failed to start study session. Please try again.");
-        });
-    }, [topic, auth.user]);
+        initSession(topic, { cancelled: false });
+    }, [topic, initSession]);
 
     // Key takeaways for peek overlay
     const keyTakeaways = notesData

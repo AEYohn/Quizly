@@ -669,14 +669,18 @@ async def scroll_start(
     if request.preferences:
         prefs_dict = request.preferences.model_dump(exclude_none=True)
     feed_mode = request.mode or "structured"
-    result = await engine.start_feed(
-        student_name=student_name,
-        topic=request.topic,
-        student_id=str(user.id) if user else None,
-        notes=request.notes,
-        preferences=prefs_dict,
-        mode=feed_mode,
-    )
+    try:
+        result = await engine.start_feed(
+            student_name=student_name,
+            topic=request.topic,
+            student_id=str(user.id) if user else None,
+            notes=request.notes,
+            preferences=prefs_dict,
+            mode=feed_mode,
+        )
+    except Exception as e:
+        log_error(logger, "scroll_start failed", topic=request.topic, error=str(e))
+        raise InvalidInput(f"Failed to start feed: {str(e)}")
 
     # Background resource scraping for structured mode
     if feed_mode == "structured":
@@ -743,7 +747,8 @@ async def scroll_resume(
 ):
     """Resume the most recent active scroll session for a topic."""
     student_name, user = identity
-    # Find most recent non-ended session with progress for this topic+student
+    # Find most recent non-ended session for this topic+student
+    # (sessions with 0 answers are still resumable if they have state)
     query = (
         select(LearningSession)
         .where(
@@ -751,7 +756,6 @@ async def scroll_resume(
                 LearningSession.student_name == student_name,
                 LearningSession.topic == request.topic,
                 LearningSession.ended_at.is_(None),
-                LearningSession.questions_answered > 0,
             )
         )
         .order_by(LearningSession.created_at.desc())
@@ -793,6 +797,7 @@ async def scroll_resume(
         "concepts": state.concepts,
         "cards": [engine._card_to_dict(c) for c in cards],
         "stats": engine._get_stats(state),
+        "feed_phase": state.feed_phase,
         "resumed": True,
     }
 
@@ -823,9 +828,10 @@ async def scroll_skip_phase(
     phase_order = ["learn", "flashcards", "quiz"]
     current_idx = phase_order.index(state.feed_phase) if state.feed_phase in phase_order else -1
     target_idx = phase_order.index(request.target_phase)
-    if target_idx <= current_idx:
+    if target_idx < current_idx:
         raise InvalidInput(f"Cannot skip backwards from {state.feed_phase} to {request.target_phase}")
 
+    # If already at target phase, just generate fresh cards (no state change needed)
     state.feed_phase = request.target_phase
 
     # Generate new batch for the target phase
